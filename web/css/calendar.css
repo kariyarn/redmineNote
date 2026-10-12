@@ -1,0 +1,44 @@
+/* 2.9.0 사이드바 달력 · 메모 알림 */
+#sbCal{margin:8px 0 2px;padding:8px 4px 4px;border-top:1px solid var(--line);font-size:.78rem}
+.sbc-h{display:flex;align-items:center;gap:2px}.sbc-h b{flex:1;text-align:center;font-size:.8rem}
+.sbc-h button{border:0;background:none;color:var(--sub);padding:0 5px;border-radius:6px;font-size:.78rem;margin:0}
+.sbc-h button:hover{background:color-mix(in srgb,var(--text) 8%,transparent);color:var(--text)}
+.sbc-w,.sbc-g{display:grid;grid-template-columns:repeat(7,1fr);text-align:center;gap:2px 0}
+.sbc-g i{display:block;height:28px}
+.sbc-w span{color:var(--sub);font-size:.66rem;padding:3px 0 1px}
+.sbc-d{position:relative;display:grid;place-items:center;height:28px;border:0;background:none;color:var(--text);padding:0;border-radius:8px;font-size:.78rem;line-height:1;margin:0;min-width:0;font-variant-numeric:tabular-nums}
+.sbc-d:hover{background:color-mix(in srgb,var(--text) 8%,transparent)}
+.sbc-d.today{font-weight:700;color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.sbc-d.sel{background:var(--accent-soft)}
+/* 메모가 있으면 우측 상단에 점 (숫자 자리는 그대로), 알림이 있으면 주황 점 */
+.sbc-d.has::after{content:"";position:absolute;top:3px;right:5px;width:5px;height:5px;border-radius:50%;background:var(--accent)}
+.sbc-d.bell::after{background:#f08c00;box-shadow:0 0 0 1.5px color-mix(in srgb,#f08c00 28%,transparent)}
+#sbCal.dropping .sbc-d{outline:1px dashed var(--accent);outline-offset:-2px}
+#sbCal .sbc-d.hot{background:var(--accent);color:#fff;outline:0}
+.cal-ghost{position:fixed;z-index:400;pointer-events:none;width:150px;max-height:66px;overflow:hidden;padding:6px 8px;border-radius:6px;background:var(--sc,#fde68a);color:#3a3322;font-size:.78rem;box-shadow:0 8px 22px rgba(0,0,0,.3);transform:translate(10px,10px) rotate(-2deg)}
+.nvb{margin-left:6px;font-size:.72rem;font-weight:700;border-radius:10px;padding:0 6px;background:#fde68a;color:#3a3322;cursor:pointer}
+.nvb.bell{background:#ffd5d0;color:#8a1c10;animation:nvbp 1.4s infinite}
+@keyframes nvbp{50%{opacity:.55}}
+.stk-bell{cursor:pointer}
+#alDlg{position:fixed;inset:0;z-index:300;background:rgba(10,14,22,.45);display:none;align-items:center;justify-content:center}
+#alDlg.show{display:flex}
+#alDlg .albox{background:var(--surface);color:var(--text);border-radius:16px;padding:18px 20px;width:min(520px,94vw);max-height:86vh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.4)}
+#alDlg h3{margin:0 0 10px;display:flex;align-items:center;gap:8px}#alDlg h3 .sp{flex:1}
+#alDlg .alc{border-left:6px solid var(--sc,#fde68a);background:var(--surface2);border-radius:10px;padding:9px 12px;margin:8px 0}
+#alDlg .alc .alt{font-size:.82rem;color:var(--sub)}#alDlg .alc .alp{margin:4px 0 8px;white-space:pre-wrap;overflow-wrap:anywhere;max-height:5.2em;overflow:hidden}
+#alDlg .alb{display:flex;flex-wrap:wrap;gap:6px}
+
+/* 일요일 · 공휴일은 빨강, 토요일은 파랑 (알림은 기간 메모일 때 이런 날을 건너뛴다) */
+.sbc-d.off{color:#d9482b}.sbc-d.sat{color:#3b79d9}
+.sbc-w span:first-child{color:#d9482b}.sbc-w span:last-child{color:#3b79d9}
+.sbc-d.today.off,.sbc-d.today.sat{box-shadow:inset 0 0 0 1px currentColor}
+
+/* 알림 설정 창: 기간이면 날짜별 체크 */
+.aldays{margin:8px 0;padding:8px 10px;border:1px solid var(--line);border-radius:12px;background:var(--surface2)}
+.aldh{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:6px}.aldh .sp{flex:1}
+.aldg{display:grid;grid-template-columns:repeat(auto-fill,minmax(66px,1fr));gap:5px;max-height:190px;overflow:auto}
+.aldc{display:flex;align-items:center;gap:4px;padding:3px 6px;border:1px solid var(--line);border-radius:8px;background:var(--surface);font-size:.82rem;cursor:pointer;user-select:none;margin:0;font-weight:400}
+.aldc small{color:var(--sub)}.aldc.off span,.aldc.off small{color:#d9482b}
+.aldc:has(input:checked){border-color:var(--accent);background:var(--accent-soft)}
+.aldc input{margin:0;width:14px;height:14px}
+.stk-bell small{margin-left:2px;font-size:.66rem;opacity:.8}

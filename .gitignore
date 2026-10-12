@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+build/
+dist/
+dist-next/
+build-next/
+*.spec
+notes.db
+config.json
+.env
+backups/
+fonts/
+# internal requirement docs (not public)
+docs/requirements-*.md

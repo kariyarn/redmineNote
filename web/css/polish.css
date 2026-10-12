@@ -1,0 +1,23 @@
+/* 2.11 전체 정돈: 여백은 4 · 8 · 12 · 16 · 24 단위, 모서리는 8 · 12 · 16, 글자는 .78 · .86 · 1 · 1.15 · 1.5rem 단계로 맞춘다.
+   기능은 그대로 두고 모양만 다듬는 마지막 층이라 맨 뒤에서 불러온다. */
+:root{--sp1:4px;--sp2:8px;--sp3:12px;--sp4:16px;--sp5:24px;--r1:8px;--r2:12px;--r3:16px}
+
+/* 노트 위쪽: 이동 바 · 머리줄 · 제목 */
+#jumpbar{gap:6px;padding:8px 10px}
+#jumpbar button{padding:4px 10px;font-size:.84rem;border-radius:999px;gap:4px}
+#jumpbar button .ji{margin-right:2px}
+.ehead .itop{display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center}
+.ehead h2{font-size:1.5rem;line-height:1.35;letter-spacing:-.02em;margin:6px 0}
+.emeta{line-height:1.6;font-size:.86rem}
+
+/* 카드 · 구역 머리글 · 단추 */
+.card{border-radius:var(--r3)}
+.fhd{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 8px}
+.fhd small{font-weight:400}
+button.mini{padding:2px 9px;font-size:.8rem;border-radius:var(--r1)}
+
+/* 요약 숫자 카드: 작고 촘촘하게 */
+.kpis{grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:10px;margin-bottom:var(--sp4)}
+.kpi{padding:8px 12px;border-top-width:3px;border-radius:var(--r2)}
+.kpi b{font-size:1.55rem}
+.kpi span{font-size:.8rem;line-height:1.35;display:block}

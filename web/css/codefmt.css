@@ -1,0 +1,64 @@
+/* 2.13 코드 도우미: 색칠(테마별 색) · 편집 겹침층 · 정리 미리보기 */
+:root{--tk-k:#a626a4;--tk-st:#1f7a3d;--tk-nu:#b05a00;--tk-cm:#6b7a90;--tk-fn:#1d5fd1;--tk-ty:#0f7b8a;--tk-pa:#c2410c;--tk-tg:#b8243c;--tk-at:#8a5a00}
+@media (prefers-color-scheme:dark){:root:not([data-theme]){--tk-k:#c792ea;--tk-st:#9ccc8e;--tk-nu:#f2a65a;--tk-cm:#8a93a3;--tk-fn:#82aaff;--tk-ty:#5fd3d0;--tk-pa:#ffb86b;--tk-tg:#ff7b8a;--tk-at:#e5c07b}}
+html[data-theme="light"]{--tk-k:#a626a4;--tk-st:#1f7a3d;--tk-nu:#b05a00;--tk-cm:#6b7a90;--tk-fn:#1d5fd1;--tk-ty:#0f7b8a;--tk-pa:#c2410c;--tk-tg:#b8243c;--tk-at:#8a5a00}
+html[data-theme="dark"]{--tk-k:#c792ea;--tk-st:#9ccc8e;--tk-nu:#f2a65a;--tk-cm:#8a93a3;--tk-fn:#82aaff;--tk-ty:#5fd3d0;--tk-pa:#ffb86b;--tk-tg:#ff7b8a;--tk-at:#e5c07b}
+html[data-theme="nord"]{--tk-k:#81a1c1;--tk-st:#a3be8c;--tk-nu:#b48ead;--tk-cm:#7b88a1;--tk-fn:#88c0d0;--tk-ty:#8fbcbb;--tk-pa:#d08770;--tk-tg:#81a1c1;--tk-at:#ebcb8b}
+html[data-theme="mocha"]{--tk-k:#e08a5e;--tk-st:#9bcb84;--tk-nu:#ecbb55;--tk-cm:#8f8074;--tk-fn:#e0a96d;--tk-ty:#cfa3e0;--tk-pa:#f0b07a;--tk-tg:#e2735f;--tk-at:#d9c07a}
+html[data-theme="cyberpunk"]{--tk-k:#ff4fae;--tk-st:#3dffc4;--tk-nu:#ffd23f;--tk-cm:#8d7fbd;--tk-fn:#27e1ff;--tk-ty:#b794ff;--tk-pa:#ff9f5a;--tk-tg:#ff4fae;--tk-at:#ffd23f}
+html[data-theme="terminal"]{--tk-k:#7dd3fc;--tk-st:#86efac;--tk-nu:#fde68a;--tk-cm:#628a72;--tk-fn:#4ade80;--tk-ty:#5eead4;--tk-pa:#fbbf77;--tk-tg:#7dd3fc;--tk-at:#fde68a}
+html[data-theme="kotori"]{--tk-k:#85689f;--tk-st:#3d7a54;--tk-nu:#9d5c17;--tk-cm:#9f9482;--tk-fn:#4a6b86;--tk-ty:#4f7f86;--tk-pa:#b4562a;--tk-tg:#a8433f;--tk-at:#8a6a2a}
+html[data-theme="emerald"]{--tk-k:#6b52a8;--tk-st:#1f7a45;--tk-nu:#a5640f;--tk-cm:#7d9389;--tk-fn:#077458;--tk-ty:#0f7b8a;--tk-pa:#b3541e;--tk-tg:#b5373a;--tk-at:#8a6a10}
+html[data-theme="lavender"]{--tk-k:#b0449f;--tk-st:#2a7d5f;--tk-nu:#a5640f;--tk-cm:#8a82ad;--tk-fn:#6a4cd0;--tk-ty:#3d78b8;--tk-pa:#c25a1a;--tk-tg:#c0398e;--tk-at:#8a6f12}
+html[data-theme="hcl"]{--tk-k:#7a00a8;--tk-st:#005c2e;--tk-nu:#8a4300;--tk-cm:#444;--tk-fn:#0030c0;--tk-ty:#00596b;--tk-pa:#8a2b00;--tk-tg:#a0001e;--tk-at:#6b4a00}
+.tk-k{color:var(--tk-k);font-weight:600}.tk-st{color:var(--tk-st)}.tk-nu{color:var(--tk-nu)}.tk-cm{color:var(--tk-cm);font-style:italic}
+.tk-fn{color:var(--tk-fn)}.tk-ty{color:var(--tk-ty)}.tk-pa{color:var(--tk-pa);font-weight:600}.tk-tg{color:var(--tk-tg)}.tk-at{color:var(--tk-at)}
+i[class^="tk-"]{font-style:normal}i.tk-cm{font-style:italic}
+
+/* 읽기 화면 코드 상자: 언어 이름표 */
+.cbw .cblg{position:absolute;left:10px;top:-9px;z-index:1;font-size:.7rem;font-weight:700;color:var(--sub);background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:0 6px;line-height:1.5}
+
+/* 편집 중인 코드 상자: 글자 입력 칸 뒤에 색칠 층을 겹친다 (칸의 글자는 투명, 커서만 보임) */
+.cbk .cbl{font-size:.8rem;padding:1px 4px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--text);max-width:9rem}
+.cbk .cbd{color:var(--sub);font-weight:400}
+.cbw2{position:relative;flex:1;min-width:0}
+.cbw2 .hlo,.cbw2 .cbt{margin:0;padding:8px 12px;box-sizing:border-box;font-family:var(--mono);font-size:inherit;line-height:1.5;letter-spacing:normal;tab-size:4;text-align:left;border:0;white-space:pre-wrap;overflow-wrap:break-word;word-break:normal}
+.cbw2 .hlo{position:absolute;inset:0;overflow:hidden;pointer-events:none;color:var(--text)}
+.cbw2 .cbt{position:relative;display:block;width:100%;color:transparent;caret-color:var(--text);background:transparent;overflow-x:auto;overflow-y:hidden}
+.cbk.nw .hlo,.cbk.nw .cbt{white-space:pre;overflow-wrap:normal}
+.cbw2 .cbt::selection{background:color-mix(in srgb,var(--accent) 38%,transparent);color:transparent}
+
+/* 정리 미리보기 창 */
+#wdlg .wbox:has(.cf-wrap){width:min(1180px,96vw)}
+.cf-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:8px}
+.cf-cols{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media (max-width:900px){.cf-cols{grid-template-columns:1fr}}
+.cf-col{min-width:0}
+.cf-pre,.cf-edit{height:min(56vh,520px);margin:4px 0 0;border:1px solid var(--line);border-radius:10px;background:var(--codebg);box-sizing:border-box}
+.cf-pre{padding:8px 12px;overflow:auto;font:.86rem/1.5 var(--mono);white-space:pre}
+.cf-edit{position:relative;overflow:hidden}
+.cf-hl,.cf-edit textarea{position:absolute;inset:0;margin:0;padding:8px 12px;font:.86rem/1.5 var(--mono);white-space:pre;border:0;box-sizing:border-box;tab-size:4}
+.cf-hl{pointer-events:none;overflow:hidden;color:var(--text)}
+.cf-edit textarea{width:100%;height:100%;overflow:auto;resize:none;color:transparent;caret-color:var(--text);background:transparent;box-shadow:none!important}
+.cf-edit textarea::selection{background:color-mix(in srgb,var(--accent) 38%,transparent);color:transparent}
+
+/* 이름표 값 입력 창 */
+.phrow{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;margin:4px 0}
+.phrow>label:first-child{flex:0 0 7.5rem;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--mono);font-size:.84rem}
+.phrow input[type=text]{flex:1 1 9rem;min-width:7rem}
+.phrow.fixed input[type=text]{border-color:var(--accent)}
+.phpin{display:inline-flex;gap:4px;align-items:center;font-size:.82rem;color:var(--sub);white-space:nowrap;margin:0;font-weight:400}
+
+/* 읽기 화면 코드 상자: 단추(복사 · 코드 보관함)를 윗줄 테두리 위로 올려서 첫 줄 코드와 겹치지 않게 */
+.cbw{margin:18px 0 8px}
+.cbw .cp,.cbw .qvs{top:-11px;right:8px;opacity:1;font-size:.74rem;line-height:1.5;padding:0 8px;background:var(--surface);border:1px solid var(--line);border-radius:6px;color:var(--text)}
+.cbw .qvs{right:60px}
+.cbw .cp:hover,.cbw .qvs:hover{border-color:var(--accent);color:var(--accent)}
+
+/* 코드 상자 머리줄: 폭이 좁아도(댓글 쓰기 패널 · 메모) 단추 글자가 세로로 꺾이지 않고 줄을 바꿔서 놓인다 */
+.cbk .cbh{flex-wrap:wrap;gap:4px 6px;row-gap:4px}
+.cbk .cbh .mini,.cbk .cbh .cbd{white-space:nowrap;flex:none}
+.cbk .cbh .cbl{flex:0 1 auto;min-width:0;max-width:8.5rem}
+.cbk .cbh .sp{flex:1 1 0;min-width:0}
+.cbk .cbb{min-width:0}
+.cbk{min-width:0;max-width:100%}

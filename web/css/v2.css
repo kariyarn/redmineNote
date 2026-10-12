@@ -1,0 +1,101 @@
+/* ===== 새 디자인(v2) — 설정 → 화면 디자인 → 새 디자인 일 때만 적용 =====
+   원칙: 꾸미기를 더하지 않고 덜어 낸다. 진한 버튼은 화면당 1~2개, 나머지는 배경 없는 흐린 버튼.
+   이모지는 v2.js 가 선 아이콘(.ei)으로 바꿔 끼운다. 모든 규칙은 html[data-design=v2] 아래에만 둔다. */
+html[data-design=v2]{--radius:14px}
+
+/* 이모지 대신 들어간 선 아이콘 */
+html[data-design=v2] .ei-w{display:inline-flex;vertical-align:-.16em;line-height:1}
+html[data-design=v2] .ei{width:1.08em;height:1.08em;flex:none}
+
+/* ---- 버튼: 기본은 흐린 글자 버튼, 진한 것은 .primary 만 ---- */
+html[data-design=v2] button{background:none;border:1px solid transparent;color:color-mix(in srgb,var(--text) 78%,var(--sub))}
+html[data-design=v2] button:hover{background:color-mix(in srgb,var(--text) 7%,transparent);color:var(--text)}
+html[data-design=v2] button.primary{background:var(--accent);color:var(--accent-ink);font-weight:600}
+html[data-design=v2] button.primary:hover{background:var(--accent);filter:brightness(1.07)}
+html[data-design=v2] .mini{font-weight:500;color:var(--sub)}
+html[data-design=v2] .mini:hover{color:var(--text)}
+html[data-design=v2] .seg{background:color-mix(in srgb,var(--text) 7%,transparent)}
+html[data-design=v2] .seg button.on{background:var(--surface);color:var(--text)}
+
+/* ---- 왼쪽 메뉴: 3묶음 ---- */
+html[data-design=v2] .nv-grp{margin:16px 10px 4px;font-size:.74rem;font-weight:600;letter-spacing:.04em;color:var(--sub)}
+html[data-design=v2] .nv-grp:first-child{margin-top:6px}
+html[data-design=v2] .nv-item{padding:7px 10px;border-radius:8px;font-size:.95rem}
+html[data-design=v2] .nv-item .ic{width:17px;height:17px;opacity:.75}
+html[data-design=v2] .nv-item.on .ic{opacity:1}
+html[data-design=v2] .nv-item[data-act=dict].on{background:none;color:var(--accent);font-weight:500}   /* 주제 사전은 '화면'이 아니라 오른쪽 칸 열림 표시 */
+html[data-design=v2] .nv-item[data-act=dict].on::after{content:"열림";margin-left:auto;font-size:.72rem;color:var(--accent);opacity:.8}
+html[data-design=v2] .nv-item .cnt{color:var(--sub);background:color-mix(in srgb,var(--text) 8%,transparent);font-weight:500}
+
+/* ---- 카드: 테두리 없이 옅은 그림자 ---- */
+html[data-design=v2] .card{border:0;border-radius:14px;box-shadow:0 1px 2px rgba(30,40,60,.06),0 6px 18px rgba(30,40,60,.07)}
+
+/* ---- 노트 위 이동 바: 알약 → 밑줄 탭 ---- */
+html[data-design=v2] #jumpbar{gap:20px;flex-wrap:nowrap;overflow-x:auto;white-space:nowrap;background:var(--surface);border-bottom:1px solid var(--line);box-shadow:none;padding-top:0;padding-bottom:0}
+html[data-design=v2] #jumpbar button{border:0;border-bottom:2px solid transparent;border-radius:0;background:none;box-shadow:none;padding:11px 1px 9px;font-weight:500;color:var(--sub);transform:none}
+html[data-design=v2] #jumpbar button:hover{background:none;color:var(--text);border-color:transparent;border-bottom-color:color-mix(in srgb,var(--text) 20%,transparent);transform:none}
+html[data-design=v2] #jumpbar button.on{background:none;color:var(--text);font-weight:600;border-bottom-color:var(--accent);box-shadow:none}
+html[data-design=v2] #jumpbar button .ji{opacity:.7}
+html[data-design=v2] #jumpbar button.jback{color:var(--accent);font-weight:600}
+
+/* ---- 기록 불필요 / 기록: 작게 (요약의 '기록 필요'가 이 값을 쓰므로 기능은 유지) ---- */
+html[data-design=v2] #recbox{gap:6px;font-size:.8rem}
+html[data-design=v2] #recbox>.meta:first-child{font-size:.78rem}
+html[data-design=v2] #recbox .seg{padding:1px}
+html[data-design=v2] #recbox .seg button{padding:1px 8px;font-size:.76rem}
+html[data-design=v2] #recbox .seg+.meta{display:none}   /* 늘 보이던 긴 안내문은 숨김 ('기록 필요' 경고는 그대로 보임) */
+
+/* ---- 같은 주제 구역 (원문 아래) ---- */
+html[data-design=v2] .v2sim{background:color-mix(in srgb,var(--accent) 6%,var(--surface));border:1px solid color-mix(in srgb,var(--accent) 18%,transparent);box-shadow:none}
+html[data-design=v2] .v2sim-h{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+html[data-design=v2] .v2sim-h .ic{width:17px;height:17px;color:var(--accent)}
+html[data-design=v2] .v2sim-h .sp{flex:1}
+html[data-design=v2] .v2sim-h .mini{color:var(--accent);font-weight:600}
+html[data-design=v2] .v2sim-r{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 12px;padding:8px 12px;margin-top:4px;border-radius:9px;background:var(--surface);color:var(--text);text-decoration:none;cursor:pointer}
+html[data-design=v2] .v2sim-r:hover{background:color-mix(in srgb,var(--accent) 9%,var(--surface))}
+html[data-design=v2] .v2sim-r .t{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+html[data-design=v2] .v2sim-r .s{font-size:.8rem;color:var(--sub)}
+html[data-design=v2] .v2sim-r .s.s-완료{color:var(--ok)}
+html[data-design=v2] .v2sim-r .l{grid-column:1/-1;font-size:.86rem;color:var(--sub);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* ---- 오늘: 넓은 목록 ---- */
+html[data-design=v2] #listpane.v2wide{background:var(--bg)}
+html[data-design=v2] #listpane.v2wide #listhead,html[data-design=v2] #listpane.v2wide #list{max-width:980px;width:100%;margin:0 auto;box-sizing:border-box}
+html[data-design=v2] #listpane.v2wide #list{padding:8px 32px 40px}
+html[data-design=v2] #listpane.v2wide .pane-title{font-size:1.9rem}
+html[data-design=v2] #listpane.v2wide .lbody{background:var(--surface);border-radius:14px;box-shadow:0 1px 2px rgba(30,40,60,.06),0 6px 18px rgba(30,40,60,.07);padding:6px 8px;margin-bottom:14px}
+
+/* ---- 그래프: 사전 칸 아래 고른 주제의 일감 ---- */
+html[data-design=v2] .v2gl{display:flex;flex-direction:column;gap:2px;padding:12px 12px}
+html[data-design=v2] .v2gl>.meta{margin-bottom:4px}
+html[data-design=v2] .v2gl-r{display:grid;grid-template-columns:9px minmax(0,1fr);gap:0 9px;align-items:center;padding:6px 8px;border-radius:8px;color:var(--text);text-decoration:none;cursor:pointer}
+html[data-design=v2] .v2gl-r:hover{background:color-mix(in srgb,var(--text) 6%,transparent)}
+html[data-design=v2] .v2gl-r .d{width:8px;height:8px;border-radius:50%;background:var(--sub)}
+html[data-design=v2] .v2gl-r .d.s-진행{background:var(--accent)}
+html[data-design=v2] .v2gl-r .d.s-완료{background:var(--ok)}
+html[data-design=v2] .v2gl-r .d.s-대기{background:var(--warn)}
+html[data-design=v2] .v2gl-r .t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.9rem}
+html[data-design=v2] .v2gl-r .m{grid-column:2;font-size:.76rem;color:var(--sub)}
+html[data-design=v2] .v2gl .mini{align-self:flex-start;margin-top:6px;color:var(--accent);font-weight:600}
+
+/* ---- 요약: 기간 버튼 5개 (좁으면 줄바꿈) ---- */
+html[data-design=v2] #sbS{flex-wrap:wrap;max-width:100%}
+html[data-design=v2] #sbS button{padding:3px 9px}
+html[data-design=v2] .scopebox .sb-row{flex-wrap:wrap}
+
+/* ---- 메모: 도구줄 한 줄 (아래 줄은 숨기고 메뉴로) ---- */
+html[data-design=v2] .memo-h .mh-tools{display:none}
+html[data-design=v2] .v2mm{display:flex;align-items:center;gap:4px}
+html[data-design=v2] .v2mm #mNew2{margin-left:6px;border-radius:8px 0 0 8px}
+html[data-design=v2] .v2mm #mNewM{margin-left:-4px;border-radius:0 8px 8px 0;background:var(--accent);color:var(--accent-ink);border-left:1px solid color-mix(in srgb,var(--accent-ink) 30%,transparent);padding-left:7px;padding-right:7px}
+html[data-design=v2] .v2mm kbd{opacity:.75;font-size:.75rem;background:none;border:0}
+html[data-design=v2] .popmenu button{white-space:pre}
+
+/* ---- 저장 줄: 버튼 없이 '자동 저장됨' 만 (Ctrl+S 는 그대로 동작) ---- */
+html[data-design=v2] .savebar #save{display:none}
+html[data-design=v2] .savebar{background:none;box-shadow:none;border:0;justify-content:flex-end;backdrop-filter:none;-webkit-backdrop-filter:none;pointer-events:none;padding-top:6px;padding-bottom:10px}   /* 흐림 띠 없이, 글 위에 겹쳐도 클릭을 막지 않게 */
+
+/* ---- 자동 저장 표시 ---- */
+html[data-design=v2] .v2saved{display:inline-flex;align-items:center;gap:5px;color:var(--ok);font-size:.82rem}
+html[data-design=v2] .v2saved{background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:3px 11px;box-shadow:0 4px 14px rgba(0,0,0,.12);opacity:0;transition:opacity .3s}
+html[data-design=v2] .v2saved.show{opacity:1}   /* 자동 저장된 순간에만 잠깐 */

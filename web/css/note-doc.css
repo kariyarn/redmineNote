@@ -1,0 +1,31 @@
+/* ===== 2.3.3 : 노트 문서 스타일 (설정에서 기존 카드 스타일로 되돌릴 수 있음) ===== */
+#center[data-ns=doc]{--np:clamp(18px,4.2vw,46px)}
+#center[data-ns=doc][data-vw=note]>*{max-width:860px}
+#center[data-ns=doc] .notebox{padding:0 var(--np) 28px;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:0 2px 14px rgba(0,0,0,.07)}
+#center[data-ns=doc] .notebox #jumpbar{margin:0 calc(-1*var(--np)) 22px;padding:12px var(--np);border-radius:11px 11px 0 0}
+#center[data-ns=doc] .notebox>.card,#center[data-ns=doc] .notebox #attwrap>.card{background:transparent;border:0;box-shadow:none;border-radius:0;padding:0;margin:0}
+#center[data-ns=doc] .notebox>.card.ehead{padding-bottom:18px}
+#center[data-ns=doc] .ehead h2{font-size:1.75rem;letter-spacing:-.02em}
+/* 파트 사이: 굵은 구분선 + 큰 제목 */
+#center[data-ns=doc] .notebox>.card:not(.ehead),#center[data-ns=doc] .notebox #attwrap>.card,#center[data-ns=doc] .notebox>details{border-top:2px solid color-mix(in srgb,var(--text) 22%,transparent);margin-top:30px;padding-top:20px}
+#center[data-ns=doc] .notebox .fhd>span:first-child,#center[data-ns=doc] .notebox #pgcard>label,#center[data-ns=doc] .notebox .cfhd>span:nth-child(2),#center[data-ns=doc] .notebox #sec-orig>summary{font-size:1.32rem;font-weight:800;letter-spacing:-.01em}
+#center[data-ns=doc] .notebox>.cfold.collapsed{padding-bottom:0}
+#center[data-ns=doc] .notebox #sec-orig>summary{cursor:pointer}
+/* DR 필터 */
+.drfil{display:flex;flex-direction:column;gap:7px;margin:4px 0 10px}
+.drfr{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.dchip{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:2px 11px;font-size:.84rem}
+.dchip small{margin-left:4px;color:var(--sub);font-weight:700}
+.dchip.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}.dchip.on small{color:inherit}
+
+/* 접는 카드 머리글: 제목 · 안내(작은 글) · 한 줄 미리보기 · 버튼이 어긋나지 않게 */
+.cfold>.cfhd{align-items:center;flex-wrap:nowrap;min-width:0}
+.cfold>.cfhd>span:nth-child(2){white-space:nowrap;flex:none}
+.cfold>.cfhd small{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cfold>.cfhd .cfsum{flex:1 1 0;min-width:0}
+.cfold>.cfhd .sp{flex:0 0 4px}
+.cfold>.cfhd .mini,.cfold>.cfhd .chev{flex:none}
+
+/* 두 손가락 확대·두 번 누르기 확대를 끈다 (스크롤은 그대로) */
+html,body{touch-action:pan-x pan-y}
+

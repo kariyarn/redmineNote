@@ -1,0 +1,130 @@
+/* ===== 2.3 : 메모 (포스트잇 코르크보드) ===== */
+#center[data-vw=memo]{padding:0 0 24px}
+.memo-h{position:sticky;top:0;z-index:8;display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:12px 22px;background:color-mix(in srgb,var(--bg) 92%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.memo-h .sp{flex:1}.memo-h .mday{font-size:1.02rem}
+.memo-h input[type=search]{min-width:12rem}
+.memo-h kbd{font-family:var(--mono);font-size:.72rem;opacity:.85;margin-left:6px;border:1px solid color-mix(in srgb,currentColor 40%,transparent);border-radius:5px;padding:0 5px}
+.memo-days{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:8px 22px}
+.mdchip{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:2px 10px;font-size:.82rem}
+.mdchip small{margin-left:5px;color:var(--sub);font-weight:700}
+.mdchip.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}.mdchip.on small{color:inherit}
+.memo-sr{margin:0 22px 8px;padding:8px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface);max-height:220px;overflow:auto}
+.sr-row{display:flex;gap:10px;padding:5px 4px;border-radius:8px;cursor:pointer;color:var(--text);text-decoration:none}
+.sr-row:hover{background:var(--accent-soft)}.sr-row b{flex:none;font-variant-numeric:tabular-nums}.sr-row span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cork{position:relative;margin:8px 22px 0;border-radius:18px;border:3px solid #b98b52;overflow:hidden;
+  background-color:#d6ad74;background-image:radial-gradient(rgba(120,80,30,.28) 1px,transparent 1.4px),radial-gradient(rgba(255,255,255,.18) 1px,transparent 1.6px);background-size:14px 14px,23px 23px;background-position:0 0,7px 9px;
+  box-shadow:inset 0 2px 14px rgba(70,40,10,.35),0 8px 26px rgba(0,0,0,.12)}
+:root[data-theme=dark] .cork.b-cork{background-color:#8a6a43;border-color:#6b4f2e}
+.cork-empty{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;color:rgba(60,35,10,.7);line-height:1.8;pointer-events:none}
+.cork-empty b{font-size:1.1rem}.cork-empty[hidden]{display:none}
+.stk{position:absolute;display:flex;flex-direction:column;background:var(--sc,#fff0a0);color:#2b2618;border-radius:3px 3px 8px 3px;box-shadow:0 2px 3px rgba(0,0,0,.18),0 10px 18px rgba(0,0,0,.18);min-width:140px;min-height:110px}
+.stk::before{content:"";position:absolute;left:50%;top:-8px;width:44px;height:16px;margin-left:-22px;background:rgba(255,255,255,.45);border:1px solid rgba(0,0,0,.06);transform:rotate(-2deg);pointer-events:none}
+.stk-h{display:flex;align-items:center;gap:4px;padding:5px 6px 2px 8px;cursor:grab;user-select:none;touch-action:none}
+.stk-h:active{cursor:grabbing}
+.stk:not(:focus-within) .stk-t,.stk:not(:focus-within) .stk-v{cursor:grab}
+.stk.moving,.stk.moving *{cursor:grabbing!important;user-select:none}
+.stk-grab{color:rgba(0,0,0,.35);font-size:.9rem}
+.stk-colors{display:inline-flex;gap:3px;margin-left:4px;opacity:0;transition:opacity .12s}
+.stk:hover .stk-colors,.stk:focus-within .stk-colors{opacity:1}
+.stk-colors i{width:12px;height:12px;border-radius:50%;border:1px solid rgba(0,0,0,.25);cursor:pointer}
+.stk-h .sp{flex:1}
+.stk-h button{border:0;background:rgba(0,0,0,.07);color:#3a3322;border-radius:6px;padding:0 7px;font-size:.78rem;line-height:1.5;opacity:.0;transition:opacity .12s}
+.stk:hover .stk-h button,.stk:focus-within .stk-h button{opacity:1}
+.stk-h button:hover{background:rgba(0,0,0,.16);color:#000}
+.stk .stk-t.rte{flex:1;min-height:0;overflow:auto;background:transparent;border:0;border-radius:0;padding:2px 10px 10px;box-shadow:none;color:#2b2618}
+.stk .stk-t.rte:focus-within{box-shadow:none}
+.stk .stk-t .tb{line-height:1.5;font-size:.95rem}
+.stk .stk-t .tb:only-child:empty::before{color:rgba(40,30,10,.45)}
+.stk-rs{position:absolute;right:0;bottom:0;width:18px;height:18px;cursor:nwse-resize;touch-action:none;
+  background:linear-gradient(135deg,transparent 52%,rgba(0,0,0,.28) 52%,rgba(0,0,0,.28) 60%,transparent 60%,transparent 72%,rgba(0,0,0,.28) 72%,rgba(0,0,0,.28) 80%,transparent 80%)}
+
+.cork.arr .stk{transition:left .35s ease,top .35s ease,width .35s ease,height .35s ease}
+.stk.saved{animation:stkflash .7s ease}
+@keyframes stkflash{0%{filter:brightness(1.18);box-shadow:0 0 0 3px rgba(255,255,255,.7),0 10px 18px rgba(0,0,0,.18)}100%{filter:none}}
+.memo-h #mArr button{padding:3px 10px;font-size:.85rem}
+
+/* ===== 2.3.1 : 메모 보강 ===== */
+.cork{overflow:visible}
+.memo-h{position:sticky;z-index:60}
+.cork{isolation:isolate}
+.memo-cal{display:none;position:absolute;top:calc(100% + 6px);left:22px;z-index:12;width:min(340px,92vw);background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:0 12px 36px rgba(0,0,0,.25);padding:10px 12px}
+.cal-h{display:flex;align-items:center;gap:6px;margin-bottom:6px}.cal-h .sp{flex:1}.cal-h button{padding:2px 8px;font-size:.85rem}
+.cal-w,.cal-g{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;text-align:center}
+.cal-w span{font-size:.75rem;color:var(--sub);padding:2px 0}
+.cal-d{position:relative;border:1px solid transparent;background:none;border-radius:8px;padding:6px 0 4px;font-size:.88rem;color:var(--text)}
+.cal-d small{display:block;font-size:.62rem;font-weight:700;color:var(--accent);line-height:1}
+.cal-d.has{background:var(--accent-soft)}.cal-d.today{border-color:var(--accent)}.cal-d.sel{background:var(--accent);color:var(--accent-ink)}.cal-d.sel small{color:inherit}
+.stk-v{flex:1;min-height:0;overflow:auto;padding:2px 10px 10px;cursor:text;font-size:.95rem;line-height:1.5;white-space:pre-wrap}
+.stk-v[hidden],.stk .stk-t[hidden]{display:none}
+.chk{display:flex;gap:7px;align-items:flex-start;white-space:normal;cursor:pointer;margin:1px 0}
+.chk input{margin-top:.3em;accent-color:#5b4b1a}
+.chk.done span{text-decoration:line-through;opacity:.55}
+.stk.pinned{outline:2px solid rgba(80,50,10,.45)}
+.stk-h .pinb{opacity:0}.stk.pinned .stk-h .pinb{opacity:1;background:rgba(0,0,0,.18)}
+.stk:hover .stk-h .pinb{opacity:1}
+#toast.act{pointer-events:auto}
+#toast .tundo{margin-left:10px;border:0;border-radius:12px;padding:2px 12px;background:var(--bg);color:var(--text);font-weight:700;cursor:pointer}
+
+/* ===== 2.3.2 : 보드 고정 크기 ===== */
+.cork{overflow:hidden}
+
+/* ===== 2.6.1 : 메모 보드 새 디자인 (도트 · 격자 · 코르크). 테마 색을 따라가서 어느 테마에서도 어울린다 ===== */
+.cork.b-dot,.cork.b-grid{border:1px solid var(--line);border-radius:16px;background-color:var(--surface2);box-shadow:0 1px 2px rgba(0,0,0,.05),0 10px 28px rgba(0,0,0,.08)}
+.cork.b-dot{background-image:radial-gradient(var(--bdot,color-mix(in srgb,var(--text) 26%,transparent)) 1.4px,transparent 1.8px);background-size:24px 24px;background-position:12px 12px}
+.cork.b-grid{background-image:linear-gradient(var(--bmaj,color-mix(in srgb,var(--text) 17%,transparent)) 1px,transparent 1px),linear-gradient(90deg,var(--bmaj,color-mix(in srgb,var(--text) 17%,transparent)) 1px,transparent 1px),linear-gradient(var(--bmin,color-mix(in srgb,var(--text) 7%,transparent)) 1px,transparent 1px),linear-gradient(90deg,var(--bmin,color-mix(in srgb,var(--text) 7%,transparent)) 1px,transparent 1px);background-size:120px 120px,120px 120px,24px 24px,24px 24px}
+.cork.b-dot .cork-empty,.cork.b-grid .cork-empty,.cork.b-plain .cork-empty{color:var(--bfg,var(--sub))}
+.cork.b-plain{border:1px solid var(--line);border-radius:16px;background-color:var(--surface2);background-image:none;box-shadow:0 1px 2px rgba(0,0,0,.05),0 10px 28px rgba(0,0,0,.08)}
+.memo-pins{margin:0 22px 12px;padding:10px 12px;border:1px solid var(--line);border-radius:14px;background:var(--surface);max-height:360px;overflow:auto}
+.mp-h{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;margin-bottom:8px}.mp-h .sp{flex:1}
+.mp-g{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}
+.pincard{background:var(--sc);background-image:linear-gradient(180deg,rgba(255,255,255,.38),rgba(255,255,255,0) 45%);color:#2b2618;border-radius:4px 4px 12px 4px;box-shadow:0 1px 1px rgba(0,0,0,.10),0 4px 10px rgba(0,0,0,.14);padding:8px 10px;display:flex;flex-direction:column;min-height:110px;min-width:0}
+.pc-h{display:flex;gap:6px;align-items:center;flex-wrap:wrap}.pc-h b{font-variant-numeric:tabular-nums}.pc-h .sp{flex:1}
+.pc-h button{border:0;background:rgba(0,0,0,.09);color:#3a3322;border-radius:6px;padding:1px 8px;font-size:.76rem;cursor:pointer}.pc-h button:hover{background:rgba(0,0,0,.18)}
+.pc-b{margin-top:6px;white-space:pre-wrap;overflow-wrap:anywhere;max-height:170px;overflow:auto;font-size:.92rem;line-height:1.5}
+.pc-b .chk{cursor:default}.pc-b .chk input{pointer-events:none}
+#mPinBtn.on{background:var(--accent-soft);border-color:var(--accent)}#mPinBtn small{font-weight:700;margin-left:2px}
+.stk-until{font-size:.7rem;background:rgba(0,0,0,.09);border-radius:8px;padding:0 7px;margin-left:4px;white-space:nowrap;color:#3a3322}
+.mcolor{display:none;position:absolute;top:calc(100% + 6px);right:22px;z-index:12;width:min(360px,92vw);background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:0 12px 36px rgba(0,0,0,.25);padding:10px 12px}
+.mcolor.show{display:block}
+.bsw-h{display:flex;gap:8px;align-items:baseline;margin-bottom:8px;flex-wrap:wrap}
+.bsw-g{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.bsw{position:relative;display:flex;align-items:center;gap:6px;border:2px solid var(--line);background:var(--surface);border-radius:10px;padding:5px 8px;cursor:pointer;font-size:.82rem;text-align:left;color:var(--text)}
+.bsw:hover{border-color:var(--accent)}.bsw.on{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.bsw i{flex:none;width:20px;height:20px;border-radius:6px;border:1px solid rgba(0,0,0,.2)}
+.bsw input[type=color]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;padding:0;border:0}
+.rngd .frow{display:flex;gap:8px;align-items:center;margin:6px 0}.rngd .frow label{flex:none;width:4.5em;font-weight:600}
+.stk{border-radius:4px 4px 12px 4px;box-shadow:0 1px 1px rgba(0,0,0,.10),0 6px 14px rgba(0,0,0,.16),0 14px 28px rgba(0,0,0,.08);background-image:linear-gradient(180deg,rgba(255,255,255,.38),rgba(255,255,255,0) 45%)}
+.stk::before{top:-7px;width:40px;height:14px;margin-left:-20px;background:rgba(255,255,255,.55);border:0;box-shadow:0 1px 2px rgba(0,0,0,.12);transform:rotate(-1.5deg)}
+.stk-h{padding:6px 6px 3px 9px}
+/* 머리줄이 포스트잇 폭보다 길어도 바깥으로 튀지 않게: 줄바꿈 허용 + 색 점은 떠 있는 작은 팔레트(자리를 차지하지 않음) + 버튼은 작게 */
+.stk-h{flex-wrap:wrap;row-gap:2px;position:relative;min-width:0}
+.stk-h .sp{flex:1 1 0;min-width:0}
+.stk-h button{flex:none;padding:0 5px;font-size:.74rem}
+.stk-colors{position:absolute;left:8px;top:calc(100% - 1px);z-index:5;margin:0;padding:3px 8px;background:rgba(255,255,255,.94);border-radius:999px;box-shadow:0 2px 8px rgba(0,0,0,.22);pointer-events:none}
+.stk:hover .stk-colors,.stk:focus-within .stk-colors{pointer-events:auto}
+.stk-until{min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+.stk.pinned{outline:2px solid color-mix(in srgb,var(--accent) 55%,transparent)}
+.memo-h #mBoard button{padding:3px 10px;font-size:.85rem}
+/* ===== 2.7.6 : 메모 상단 바를 두 줄로 묶고(위: 날짜 이동·검색 / 아래: 배치·보드·고정·새로 만들기), 글자 잘림 방지 ===== */
+.memo-h{display:block;padding:10px 22px 10px}
+.mh-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px}
+.mh-row+.mh-row{margin-top:8px}
+.mh-g{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.mh-tools{gap:8px 22px}
+.mh-l{font-size:.76rem;font-weight:700;color:var(--sub);letter-spacing:.02em}
+.memo-h .mday{font-size:1.05rem;white-space:nowrap}
+.memo-h input.mq{flex:0 1 24rem;min-width:13rem;width:24rem}
+.memo-h .sp{flex:1 1 0;min-width:0}
+.memo-h button,.memo-h .seg button{white-space:nowrap}
+/* 포스트잇 색: 평소엔 숨기고, 🎨 를 누르면 머리줄이 색 점으로 바뀐다 (글자 위로 뜨지 않는다) */
+.stk-colors{display:none;position:static;margin:0;padding:0;background:none;box-shadow:none;opacity:1;pointer-events:auto;gap:6px;align-items:center}
+.stk.pick .stk-colors{display:inline-flex}
+.stk.pick .stk-h>button:not([data-a="col"]){display:none}
+.stk.pick .stk-h .stk-until{display:none}
+.stk-colors i{width:16px;height:16px}
+.stk-h .colb{opacity:0}.stk:hover .stk-h .colb,.stk:focus-within .stk-h .colb{opacity:1}
+.stk.pick .stk-h .colb{opacity:1;background:rgba(0,0,0,.2)}
+.rmtags{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 10px}
+.rmtags .rmchip small{opacity:.75;margin-left:2px}
+.rmdirty{color:var(--warn);font-weight:600}
+

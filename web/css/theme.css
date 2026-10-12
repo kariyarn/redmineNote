@@ -1,0 +1,87 @@
+/* ===== 테마 (색상 변수만 바꾸면 전체 분위기가 바뀝니다) ===== */
+:root{
+  /* 라이트: 흰색이 아니라 살짝 가라앉은 회청색 바탕 (눈이 편하게) */
+  --bg:#eceff3;--surface:#f8f9fb;--surface2:#e6e9ef;--line:rgba(30,40,60,.13);--text:#232832;--sub:#596273;
+  --accent:#2f6fd6;--accent-ink:#fff;--accent-soft:rgba(47,111,214,.13);
+  --ok:#2b7a4b;--warn:#a5640f;--dev:#7a4fb0;--ext:#7d8696;--codebg:#e8ebf1;
+  --shadow:0 1px 2px rgba(30,40,60,.06),0 6px 18px rgba(30,40,60,.07);--radius:14px;
+  /* 구분(BC / DR / 기타) 색 */
+  --c-bc:#d6409f;--c-dr:#0b8f9c;--c-etc:#7b8794;
+  /* 글꼴 (설정 창에서 바꿉니다) */
+  --font:"Segoe UI Variable Text","Segoe UI",-apple-system,"SF Pro Text","Apple SD Gothic Neo",Pretendard,"Malgun Gothic",system-ui,sans-serif;
+  --mono:Consolas,"D2Coding",monospace;--lh:1.55;
+}
+/* 테마는 10개: 라이트·코토리 베이지·에메랄드·라벤더·고대비(밝은 계열) / 다크·노르드·모카·사이버펑크·터미널(어두운 계열). 설정 → 화면 테마 */
+@media (prefers-color-scheme:dark){:root:not([data-theme]){color-scheme:dark;
+  --bg:#262a31;--surface:#30353d;--surface2:#3a404a;--line:rgba(255,255,255,.11);--text:#e6e9ef;--sub:#a3abb8;
+  --accent:#6ea8fe;--accent-ink:#0f2038;--accent-soft:rgba(110,168,254,.16);--ok:#6fcf8e;--warn:#e8b04e;--dev:#c39bf0;--ext:#8a93a3;--codebg:#2a2e35;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 18px rgba(0,0,0,.22)}}
+html[data-theme="light"]{color-scheme:light}
+html[data-theme="dark"]{color-scheme:dark;
+  --bg:#262a31;--surface:#30353d;--surface2:#3a404a;--line:rgba(255,255,255,.11);--text:#e6e9ef;--sub:#a3abb8;
+  --accent:#6ea8fe;--accent-ink:#0f2038;--accent-soft:rgba(110,168,254,.16);--ok:#6fcf8e;--warn:#e8b04e;--dev:#c39bf0;--ext:#8a93a3;--codebg:#2a2e35;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 18px rgba(0,0,0,.22)}
+/* 노르드: 차가운 청회색 + 얼음 파랑 */
+html[data-theme="nord"]{color-scheme:dark;
+  --bg:#2e3440;--surface:#3b4252;--surface2:#434c5e;--line:#4c566a;--text:#eceff4;--sub:#aab4c6;
+  --accent:#88c0d0;--accent-ink:#232a35;--accent-soft:rgba(136,192,208,.18);--ok:#a3be8c;--warn:#ebcb8b;--dev:#b48ead;--ext:#7b88a1;--codebg:#353c4a;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 18px rgba(0,0,0,.2)}
+/* 모카: 따뜻한 갈색 다크 + 구리빛 포인트 */
+html[data-theme="mocha"]{color-scheme:dark;
+  --bg:#2a221d;--surface:#342b25;--surface2:#3e342d;--line:rgba(255,235,210,.12);--text:#f0e6da;--sub:#b3a395;
+  --accent:#e0a96d;--accent-ink:#2a1c10;--accent-soft:rgba(224,169,109,.18);--ok:#9bcb84;--warn:#ecbb55;--dev:#cfa3e0;--ext:#8f8074;--codebg:#2f2722;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 18px rgba(0,0,0,.22)}
+/* 사이버펑크: 짙은 보라 바탕 + 핫핑크 포인트 + 시안·라임 보조색 */
+html[data-theme="cyberpunk"]{color-scheme:dark;
+  --bg:#221a3a;--surface:#2c2250;--surface2:#362a60;--line:#4b3b80;--text:#f1eaff;--sub:#b9aae3;
+  --accent:#ff4fae;--accent-ink:#1c0a24;--accent-soft:rgba(255,79,174,.19);--ok:#3dffc4;--warn:#ffd23f;--dev:#27e1ff;--ext:#8d7fbd;--codebg:#271e46;
+  --shadow:0 0 0 1px rgba(255,79,174,.10),0 6px 18px rgba(8,0,24,.35)}
+/* 터미널: 눈이 편한 짙은 초록 바탕 + 인광 초록 글자 */
+html[data-theme="terminal"]{color-scheme:dark;
+  --bg:#14201a;--surface:#1b2b22;--surface2:#22362a;--line:#32503f;--text:#c9efd3;--sub:#83b595;
+  --accent:#4ade80;--accent-ink:#06160c;--accent-soft:rgba(74,222,128,.16);--ok:#4ade80;--warn:#e6c34a;--dev:#7dd3fc;--ext:#628a72;--codebg:#17261d;
+  --shadow:0 1px 2px rgba(0,0,0,.35),0 6px 16px rgba(0,0,0,.25)}
+/* 코토리 베이지: 깃털 같은 회갈색 베이지 + 차분한 먼지 파랑 포인트 */
+html[data-theme="kotori"]{color-scheme:light;
+  --bg:#e9e1d4;--surface:#f6f1e7;--surface2:#eee6d9;--line:#d8ccba;--text:#3a342d;--sub:#6a6156;
+  --accent:#4a6b86;--accent-ink:#fff;--accent-soft:rgba(74,107,134,.14);--ok:#3d7a54;--warn:#9d5c17;--dev:#85689f;--ext:#9f9482;--codebg:#ece4d6;
+  --shadow:0 1px 2px rgba(80,65,45,.08),0 4px 14px rgba(80,65,45,.07)}
+/* 에메랄드: 차분한 연초록 바탕 + 에메랄드 포인트 */
+html[data-theme="emerald"]{color-scheme:light;
+  --bg:#e3eee8;--surface:#f3f9f6;--surface2:#dbe9e2;--line:rgba(20,60,45,.14);--text:#1f2f29;--sub:#52665e;
+  --accent:#077458;--accent-ink:#fff;--accent-soft:rgba(7,116,88,.13);--ok:#1f7a45;--warn:#a5640f;--dev:#6b52a8;--ext:#7d9389;--codebg:#dfece6;
+  --shadow:0 1px 2px rgba(20,60,45,.07),0 6px 16px rgba(20,60,45,.07)}
+/* 라벤더: 연한 보라 바탕 + 보라 포인트 */
+html[data-theme="lavender"]{color-scheme:light;
+  --bg:#ebe7f5;--surface:#f8f6fc;--surface2:#e3def0;--line:rgba(60,40,110,.13);--text:#2b2542;--sub:#625a89;
+  --accent:#6a4cd0;--accent-ink:#fff;--accent-soft:rgba(106,76,208,.13);--ok:#2a7d5f;--warn:#a5640f;--dev:#b0449f;--ext:#8a82ad;--codebg:#e7e2f3;
+  --shadow:0 1px 2px rgba(60,40,110,.07),0 6px 16px rgba(60,40,110,.07)}
+/* 고대비: 글자와 바탕의 차이를 가장 크게 (시력이 불편할 때) */
+html[data-theme="hcl"]{color-scheme:light;
+  --bg:#f4f4f4;--surface:#fff;--surface2:#ececec;--line:#1a1a1a;--text:#000;--sub:#2b2b2b;
+  --accent:#0030c0;--accent-ink:#fff;--accent-soft:#dbe4ff;--ok:#005c2e;--warn:#8a4300;--dev:#52169c;--ext:#444;--codebg:#ececec;
+  --shadow:0 0 0 1px #000}
+html[data-theme="hcl"] :focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+
+*{box-sizing:border-box}
+/* 글자 크기는 rem 기준: html 글자 크기만 바꾸면 화면 전체 글자가 같이 커지고 작아진다 */
+html{color-scheme:light dark;font-size:14px}
+body{margin:0;background:var(--bg);color:var(--text);font:1rem/var(--lh) var(--font);height:100vh;display:flex;flex-direction:column;transition:background .25s,color .25s}
+::-webkit-scrollbar{width:10px;height:10px}::-webkit-scrollbar-thumb{background:var(--line);border-radius:10px;border:2px solid transparent;background-clip:content-box}
+::-webkit-scrollbar-thumb:hover{background:var(--ext);background-clip:content-box;border:2px solid transparent}
+button,select,input,textarea{font:inherit;color:inherit}
+svg{flex:none}
+button{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:6px 12px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:.15s}
+button:hover{border-color:var(--accent);color:var(--accent)}
+button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
+button.primary:hover{filter:brightness(1.08);color:var(--accent-ink)}
+button.primary:disabled{opacity:.6;cursor:wait}
+button.danger:hover{border-color:#d92d20;color:#d92d20}
+button.icon{padding:6px 8px}
+button.icon.on{background:var(--accent-soft);color:var(--accent);border-color:transparent}
+input,select,textarea{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:6px 10px;transition:.15s}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+input[type=range]{padding:0;border:0;box-shadow:none;accent-color:var(--accent)}
+input[type=checkbox]{accent-color:var(--accent)}
+a{color:var(--accent)}
+
