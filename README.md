@@ -1,12 +1,97 @@
-# 레드마인 노트 2
+# 레드마인 노트 2 (Redmine Notes 2)
 
-내 레드마인 일감을 PC에 노트로 모아 두고, 처리 내용 · 수정한 코드 · 이유를 기록하는 **개인용 로컬 도구**입니다.
-레드마인에서는 읽어 오기만 하고, 사용자가 직접 버튼을 눌렀을 때만 **댓글 · 상태 · 담당자/개발담당자**를 올립니다(삭제 기능 없음).
-파이썬 **표준 라이브러리만** 씁니다(외부 패키지 없음). 서버는 `127.0.0.1` 에서만 열리고, 화면은 같은 서버가 내려주는 HTML/CSS/JS 입니다.
+> 내 레드마인 일감을 PC에 노트로 모아 두고, **처리 내용 · 수정한 코드 · 이유**를 기록하는 개인용 로컬 도구
 
-- 버전별 변경 내용: [`docs/CHANGELOG.md`](docs/CHANGELOG.md) · 요건 문서: [`docs/`](docs/)
+![platform](https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-blue)
+![python](https://img.shields.io/badge/python-3.10%2B-blue)
+![deps](https://img.shields.io/badge/dependencies-none-brightgreen)
+![license](https://img.shields.io/badge/license-MIT-green)
+
+## 이런 도구입니다
+
+- **내 일감을 노트로**: 레드마인에서 내 일감을 내려받아, 일감마다 처리 내용 · 고친 코드 · 판단 이유를 적어 둡니다.
+- **안전한 쓰기**: 레드마인에서는 읽어 오기만 합니다. 사용자가 버튼을 직접 눌렀을 때만 **댓글 · 상태 · 담당자/개발담당자**를 올립니다. 삭제 기능은 없습니다.
+- **내 PC 안에서만**: 서버는 `127.0.0.1` 에서만 열리고, API 키는 윈도우 계정별 암호화(DPAPI)로 저장합니다.
+- **외부 패키지 없음**: 파이썬 표준 라이브러리만 씁니다. 화면은 같은 서버가 내려주는 순수 HTML/CSS/JS 입니다.
+
+### 주요 기능
+| 기능 | 설명 |
+|---|---|
+| 일감 노트 | 원문 · 댓글 이력 · 내 정리 기록(처리 내용 / 코드 / 이유) |
+| 주제 사전 | 용어로 비슷한 일감에 바로 접근 |
+| 메모 · 알림 | 포스트잇 메모, 달력, 알림(확인 / 미루기) |
+| 코드 · 쿼리 보관함 | 언어 · 코드 위치 · 버전 메모, 코드 색칠 |
+| 트러블슈팅 문서 | 문제 · 원인 · 해결 기록 |
+| 배포요청 | 배포요청 일감에서 내 요청을 찾아 상태 표시 |
+| 요약 · 그래프 | 기간별 처리 요약, 용어 · 일감 관계 그래프 |
+| 디자인 전환 | 설정에서 `기존 / 새 디자인` 선택 |
+
+## 빠르게 시작하기
+
+**필요한 것**: Windows 10/11, [Python 3.10 이상](https://www.python.org/downloads/), 레드마인 계정(REST API 사용 가능)
+
+```bash
+git clone https://github.com/kariyarn/redmineNote.git
+cd redmineNote
+python main.py
+```
+
+1. 브라우저에서 <http://127.0.0.1:8791> 을 엽니다. 소스로 실행하면 창이 자동으로 열리지 않습니다.
+2. 첫 화면에서 **레드마인 주소**와 **API 키**를 넣습니다.
+   - API 키 찾는 곳: 레드마인 로그인 → 오른쪽 위 **내 계정** → **API 접근 키 → 표시**
+3. 내 일감을 가져오면 끝입니다.
+
+> 데이터는 `%APPDATA%\RedmineNotes2` 에 저장됩니다. 개발할 때 실제 데이터와 섞이지 않게 하려면 `REDMINE_NOTES_HOME` 으로 다른 폴더를 지정하세요(아래 환경 변수 참고).
+
+## 빌드 (exe 만들기)
+
+파일 하나짜리 `RedmineNotes2.exe` 를 만듭니다. 받는 PC에는 파이썬이 없어도 됩니다.
+
+```bash
+python -m pip install pyinstaller
+build.bat
+```
+
+- 결과: `dist\RedmineNotes2.exe`
+- `build.bat` 이 하는 일: PyInstaller로 `main.py` + `web/` 화면 + 아이콘을 한 파일로 묶습니다(`--onefile --noconsole`).
+- 묶은 exe 점검(임시 데이터 · 임시 포트로 띄워 화면 파일이 들어 있는지 확인):
+
+```bash
+python tests/test_exe.py dist/RedmineNotes2.exe
+```
+
+## 시험
+
+모든 시험은 **가짜 레드마인 + 임시 데이터**로 돌아갑니다. 실제 레드마인이나 실제 데이터는 쓰지 않습니다.
+
+```bash
+python tests/test_alarm.py .
+python tests/test_queries.py .
+python tests/test_release.py main.py
+python tests/test_write.py main.py
+```
+
+| 시험 | 확인하는 것 |
+|---|---|
+| `test_alarm.py` | 메모 알림 로직 |
+| `test_queries.py` | 코드/쿼리 보관함 로직 |
+| `test_release.py` | 가져오기 · 검색 · 배포요청 |
+| `test_write.py` | 레드마인 쓰기 API |
+| `test_exe.py` | 빌드한 exe 점검 |
+| `start_ui_test.py` | 가짜 레드마인으로 앱을 띄워 화면을 직접 확인 (`python tests/start_ui_test.py main.py`) |
+
+## 환경 변수
+
+| 이름 | 기본값 | 설명 |
+|---|---|---|
+| `REDMINE_NOTES_HOME` | `%APPDATA%\RedmineNotes2` | 설정 · 데이터 위치 |
+| `REDMINE_NOTES_PORT` | `8791` | 서버 포트 |
+| `REDMINE_NOTES_IDLE_SEC` | `600` | 화면이 닫힌 뒤 자동 종료까지 초 (`0` = 끄지 않음) |
+| `REDMINE_NOTES_NO_APPWIN` | | `1` 이면 브라우저/앱 창을 열지 않음 (시험용) |
+| `REDMINE_NOTES_ALARM_TICK` | | 알림 확인 간격(초) |
 
 ## 폴더 구조
+
 ```
 main.py                 시작점 (python main.py)
 rnotes/                 서버 (기능별 모듈, 위에서 아래로만 의존)
@@ -17,45 +102,45 @@ rnotes/                 서버 (기능별 모듈, 위에서 아래로만 의존)
   rm_write.py           레드마인에 쓰기(댓글 · 상태 · 담당자) · 첨부 목록
   rm_deploy.py          레드마인 검색 · 배포요청 일감과 로켓(대기/착륙) 상태
   sticky.py             메모(포스트잇) 저장
-  alarms.py             메모 알림 계산(떠야 할 알림 · 확인/미루기) · 달력 · 오늘 볼 메모
+  alarms.py             메모 알림 계산 · 달력 · 오늘 볼 메모
+  holidays.py           대한민국 공휴일 표 · 쉬는 날 판단 (알림이 주말·공휴일을 건너뜀)
   trouble.py            트러블슈팅 문서
-  queries.py            코드/쿼리 보관함 (언어 · 코드 위치 · 버전 메모 · 가져오기)
+  queries.py            코드/쿼리 보관함
   fonts.py              글꼴 파일 목록
   http_handler.py       HTTP: 요청 검사(Host/Origin) · 모든 /api 경로 · /static
   lifecycle.py          창 열기 · 트레이 · 자동 종료 감시 · 알림 스케줄러
   main.py               서버 켜기(run)
   appwin.py tray.py secret.py   윈도우 전용 부품(앱 창 · 트레이 · API 키 암호화)
 web/                    화면
-  index.html            뼈대(마크업) + CSS/JS 불러오기
-  css/*.css             테마 · 기본 · 레이아웃 · 노트 · 메모 · … · 달력 (v2.css = 새 디자인 전용, html[data-design=v2] 아래에만)
-  js/*.js               기능별 스크립트 (v2.js = 새 디자인에서 버튼·제목의 이모지를 선 아이콘으로 바꿔 끼움) (codefmt.js = 코드 색칠 · 언어 추정 · 정리 · 이름표 복사, 외부 라이브러리 없음). 한 전역 범위를 같이 쓰므로 index.html 의 불러오는 순서가 중요합니다
-tests/                  시험(가짜 레드마인으로 실행, 실제 레드마인·실제 데이터는 쓰지 않음)
+  index.html            뼈대 + CSS/JS 불러오기
+  css/*.css             기능별 스타일 (v2.css = 새 디자인, html[data-design=v2] 아래에서만 적용)
+  js/*.js               기능별 스크립트 (v2.js = 새 디자인 아이콘 교체)
+tests/                  시험 (가짜 레드마인)
 tools/make_icon.py      아이콘 생성
-docs/                   요건 · 변경 기록
+docs/CHANGELOG.md       버전별 변경 기록
 ```
-의존 방향: `config → storage → redmine → rm_write / rm_deploy …(기능) → http_handler → main`. 거꾸로 import 하지 않습니다.
 
-## 실행 · 시험 · 빌드
-```
-python main.py                       # 개발 실행 (http://127.0.0.1:8791)
-python tests/test_alarm.py .         # 메모 알림 로직 (임시 DB)
-python tests/test_queries.py .       # 쿼리 보관함 로직 (임시 DB)
-python tests/test_release.py main.py # 가져오기 · 검색 · 배포요청 (가짜 레드마인)
-python tests/test_write.py main.py   # 쓰기 API (가짜 레드마인)
-build.bat                            # 단일 exe 만들기 (pyinstaller 필요)
-```
-- 환경 변수: `REDMINE_NOTES_HOME`(데이터 위치) · `REDMINE_NOTES_PORT`(기본 8791) · `REDMINE_NOTES_IDLE_SEC`(0 이면 자동 종료 안 함) · `REDMINE_NOTES_NO_APPWIN=1`(시험용: 브라우저/앱 창을 열지 않음) · `REDMINE_NOTES_ALARM_TICK`(알림 확인 간격 초).
-- 화면 시험: `tests/start_ui_test.py main.py` 로 가짜 레드마인 + 임시 데이터로 앱을 띄운 뒤 브라우저로 접속(`RN_FAKE_PORT` / `RN_APP_PORT` / `RN_TEST_TTL` 로 포트·자동 종료 조절).
+**의존 방향**: `config → storage → redmine → rm_write / rm_deploy …(기능) → http_handler → main`. 거꾸로 import 하지 않습니다.
+
+> `web/js/*.js` 는 한 전역 범위를 같이 씁니다. 그래서 `index.html` 의 `<script>` 순서가 중요하고, `boot.js` 는 항상 마지막입니다.
 
 ## 새 기능을 넣을 때
-1. 서버: `rnotes/` 에 기능 모듈을 만들고(저장소 함수 → 로직), `http_handler.py` 에 경로만 연결합니다.
-2. 화면: `web/js/` 에 파일을 만들고 `web/index.html` 의 `<script>` 목록에 알맞은 순서로 추가합니다(`boot.js` 는 항상 마지막).
-3. 버전: `rnotes/config.py` 의 `APP_VERSION` 을 올리고 `docs/CHANGELOG.md` 에 적습니다.
+
+1. **서버**: `rnotes/` 에 기능 모듈을 만들고(저장소 함수 → 로직), `http_handler.py` 에 경로만 연결합니다.
+2. **화면**: `web/js/` 에 파일을 만들고 `web/index.html` 의 `<script>` 목록에 알맞은 순서로 추가합니다.
+3. **디자인**: 새 디자인 전용 스타일은 `web/css/v2.css` 의 `html[data-design=v2]` 아래에 둡니다. 기존 디자인은 그대로 두세요.
+4. **버전**: `rnotes/config.py` 의 `APP_VERSION` 을 올리고 `docs/CHANGELOG.md` 에 적습니다.
 
 ## 기여하기
-버그 제보 · 아이디어는 Issues 에, 코드 수정은 Pull Request 로 보내 주세요.
-- 고친 뒤 위 `실행 · 시험 · 빌드` 의 시험 4종이 통과하는지 확인해 주세요.
-- 실제 레드마인 주소 · API 키 · 회사 데이터는 올리지 마세요(시험은 가짜 레드마인으로 돌아갑니다).
+
+버그 제보 · 아이디어는 [Issues](https://github.com/kariyarn/redmineNote/issues) 에, 코드 수정은 Pull Request 로 보내 주세요.
+
+1. 저장소를 Fork 하고 새 브랜치를 만듭니다. (예: `fix/memo-alarm`)
+2. 고친 뒤 위 **시험** 4종이 모두 통과하는지 확인합니다.
+3. 외부 패키지는 추가하지 않습니다(표준 라이브러리만).
+4. 실제 레드마인 주소 · API 키 · 회사 데이터는 올리지 마세요.
+5. Pull Request 에 **무엇을 왜 바꿨는지** 적어 주세요.
 
 ## 라이선스
+
 [MIT](LICENSE)
