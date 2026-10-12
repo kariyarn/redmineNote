@@ -42,7 +42,7 @@ function trDrawList(){
     ||`<div class="meta" style="padding:10px 4px">${troubles.length?"조건에 맞는 항목이 없어요":"아직 정리한 트러블슈팅이 없어요. ＋ 새 트러블슈팅으로 시작하세요"}</div>`;
   document.querySelectorAll("#trSt [data-ts]").forEach(b=>b.onclick=()=>{trSt=b.dataset.ts;trDrawList()});
   document.querySelectorAll("#trTags [data-tg]").forEach(b=>b.onclick=()=>{trTag=trTag===b.dataset.tg?"":b.dataset.tg;trDrawList()});
-  document.querySelectorAll("#trList [data-tid]").forEach(b=>b.onclick=()=>{if(trEd&&!trDirty()){}else if(trEd){if(!confirm("쓰던 내용이 저장되지 않았어요. 버리고 이동할까요?"))return}trSel=+b.dataset.tid;trEd=false;trDraft=null;trDrawList();trDrawMain()});
+  document.querySelectorAll("#trList [data-tid]").forEach(b=>b.onclick=async()=>{if(trEd&&trDirty()&&!await askC("쓰던 내용이 저장되지 않았어요. 버리고 이동할까요?"))return;trSel=+b.dataset.tid;trEd=false;trDraft=null;trDrawList();trDrawMain()});
 }
 function trRead(){const g=id=>($(id)||{}).value||"",ed=id=>$(id)?edGet($(id)):"";const st=document.querySelector("#teSt .on");
   return {id:trDraft&&trDraft.id,title:g("#teTitle"),status:st?st.dataset.st:"진행 중",tags:g("#teTags").split(",").map(x=>x.trim()).filter(Boolean),rm_no:g("#teRm"),symptom:ed("#teSym"),cause:ed("#teCause"),solution:ed("#teSol"),notes:ed("#teNote")}}

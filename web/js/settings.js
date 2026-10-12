@@ -121,7 +121,7 @@ async function renderSettings(){
         const m=e.message;
         if(m.includes("네트워크 폴더")){if(await askC(m+"\n그래도 이 폴더를 쓸까요?"))go({...extra,force:true})}
         else if(m.includes("이미 notes.db")){if(await askC(m+"\n(확인: 그 파일을 그대로 사용 / 취소: 변경 안 함)"))go({...extra,use_existing:true})}
-        else alert(m);
+        else wdlg({title:"저장 위치를 바꾸지 못했어요",body:esc(m).replace(/\n/g,"<br>"),cancel:""});
       }
     };
     go();
