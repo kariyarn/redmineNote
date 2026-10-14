@@ -21,6 +21,9 @@
 .cfold.collapsed{padding-top:11px;padding-bottom:11px}
 .cmp textarea.cmta{width:100%;min-height:92px;resize:vertical;font:inherit;line-height:1.5;padding:9px 12px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--text);box-sizing:border-box}
 .cmp textarea.cmta:focus{outline:2px solid var(--accent);outline-offset:0}
+.cmp .cmcmd{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:8px}
+.cmp .cmd-shortcut{font-weight:600}
+.cmd-description{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.6}
 .cmp .cmrow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:8px}
 .cmp .cmrow .sp{flex:1}
 .cmp .cmrow label{font-size:.82rem;color:var(--sub)}

@@ -16,8 +16,8 @@ const langKeyOf=label=>(LANGS.find(x=>x[1]===label)||[""])[0];
 function wireCp(root){
   root.querySelectorAll(".cp").forEach(b=>{
     b.onclick=()=>{copyText(b.dataset.code,"코드를 복사했어요");b.textContent="복사됨";setTimeout(()=>b.textContent="복사",1000)};
-    if((b.dataset.code||"").trim()&&!b.closest(".qv-doc")&&!(b.parentElement.querySelector(".qvs"))){      // 모든 코드 상자에 '코드/쿼리 보관함에 저장'
-      const s=document.createElement("button");s.type="button";s.className="qvs";s.textContent="📚 코드 보관함";s.title="코드/쿼리 보관함에 저장";
+    if((b.dataset.code||"").trim()&&!b.closest(".qv-doc")&&!(b.parentElement.querySelector(".qvs"))){      // 모든 코드 상자에 보관함 저장
+      const s=document.createElement("button");s.type="button";s.className="qvs";s.textContent="📚 보관함";s.title="보관함에 저장";
       s.onclick=()=>qvSaveFrom(b.dataset.code,b.parentElement.querySelector(".cblg")?langKeyOf(b.parentElement.querySelector(".cblg").textContent):"");b.after(s)}
   })}
 
@@ -162,7 +162,7 @@ function removeBox(box){
 }
 function mkCode(text,lang){
   const box=document.createElement("div");box.className="cbk";box.dataset.lang=lang||"";
-  box.innerHTML=`<div class="cbh"><select class="cbl" title="언어 (색칠 · 정리 기준). 자동 = 코드 내용으로 추정">${LANGS.map(([v,l])=>`<option value="${v}">${l}</option>`).join("")}</select><span class="cbd"></span><span class="sp"></span><button type="button" class="mini" data-a="fmt" title="코드를 보기 좋게 정리해요 (미리보기에서 확인하고 적용)">✨ 정리</button><button type="button" class="mini" data-a="qsave" title="코드/쿼리 보관함에 저장해요">📚 보관함</button><button type="button" class="mini" data-a="copy">복사</button><button type="button" class="mini" data-a="unbox" title="코드 상자를 풀어 일반 글로 되돌립니다">일반 글로</button><button type="button" class="mini danger" data-a="del">삭제</button></div><div class="cbb"><pre class="gut"></pre><div class="cbw2"><pre class="hlo" aria-hidden="true"></pre><textarea class="cbt" spellcheck="false"></textarea></div></div>`;
+  box.innerHTML=`<div class="cbh"><select class="cbl" title="언어 (색칠 · 정리 기준). 자동 = 코드 내용으로 추정">${LANGS.map(([v,l])=>`<option value="${v}">${l}</option>`).join("")}</select><span class="cbd"></span><span class="sp"></span><button type="button" class="mini" data-a="fmt" title="코드를 보기 좋게 정리해요 (미리보기에서 확인하고 적용)">✨ 정리</button><button type="button" class="mini" data-a="qsave" title="보관함에 저장해요">📚 보관함</button><button type="button" class="mini" data-a="copy">복사</button><button type="button" class="mini" data-a="unbox" title="코드 상자를 풀어 일반 글로 되돌립니다">일반 글로</button><button type="button" class="mini danger" data-a="del">삭제</button></div><div class="cbb"><pre class="gut"></pre><div class="cbw2"><pre class="hlo" aria-hidden="true"></pre><textarea class="cbt" spellcheck="false"></textarea></div></div>`;
   box.querySelector(".cbh .sp").style.flex="1";
   const ta=box.querySelector("textarea"),gut=box.querySelector(".gut"),hlo=box.querySelector(".hlo"),sel=box.querySelector(".cbl"),det=box.querySelector(".cbd");
   sel.value=normLang(box.dataset.lang);      // 목록에 없는 이름(예: ```xyz)은 '자동'으로 보이지만 글에는 그대로 남는다
@@ -269,6 +269,7 @@ function renderCenter(){
   if(view==="deploy")return renderDeploy();
   if(view==="trouble")return renderTrouble();
   if(view==="queries")return renderQueries();
+  if(view==="commands")return renderCommands();
   if(view==="summary")return renderSummary();
   const n=all.find(x=>x.issue_id===cur);
   if(!n){edNote=null;$("#center").innerHTML=`<div class="empty" style="padding-top:12vh"><b>노트를 선택하세요</b>왼쪽 목록에서 일감을 누르면 레드마인 원문을 보고 처리·코드·이유를 기록할 수 있습니다.</div>`;return}

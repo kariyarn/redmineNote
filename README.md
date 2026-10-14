@@ -28,7 +28,7 @@
 | 일감 노트 | 원문 · 댓글 이력 · 내 정리 기록(처리 내용 / 코드 / 이유) |
 | 주제 사전 | 용어로 비슷한 일감에 바로 접근 |
 | 메모 · 알림 | 포스트잇 메모, 달력, 알림(확인 / 미루기) |
-| 코드 · 쿼리 보관함 | 언어 · 코드 위치 · 버전 메모, 코드 색칠 |
+| 보관함 | 왼쪽 메뉴에서 코드 · 쿼리 · 명령어를 선택. 코드/쿼리는 언어 · 코드 위치 · 버전 메모와 코드 색칠, 명령어는 댓글 단축어와 문구 삽입 |
 | 트러블슈팅 문서 | 문제 · 원인 · 해결 기록 |
 | 배포요청 | 배포요청 일감에서 내 요청을 찾아 상태 표시 |
 | 요약 · 그래프 | 기간별 처리 요약, 용어 · 일감 관계 그래프 |
@@ -72,11 +72,12 @@ python tests/test_exe.py dist/RedmineNotes2.exe
 
 ## 시험
 
-모든 시험은 **가짜 레드마인 + 임시 데이터**로 돌아갑니다. 실제 레드마인이나 실제 데이터는 쓰지 않습니다.
+시험은 임시 데이터를 사용하며, 레드마인 연동이 필요한 경우에는 **가짜 레드마인**을 사용합니다. 실제 레드마인이나 실제 사용자 데이터를 쓰지 않습니다.
 
 ```bash
 python tests/test_alarm.py .
 python tests/test_queries.py .
+python tests/test_commands.py .
 python tests/test_release.py main.py
 python tests/test_write.py main.py
 ```
@@ -84,7 +85,8 @@ python tests/test_write.py main.py
 | 시험 | 확인하는 것 |
 |---|---|
 | `test_alarm.py` | 메모 알림 로직 |
-| `test_queries.py` | 코드/쿼리 보관함 로직 |
+| `test_queries.py` | 보관함의 코드/쿼리 로직 |
+| `test_commands.py` | 보관함의 명령어 로직 |
 | `test_release.py` | 가져오기 · 검색 · 배포요청 |
 | `test_write.py` | 레드마인 쓰기 API |
 | `test_exe.py` | 빌드한 exe 점검 |
@@ -115,7 +117,7 @@ rnotes/                 서버 (기능별 모듈, 위에서 아래로만 의존)
   alarms.py             메모 알림 계산 · 달력 · 오늘 볼 메모
   holidays.py           대한민국 공휴일 표 · 쉬는 날 판단 (알림이 주말·공휴일을 건너뜀)
   trouble.py            트러블슈팅 문서
-  queries.py            코드/쿼리 보관함
+  queries.py            보관함의 코드/쿼리
   fonts.py              글꼴 파일 목록
   http_handler.py       HTTP: 요청 검사(Host/Origin) · 모든 /api 경로 · /static
   lifecycle.py          창 열기 · 트레이 · 자동 종료 감시 · 알림 스케줄러

@@ -16,6 +16,7 @@ function composerHtml(k,n){
   return `<div class="cmp" data-k="${k}">
    ${ok?"":`<div class="cmnote">시험 모드예요: ${w.allow.map(x=>"#"+x).join(", ")} 에서만 레드마인에 올릴 수 있어요. 쓴 내용은 임시 저장됩니다.</div>`}
    <div class="rte cmta" data-ph="댓글을 쓰세요 · Ctrl+Enter 로 올리기 · &#96;&#96;&#96; + Enter 로 코드 상자 (상자 안에서는 Ctrl+Enter = 상자 밖으로)"></div>
+   <div class="cmcmd" aria-label="댓글 명령어"></div>
    <div class="cmrow">${V2()   // 새 디자인: 버튼 4개 대신 같은 동작의 선택칸 하나 (고르기만 하고, 올리기를 눌러야 올라간다)
      ?`<select class="wsel" title="올릴 때 상태 · 담당자를 같이 바꿉니다 (올리기를 눌러야 올라갑니다)" ${ok?"":"disabled"}><option value="">상태 · 담당 그대로</option>${WPRESETS.map(([p,l])=>`<option value="${p}" title="${PRESET_TIP[p]}">${l}${{dev:" (나에게)",confirm:" (작성자에게)",done:"",me:""}[p]}</option>`).join("")}</select>`
      :WPRESETS.map(([p,l])=>`<button type="button" data-w="${p}" title="${PRESET_TIP[p]} — 고르기만 하고, 올리기를 눌러야 올라갑니다" ${ok?"":"disabled"}>${l}</button>`).join("")}
@@ -107,4 +108,5 @@ function wireComposer(root,n){
     });
   });
   syncComposers(n);
+  cmdWireComposer(root);
 }

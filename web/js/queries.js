@@ -1,10 +1,12 @@
-/* ---------- 코드/쿼리 보관함 (2.13): 같이 참조할 SQL · 코드를 제목 · 용도 · 언어 · 코드 위치 · 연관 레드마인 · 태그와 함께 모아 두고 한 번에 복사한다 ----------
+/* ---------- 보관함 (2.13): 코드 · 쿼리를 제목 · 용도 · 언어 · 코드 위치 · 연관 레드마인 · 태그와 함께 모아 두고 한 번에 복사한다 ----------
    트러블슈팅처럼 레드마인·전체 검색·요약과 무관한 독립 화면이다(이 화면 안의 검색 · 언어 · 태그 필터만 쓴다).
    노트·트러블슈팅·메모의 코드 상자에서 '📚 코드 보관함' 으로도 넣는다. 이름표(:이름 · #{이름} · ${이름}) 값 넣어 복사, 정리(포맷), 버전 메모, 내보내기/가져오기. */
 let queries=[],qvLoaded=false,qvSel=null,qvEd=false,qvDraft=null,qvQ="",qvLang="",qvTag="";
 const QV_DB=["Oracle","MySQL","PostgreSQL","MSSQL","SQLite","기타"];
 async function qvLoad(force){if(qvLoaded&&!force)return;try{queries=await api("/api/queries");qvLoaded=true}catch(e){}}
 const qvLangOf=q=>normLang(q.lang)||detectLang(q.sql);
+const qvKind=()=>nav==="vaultQuery"?"query":"code";
+const qvIsQuery=q=>!!q.db_kind||["sql","mybatis"].includes(qvLangOf(q));
 const rmNos=t=>[...new Set((String(t||"").match(/[0-9]+/g)||[]).map(Number).filter(x=>x>0))];      // "#93857, 93860" -> [93857, 93860]
 const rmTitle=no=>{const n=all.find(x=>x.issue_id===no);return n?n.subject:""};
 const locsOf=t=>[...new Set(String(t||"").split(/[\n,]/).map(x=>x.trim().replace(/\s+/g," ")).filter(Boolean))];
@@ -50,22 +52,24 @@ async function qvSaveFrom(code,lang){
     <div class="frow"><label>태그</label><input type="text" id="qsG" placeholder="쉼표(,)로 구분" style="flex:1"></div>
     <div class="frow"><label>관련 일감</label><input type="text" id="qsR" value="${esc(rmDefault.map(x=>"#"+x).join(", "))}" placeholder="#93857, #93860 (선택)" style="flex:1"></div>
     <pre class="qv-peek">${hlHtml(code.split("\n").slice(0,8).join("\n"),nl||det)}${code.split("\n").length>8?"\n…":""}</pre></div>`;
-  const r=await wdlg({title:"📚 코드/쿼리 보관함에 저장",body,ok:"저장",collect:()=>({title:$("#qsT").value,purpose:$("#qsP").value,lang:$("#qsL").value,db_kind:$("#qsD").value,code_locs:locsOf($("#qsC").value),tags:$("#qsG").value,rm_nos:rmNos($("#qsR").value)})});
+  const r=await wdlg({title:"📚 보관함에 저장",body,ok:"저장",collect:()=>({title:$("#qsT").value,purpose:$("#qsP").value,lang:$("#qsL").value,db_kind:$("#qsD").value,code_locs:locsOf($("#qsC").value),tags:$("#qsG").value,rm_nos:rmNos($("#qsR").value)})});
   if(!r)return;
-  try{const row=await qvPost({sql:code,...r});if(row)toast(`코드/쿼리 보관함에 저장했어요 ✓ (${row.title})`,2600)}
+  try{const row=await qvPost({sql:code,...r});if(row)toast(`보관함에 저장했어요 ✓ (${row.title})`,2600)}
   catch(e){toast("저장하지 못했어요: "+e.message,5000)}
 }
 async function renderQueries(){
   await qvLoad();if(view!=="queries")return;
   if(qvSel&&!queries.some(q=>q.id===qvSel))qvSel=null;
+  const kind=qvKind(),kindLabel=kind==="query"?"쿼리":"코드";
   $("#center").innerHTML=`<div class="tr-wrap"><div class="tr-side">
-      <button type="button" class="primary" id="qvNew">＋ 새 코드/쿼리</button>
+      <div class="nv-vault-title">보관함 · ${kindLabel}</div>
+      <button type="button" class="primary" id="qvNew">＋ 새 ${kindLabel}</button>
       <input id="qvQ" placeholder="제목 · 용도 · 코드 · 위치 · 태그 검색" value="${esc(qvQ)}" autocomplete="off">
       <div class="seg qv-langs" id="qvLangs"></div><div class="chips" id="qvTags"></div>
       <div class="row qv-tools"><button type="button" class="mini" id="qvExp" title="보관한 코드를 파일(JSON)로 저장해요 (동료와 나눌 때)">⬇ 내보내기</button><button type="button" class="mini" id="qvImp" title="내보낸 파일에서 읽어 와요 (같은 코드는 건너뛰어요)">⬆ 가져오기</button><input type="file" id="qvFile" accept=".json,application/json" hidden></div>
       <div class="tr-list" id="qvList"></div></div>
     <div class="tr-main qv-main" id="qvMain"></div></div>`;
-  $("#qvNew").onclick=()=>{qvSel=null;qvEd=true;qvDraft={id:null,title:"",purpose:"",db_kind:"",lang:"",sql:"",tags:[],rm_nos:[],code_locs:[]};qvDrawList();qvDrawMain();setTimeout(()=>$("#qeTitle")&&$("#qeTitle").focus(),0)};
+  $("#qvNew").onclick=()=>{qvSel=null;qvEd=true;qvDraft={id:null,title:"",purpose:"",db_kind:"",lang:kind==="query"?"sql":"",sql:"",tags:[],rm_nos:[],code_locs:[]};qvDrawList();qvDrawMain();setTimeout(()=>$("#qeTitle")&&$("#qeTitle").focus(),0)};
   $("#qvQ").oninput=e=>{qvQ=e.target.value.trim();qvDrawList()};
   $("#qvExp").onclick=e=>{
     const shown=qvFiltered(),cur0=queries.find(x=>x.id===qvSel);
@@ -92,17 +96,19 @@ async function qvImport(file){
 }
 function qvFiltered(){
   const q=qvQ.toLowerCase();
-  return queries.filter(x=>(!qvLang||qvLangOf(x)===qvLang)&&(!qvTag||x.tags.includes(qvTag))&&(!q||qvText(x).includes(q)));
+  return queries.filter(x=>(qvKind()==="query")===qvIsQuery(x)&&(!qvLang||qvLangOf(x)===qvLang)&&(!qvTag||x.tags.includes(qvTag))&&(!q||qvText(x).includes(q)));
 }
 function qvDrawList(){
   const list=qvFiltered();
-  const cnt=new Map();queries.forEach(x=>{const l=qvLangOf(x);cnt.set(l,(cnt.get(l)||0)+1)});
-  $("#qvLangs").innerHTML=[["","전체",queries.length],...[...cnt].sort((a,b)=>b[1]-a[1]).map(([l,c])=>[l,langLabel(l),c])].map(([k,l,c])=>`<button type="button" data-qd="${esc(k)}" class="${qvLang===k?"on":""}">${esc(l)} <small>${c}</small></button>`).join("");
-  $("#qvTags").innerHTML=qvTagList().slice(0,18).map(([g,n])=>`<span class="tp ${qvTag===g?"on":""}" data-tg="${esc(g)}">${esc(g)}<small>${n}</small></span>`).join("");
+  const kindRows=queries.filter(x=>(qvKind()==="query")===qvIsQuery(x));
+  const cnt=new Map();kindRows.forEach(x=>{const l=qvLangOf(x);cnt.set(l,(cnt.get(l)||0)+1)});
+  $("#qvLangs").innerHTML=[["","전체",kindRows.length],...[...cnt].sort((a,b)=>b[1]-a[1]).map(([l,c])=>[l,langLabel(l),c])].map(([k,l,c])=>`<button type="button" data-qd="${esc(k)}" class="${qvLang===k?"on":""}">${esc(l)} <small>${c}</small></button>`).join("");
+  const tags=new Map();kindRows.forEach(x=>x.tags.forEach(g=>tags.set(g,(tags.get(g)||0)+1)));
+  $("#qvTags").innerHTML=[...tags].sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0])).slice(0,18).map(([g,n])=>`<span class="tp ${qvTag===g?"on":""}" data-tg="${esc(g)}">${esc(g)}<small>${n}</small></span>`).join("");
   $("#qvList").innerHTML=list.map(x=>`<div class="tr-item ${x.id===qvSel&&!qvEd?"on":""}" data-qid="${x.id}"><div class="tt">${x.pinned?"📌 ":""}${esc(x.title)}</div>
       <div class="ts">${qvLangPill(x)}${x.use_count?`<span>사용 ${x.use_count}회</span>`:""}${x.tags.slice(0,3).map(g=>`<span class="tg ghost">${esc(g)}</span>`).join("")}</div>
       <div class="sn">${esc((x.purpose.trim()||x.sql.trim()).replace(/\s+/g," ").slice(0,120))}</div>${(x.code_locs.length||x.rm_nos.length)?`<div class="ts">${x.code_locs.slice(0,2).map(l=>`<span class="tg ghost">📄 ${esc(l.length>22?l.slice(0,22)+"…":l)}</span>`).join("")}${x.rm_nos.slice(0,3).map(no=>`<span class="tg ghost">#${no}</span>`).join("")}${x.rm_nos.length>3?`<span>+${x.rm_nos.length-3}</span>`:""}</div>`:""}</div>`).join("")
-    ||`<div class="meta" style="padding:10px 4px">${queries.length?"조건에 맞는 항목이 없어요":"아직 보관한 코드/쿼리가 없어요. ＋ 새 코드/쿼리로 시작하거나, 노트의 코드 상자에서 ‘📚 코드 보관함’ 을 눌러 보세요"}</div>`;
+    ||`<div class="meta" style="padding:10px 4px">${kindRows.length?"조건에 맞는 항목이 없어요":`아직 보관한 ${kindLabel}가 없어요. ＋ 새 ${kindLabel}로 시작하거나, 노트의 코드 상자에서 ‘📚 보관함’ 을 눌러 보세요`}</div>`;
   document.querySelectorAll("#qvLangs [data-qd]").forEach(b=>b.onclick=()=>{qvLang=b.dataset.qd;qvDrawList()});
   document.querySelectorAll("#qvTags [data-tg]").forEach(b=>b.onclick=()=>{qvTag=qvTag===b.dataset.tg?"":b.dataset.tg;qvDrawList()});
   document.querySelectorAll("#qvList [data-qid]").forEach(b=>b.onclick=async()=>{
@@ -139,7 +145,7 @@ function qvDrawMain(){
   const el=$("#qvMain");if(!el)return;
   if(qvEd)return qvDrawEdit(el);
   const x=queries.find(v=>v.id===qvSel);
-  if(!x){el.innerHTML=`<div class="empty" style="padding-top:8vh"><b>왼쪽에서 하나를 고르거나 새로 만드세요</b>같이 참조할 <b>SQL · 코드</b>를 제목 · 용도 · 코드 위치 · 태그와 함께 모아 두고, <b>📋 복사</b> 한 번으로 꺼내 쓰는 곳이에요. <code class="ic">#{이름}</code> 같은 이름표는 값을 넣어 복사해요. 레드마인과 상관없이 이 PC에만 저장돼요.</div>`;return}
+  if(!x){el.innerHTML=`<div class="empty" style="padding-top:8vh"><b>왼쪽에서 하나를 고르거나 새로 만드세요</b><b>${qvKind()==="query"?"쿼리":"코드"}</b>를 제목 · 용도 · 코드 위치 · 태그와 함께 모아 두고, <b>📋 복사</b> 한 번으로 꺼내 쓰는 곳이에요. <code class="ic">#{이름}</code> 같은 이름표는 값을 넣어 복사해요. 레드마인과 상관없이 이 PC에만 저장돼요.</div>`;return}
   const lg=qvLangOf(x),lines=hlLines(x.sql,lg).map(l=>`<div class="ln">${l||" "}</div>`).join(""),ph=findPlaceholders(x.sql,lg);
   el.innerHTML=`<div class="card tr-doc qv-doc"><div class="tr-hd"><h2>${x.pinned?"📌 ":""}${esc(x.title)}</h2>
       <button type="button" class="primary" id="qvCopy" title="${ph.length?"이름표에 값을 넣어 복사하고 사용 횟수를 올려요":"복사하고 사용 횟수를 올려요"}">📋 ${ph.length?"값 넣어 복사":"복사"}</button><button type="button" id="qvFmt" title="코드를 보기 좋게 정리해요 (미리보기에서 확인)">✨ 정리</button><button type="button" id="qvPin">${x.pinned?"고정 해제":"📌 고정"}</button><button type="button" id="qvEdit">편집</button><button type="button" id="qvDel">삭제</button></div>
@@ -148,7 +154,7 @@ function qvDrawMain(){
     ${x.code_locs.length?`<div class="chips" style="margin-top:8px"><span class="meta">코드 위치</span>${x.code_locs.map(l=>`<span class="tp loc" data-loc="${esc(l)}" title="눌러서 복사">📄 ${esc(l)}</span>`).join("")}</div>`:""}
     ${x.rm_nos.length?`<div class="chips" style="margin-top:8px"><span class="meta">관련 레드마인</span>${x.rm_nos.map(rmChip).join("")}</div>`:""}
     ${x.purpose.trim()?`<div class="tr-sec"><h4>용도</h4><div style="white-space:pre-wrap;overflow-wrap:anywhere">${esc(x.purpose)}</div></div>`:""}
-    <div class="tr-sec"><h4>코드/쿼리</h4><div class="${pvClass()}"><div class="cbw"><button class="cp" id="qvCp">복사</button><span class="cblg">${esc(langLabel(lg))}</span><pre class="cb"><code>${lines}</code></pre></div></div>
+    <div class="tr-sec"><h4>${qvIsQuery(x)?"쿼리":"코드"}</h4><div class="${pvClass()}"><div class="cbw"><button class="cp" id="qvCp">복사</button><span class="cblg">${esc(langLabel(lg))}</span><pre class="cb"><code>${lines}</code></pre></div></div>
       ${ph.length?`<div class="qv-phs"><span class="meta">이름표</span>${ph.map(n=>`<span class="tp ph" title="값은 복사할 때 입력해요">${esc(n)}</span>`).join("")}</div>`:""}</div></div>`;
   $("#qvCopy").onclick=()=>qvCopy(x);$("#qvCp").onclick=()=>qvCopy(x);
   $("#qvFmt").onclick=()=>qvFormatSave(x);
@@ -207,7 +213,7 @@ async function qvPopup(id){
     <pre class="cf-pre qvpop-code">${hlHtml(x.sql,lg)}</pre>
     ${ph.length?`<div class="meta" style="margin-top:6px">이름표 ${ph.map(n=>`<code class="ic">${esc(n)}</code>`).join(" ")} — 복사할 때 값을 넣어요</div>`:""}</div>`;
   const pr=wdlg({title:`📚 ${esc(x.title)}`,body,ok:ph.length?"📋 값 넣어 복사":"📋 복사",cancel:"닫기",wide:true});
-  const more=document.createElement("button");more.type="button";more.textContent="보관함에서 열기";more.onclick=()=>{$("#wno").click();qvSel=x.id;qvEd=false;qvDraft=null;setNav("queries")};
+  const more=document.createElement("button");more.type="button";more.textContent="보관함에서 열기";more.onclick=()=>{$("#wno").click();qvSel=x.id;qvEd=false;qvDraft=null;setNav(qvIsQuery(x)?"vaultQuery":"vaultCode")};
   const btns=document.querySelector("#wdlg .wbtn");if(btns)btns.insertBefore(more,$("#wno"));
   document.querySelectorAll("#wdlg [data-loc]").forEach(c=>c.onclick=()=>copyText(c.dataset.loc,"위치를 복사했어요"));
   if(await pr)qvCopy(x);

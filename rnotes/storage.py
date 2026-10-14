@@ -149,6 +149,13 @@ def init_db():
                 id INTEGER PRIMARY KEY AUTOINCREMENT, query_id INTEGER NOT NULL,
                 title TEXT DEFAULT '', purpose TEXT DEFAULT '', lang TEXT DEFAULT '', sql TEXT DEFAULT '', saved_at TEXT
             );
+            -- 명령어 보관함: 댓글에 단축어로 삽입할 문구
+            CREATE TABLE IF NOT EXISTS commands (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                shortcut TEXT NOT NULL, description TEXT NOT NULL,
+                created_at TEXT, updated_at TEXT
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_commands_shortcut ON commands(shortcut COLLATE NOCASE);
             -- 메모 알림: 날짜(또는 기간)마다 '확인했는지 / 다시 알림 시각'을 기록 (없으면 아직 확인 안 한 것)
             CREATE TABLE IF NOT EXISTS sticky_alarm (
                 sticky_id INTEGER NOT NULL, date TEXT NOT NULL, acked_at TEXT, snooze_until TEXT,

@@ -13,6 +13,8 @@ body{display:block;overflow:hidden;height:100vh}
 .nv-item .cnt{margin-left:auto;font-size:.8rem;font-weight:600;color:var(--accent);background:var(--accent-soft);border-radius:10px;padding:0 8px}
 .nv-sec{display:flex;align-items:center;justify-content:space-between;margin:16px 10px 4px;font-size:.74rem;font-weight:600;color:var(--sub);letter-spacing:.04em;cursor:pointer;user-select:none}
 .nv-sec:hover{color:var(--text)}
+.nv-vault-hd{margin:12px 10px 3px;font-size:.74rem;font-weight:600;color:var(--sub);letter-spacing:.04em}
+.nv-vault-hd~.nv-item[data-nav^="vault"]{padding-left:24px}
 .nv-sp{flex:1}
 .nv-sync{padding:10px 4px 6px;display:flex;flex-direction:column;gap:6px}
 .nv-sync .primary{justify-content:center;width:100%}

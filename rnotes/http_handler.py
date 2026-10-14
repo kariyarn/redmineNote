@@ -27,6 +27,7 @@ from .sticky import sticky_row, sticky_save
 from .storage import backup_path, configured, db, get_settings, list_backups, note_count, restore_bytes, save_config, snapshot_zip, stamp
 from .holidays import extra_days, holiday_dates
 from .queries import query_delete, query_import, query_list, query_pin, query_restore, query_save, query_use, query_versions
+from .commands import command_delete, command_list, command_save
 from .trouble import trouble_row, trouble_save
 
 
@@ -149,6 +150,8 @@ class Handler(BaseHTTPRequestHandler):
             self.send_json(query_list())
         elif u.path == "/api/queries/versions":  # 한 항목의 이전 버전 메모
             self.send_json(query_versions(int(q.get("id") or 0)))
+        elif u.path == "/api/commands":          # 댓글 단축어와 삽입할 문구
+            self.send_json(command_list())
         elif u.path == "/api/trouble":          # 트러블슈팅 전부 (최근 수정 순)
             with db() as c:
                 self.send_json([trouble_row(r) for r in c.execute("SELECT * FROM trouble ORDER BY updated_at DESC, id DESC LIMIT 5000")])
@@ -474,6 +477,11 @@ class Handler(BaseHTTPRequestHandler):
                         self.send_json(query_save(d))
                 except (ValueError, TypeError) as e:
                     self.send_json({"error": str(e)}, 400)
+            elif u.path == "/api/commands":
+                try:
+                    self.send_json(command_save(d))
+                except (ValueError, TypeError) as e:
+                    self.send_json({"error": str(e)}, 400)
             elif u.path == "/api/trouble":
                 try:
                     self.send_json(trouble_save(d))
@@ -623,6 +631,12 @@ class Handler(BaseHTTPRequestHandler):
         elif u.path.startswith("/api/queries/"):
             query_delete(name)
             self.send_json({"ok": True})
+        elif u.path.startswith("/api/commands/"):
+            try:
+                command_delete(int(name))
+                self.send_json({"ok": True})
+            except (ValueError, TypeError) as e:
+                self.send_json({"error": str(e)}, 400)
         elif u.path.startswith("/api/trouble/"):
             with db() as c:
                 c.execute("DELETE FROM trouble WHERE id=?", (name,))
