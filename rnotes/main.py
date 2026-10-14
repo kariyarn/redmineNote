@@ -15,8 +15,13 @@ from .storage import ensure_daily_backup, init_db
 
 
 def run():
-    if sys.stdout is None:  # 창 없는 exe 에는 출력할 곳이 없다
-        sys.stdout = sys.stderr = open(os.devnull, "w")
+    if sys.stdout is None:  # 창 없는 exe 에는 출력할 곳이 없다 (한국어가 아닌 윈도우에서도 한글 출력에 죽지 않게 utf-8)
+        sys.stdout = sys.stderr = open(os.devnull, "w", encoding="utf-8")
+    for s in (sys.stdout, sys.stderr):  # 콘솔 글자표에 없는 글자(한글)는 깨진 표시로 바꿔 출력한다 (죽지 않게)
+        try:
+            s.reconfigure(errors="backslashreplace")
+        except Exception:
+            pass
     init_db()
     try:
         httpd = Server(("127.0.0.1", PORT), Handler)
