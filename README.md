@@ -54,6 +54,8 @@ build.bat
 
 - 결과: `dist\RedmineNotes2.exe`
 - `build.bat` 이 하는 일: PyInstaller로 `main.py` + `web/` 화면 + 아이콘을 한 파일로 묶습니다(`--onefile --noconsole`).
+- **깃허브에서 만들기**: 저장소 **Actions → build → Run workflow**(브랜치 고르기) → 끝나면 그 실행 화면 아래 **Artifacts** 에서 `RedmineNotes2-<버전>` 을 받습니다. 안에 `RedmineNotes2-Setup-<버전>.exe`(설치 파일)와 `RedmineNotes2.exe` 가 들어 있습니다. PR 을 올려도 같은 빌드가 돌아갑니다.
+- **설치 파일**: 관리자 권한 없이 `%LOCALAPPDATA%\Programs\RedmineNotes2` 에 설치하고 시작 메뉴(선택: 바탕화면) 바로가기를 만듭니다. 새 버전은 그냥 다시 설치하면 덮어쓰고, 켜져 있는 앱은 설치 전에 닫습니다. 데이터(`%APPDATA%\RedmineNotes2`)는 건드리지 않습니다. 직접 만들려면 [Inno Setup 6](https://jrsoftware.org/isinfo.php) 을 깔고 `build.bat` 뒤에 `iscc /DAppVer=<버전> installer\RedmineNotes2.iss`.
 - 묶은 exe 점검(임시 데이터 · 임시 포트로 띄워 화면 파일이 들어 있는지 확인):
 
 ```bash

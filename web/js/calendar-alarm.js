@@ -19,7 +19,7 @@ function sbcMap(){      // 날짜별: 메모 개수 · 알림 여부 · 미리�
 if(e.tip.length<4)e.tip.push((it.remind_time?"🔔"+it.remind_time+" ":"")+(it.preview||"(빈 메모)"));mp.set(ds,e)}
   });return mp;
 }
-function sbcGo(ds){memoDay=ds;if(nav==="memo")gotoMemo(ds);else setNav("memo");toTop()}
+function sbcGo(ds){memoDay=ds;if(nav==="memo")gotoMemo(ds);else setNav("memo",{keepDay:true});toTop()}
 function sbcDraw(){
   const box=$("#sbCal");if(!box||!sbc.y)return;
   const open=sbcOpen(),t=todayStr(),mp=sbcMap();

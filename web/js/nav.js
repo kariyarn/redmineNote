@@ -3,6 +3,7 @@ const NAVVIEW={today:"note",history:"note",mine:"mine",summary:"summary",graph:"
 function setNav(n,o={}){
   if(!o.keepQ)$("#q").value="";
   if(!o.keepSel&&n!=="history"&&n!=="graph")sel=[];
+  if(n==="memo"&&nav!=="memo"&&!o.keepDay)memoDay=todayStr();   // 메모는 들어올 때마다 오늘 보드부터 (달력·알림에서 날짜를 골라 들어올 때만 그 날)
   nav=n;view=NAVVIEW[n];hist.pop=false;hist.more=60;
   if(n==="today"&&!o.keepCur)todayWide=true;     // 새 디자인: 오늘을 누르면 목록을 화면 전체 폭으로 (일감을 누르면 노트와 나란히)
   if(n==="today"&&!o.keepCur){/* 오늘 화면은 가장 먼저 할 일을 자동으로 연다 */}

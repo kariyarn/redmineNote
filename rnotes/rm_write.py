@@ -40,32 +40,18 @@ _FENCE = re.compile(r"```([A-Za-z0-9_+#.-]*)[ \t]*\n(.*?)```", re.S)
 _PRE = re.compile(r"(<pre>.*?</pre>|<pre><code[^>]*>.*?</code></pre>)", re.S)
 
 
-_MARK = re.compile(r"^\s*(?:[*#]+\s|\||h[1-6]\.\s|bq\.\s|p\.\s)")   # 목록·표·제목 줄
-
-
-def _soft_breaks(seg):
-    """레드마인은 댓글을 HTML 로 보여 줘서 엔터(\\n)만으로는 줄이 바뀌지 않는다.
-    글 속의 엔터는 친 횟수만큼 <br /> 로 바꾼다: 한 번 = 줄바꿈, 두 번 = 빈 줄 한 줄, 세 번 = 빈 줄 두 줄.
-    (예전에는 한 번짜리만 바꿔서 빈 줄이 사라지고 윗줄과 아랫줄이 한 줄로 붙었다.) 목록·표·제목 앞의 빈 줄은 건드리지 않는다."""
-    lines = seg.split("\n")
-    out, i, n = [], 0, len(lines)
-    while i < n:
-        a = lines[i]
-        if not a.strip():
-            out.append(a)
-            i += 1
-            continue
-        j = i + 1
-        while j < n and not lines[j].strip():
-            j += 1
-        k = j - i - 1                      # 두 글줄 사이의 빈 줄 수
-        if j < n and not _MARK.match(lines[j]) and not _MARK.match(a) and not a.rstrip().endswith("<br />"):
-            out.append(a.rstrip() + "<br />" * (k + 1))   # 빈 줄들은 <br /> 로 바꿔 담았으니 따로 남기지 않는다
-        else:
-            out.append(a)
-            out.extend(lines[i + 1:j])
-        i = j
-    return "\n".join(out)
+def _paragraphs(seg):
+    """레드마인 웹 편집기(CKEditor)는 엔터 한 번마다 새 문단(<p>)을 만들어서 줄 사이에 여유가 생긴다.
+    앱에서 쓴 글도 똑같이 보이도록 한 줄을 한 문단(<p>줄</p>)으로, 빈 줄은 편집기처럼 빈 문단(<p>&nbsp;</p>)으로 바꾼다.
+    (예전에는 <br /> 로 바꿔서 한 문단 안에 줄이 붙어 보였고, 목록 줄(* 항목)은 아예 한 줄로 합쳐졌다.) 글 앞뒤의 빈 줄은 버린다."""
+    lines = [x.rstrip() for x in seg.strip("\n").split("\n")]
+    if not any(x.strip() for x in lines):
+        return ""
+    while not lines[0].strip():
+        lines.pop(0)
+    while not lines[-1].strip():
+        lines.pop()
+    return "\n".join(f"<p>{x}</p>" if x.strip() else "<p>&nbsp;</p>" for x in lines)
 
 
 def to_textile(text):
@@ -78,8 +64,8 @@ def to_textile(text):
 
     segs = _PRE.split(_FENCE.sub(fence, text))
     for i in range(0, len(segs), 2):  # 짝수 칸 = 코드 상자 밖
-        segs[i] = _soft_breaks(re.sub(r"`([^`\n]+)`", r"@\1@", segs[i]))
-    return "".join(segs)
+        segs[i] = _paragraphs(re.sub(r"`([^`\n]+)`", r"@\1@", segs[i]))
+    return "\n".join(x for x in segs if x)   # 문단과 코드 상자는 각각 따로 선 덩어리
 
 
 def explain_write(e):
