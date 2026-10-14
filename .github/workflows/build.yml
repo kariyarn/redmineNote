@@ -35,6 +35,30 @@ jobs:
       - name: exe 점검 (임시 데이터 · 임시 포트)
         run: python tests/test_exe.py dist/RedmineNotes2.exe
 
+      - name: (실패했을 때만) 멈춘 곳 · 오류 내용 보기
+        if: failure()
+        shell: pwsh
+        env:
+          REDMINE_NOTES_NO_APPWIN: "1"
+          REDMINE_NOTES_IDLE_SEC: "0"
+        run: |
+          python -m pip install py-spy
+          "== 시험하던 exe 가 아직 떠 있으면: 지금 멈춘 곳 =="
+          Get-Process RedmineNotes2 -ErrorAction SilentlyContinue | ForEach-Object { py-spy dump --pid $_.Id; Stop-Process -Id $_.Id -Force }
+          "== 콘솔 exe 로 다시 켜서 오류 내용 보기 =="
+          python -m PyInstaller --noconfirm --onefile --console --name RedmineNotes2-debug --paths . --add-data "web;web" --add-data "icon.ico;." main.py
+          $env:REDMINE_NOTES_HOME = Join-Path $env:RUNNER_TEMP "rn-debug"
+          $env:REDMINE_NOTES_PORT = "18962"
+          $p = Start-Process dist\RedmineNotes2-debug.exe -ArgumentList nobrowser -RedirectStandardOutput out.txt -RedirectStandardError err.txt -PassThru -NoNewWindow
+          Start-Sleep 45
+          if ($p.HasExited) { "꺼짐 (종료 코드 $($p.ExitCode))" } else {
+            "45초 뒤에도 켜져 있음 — 멈춘 곳:"
+            Get-Process RedmineNotes2-debug -ErrorAction SilentlyContinue | ForEach-Object { py-spy dump --pid $_.Id }
+            Get-Process RedmineNotes2-debug -ErrorAction SilentlyContinue | Stop-Process -Force
+          }
+          "-- stdout --"; Get-Content out.txt -ErrorAction SilentlyContinue
+          "-- stderr --"; Get-Content err.txt -ErrorAction SilentlyContinue
+
       - name: 설치 파일 만들기 (Inno Setup)
         shell: pwsh
         run: |

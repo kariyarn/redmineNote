@@ -11,11 +11,16 @@ def get(path):
     return urllib.request.urlopen(base + path, timeout=5)
 ok = True
 try:
-    for _ in range(80):
+    t0 = time.time()
+    while time.time() - t0 < 90:   # 처음 켤 때 exe 를 풀고 백신 검사가 끝나기를 기다린다
+        if p.poll() is not None:
+            raise SystemExit(f"FAIL exe 가 바로 꺼졌어요 (종료 코드 {p.returncode})")
         try:
             get("/api/config"); break
         except Exception:
-            time.sleep(0.25)
+            time.sleep(0.5)
+    else:
+        raise SystemExit(f"FAIL {int(time.time() - t0)}초가 지나도 서버가 뜨지 않았어요 (exe 는 켜져 있음)")
     html = get("/").read().decode("utf-8")
     scripts = [l.split('src="')[1].split('"')[0] for l in html.split("\n") if '<script src="' in l]
     links = [l.split('href="')[1].split('"')[0] for l in html.split("\n") if 'rel="stylesheet"' in l]
