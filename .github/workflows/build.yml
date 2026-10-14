@@ -1,0 +1,56 @@
+# 깃허브에서 exe · 설치 파일 만들기: Actions → build → Run workflow (브랜치 고르기) → 끝나면 아래 Artifacts 에서 받기
+name: build
+
+on:
+  workflow_dispatch:
+  pull_request:   # PR 마다 빌드가 되는지도 확인한다 (받는 방법은 같음)
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 버전 읽기 (rnotes/config.py 의 APP_VERSION)
+        id: ver
+        shell: pwsh
+        run: |
+          $m = Select-String -Path rnotes/config.py -Pattern 'APP_VERSION = "([^"]+)"'
+          if (-not $m) { throw "APP_VERSION 을 찾지 못했어요" }
+          "version=$($m.Matches[0].Groups[1].Value)" >> $env:GITHUB_OUTPUT
+
+      - name: exe 만들기 (build.bat)
+        shell: cmd
+        run: |
+          python -m pip install pyinstaller
+          call build.bat
+
+      - name: exe 점검 (임시 데이터 · 임시 포트)
+        run: python tests/test_exe.py dist/RedmineNotes2.exe
+
+      - name: 설치 파일 만들기 (Inno Setup)
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) {
+            choco install innosetup -y --no-progress
+            $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          }
+          & $iscc "/DAppVer=${{ steps.ver.outputs.version }}" installer\RedmineNotes2.iss
+          if ($LASTEXITCODE -ne 0) { throw "설치 파일을 만들지 못했어요" }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RedmineNotes2-${{ steps.ver.outputs.version }}
+          path: |
+            dist/RedmineNotes2-Setup-*.exe
+            dist/RedmineNotes2.exe
+          if-no-files-found: error
+          retention-days: 30

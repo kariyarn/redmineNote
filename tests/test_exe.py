@@ -30,3 +30,4 @@ finally:
         pass
     time.sleep(1)
 print("PASS" if ok else "FAIL")
+sys.exit(0 if ok else 1)   # 깃허브 Actions 빌드가 실패로 멈추게

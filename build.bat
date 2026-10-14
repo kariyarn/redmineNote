@@ -7,9 +7,10 @@ python -m PyInstaller --noconfirm --clean --onefile --noconsole --name RedmineNo
 if errorlevel 1 (
   echo.
   echo 빌드 실패
-  pause
+  if not defined CI pause
   exit /b 1
 )
 echo.
 echo 완료: %~dp0dist\RedmineNotes2.exe
-pause
+rem 깃허브 Actions(CI)에서 돌릴 때는 멈추지 않는다
+if not defined CI pause
