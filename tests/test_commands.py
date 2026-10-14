@@ -20,17 +20,14 @@ def t(name, cond):
         print("FAIL", name)
 
 
+initial = C.command_list()
+t("new command list starts empty", initial == [])
 a = C.command_save({"shortcut": "  배포요청  ", "description": "운영 서버 배포를 요청드립니다.\n확인 부탁드립니다."})
 t("create trims shortcut and preserves multiline text",
   a["shortcut"] == "배포요청" and a["description"] == "운영 서버 배포를 요청드립니다.\n확인 부탁드립니다." and a["id"] > 0)
 b = C.command_save({"shortcut": "장애", "description": "확인 중입니다."})
 listed = C.command_list()
-t("list sorted by shortcut", [x["shortcut"] for x in listed] == sorted(
-    ["배포요청", "장애", "화요일", "목요일"], key=lambda x: x.lower()))
-weekday = {x["shortcut"]: x["description"] for x in listed if x["shortcut"] in ("화요일", "목요일")}
-t("weekday commands seeded with date placeholders", weekday == dict(C.WEEKDAY_COMMANDS))
-C.command_delete(next(x["id"] for x in listed if x["shortcut"] == "화요일"))
-t("deleted default command is not reseeded", "화요일" not in {x["shortcut"] for x in C.command_list()})
+t("list sorted by shortcut", [x["shortcut"] for x in listed] == ["배포요청", "장애"])
 
 for duplicate in ("배포요청", " 배포요청 "):
     try:
