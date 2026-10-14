@@ -49,6 +49,7 @@ const NAVICON={
   commands:IC('<path d="M4 7h16M4 12h10M4 17h7"/><path d="M18 14v6M15 17h6"/>'),
   trouble:IC('<path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.4 2.4-2.6-.6-.6-2.6z"/>'),
 };
+Object.assign(NAVICON,{vaultCode:NAVICON.code,vaultQuery:NAVICON.queries,vaultCommands:NAVICON.commands});
 const toTop=()=>{const c=$("#center"),l=$("#list");if(c)c.scrollTop=0;if(l)l.scrollTop=0;window.scrollTo(0,0)};
 /* 왼쪽 메뉴: 자주 쓰는 3개(오늘 · 이력 · 내 기록)만 앞에 두고, 나머지는 '더 보기'에 접어 둔다 */
 function renderNav(){

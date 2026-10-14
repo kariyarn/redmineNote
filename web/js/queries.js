@@ -100,7 +100,8 @@ function qvFiltered(){
 }
 function qvDrawList(){
   const list=qvFiltered();
-  const kindRows=queries.filter(x=>(qvKind()==="query")===qvIsQuery(x));
+  const kind=qvKind(),kindText=kind==="query"?"쿼리":"코드";
+  const kindRows=queries.filter(x=>(kind==="query")===qvIsQuery(x));
   const cnt=new Map();kindRows.forEach(x=>{const l=qvLangOf(x);cnt.set(l,(cnt.get(l)||0)+1)});
   $("#qvLangs").innerHTML=[["","전체",kindRows.length],...[...cnt].sort((a,b)=>b[1]-a[1]).map(([l,c])=>[l,langLabel(l),c])].map(([k,l,c])=>`<button type="button" data-qd="${esc(k)}" class="${qvLang===k?"on":""}">${esc(l)} <small>${c}</small></button>`).join("");
   const tags=new Map();kindRows.forEach(x=>x.tags.forEach(g=>tags.set(g,(tags.get(g)||0)+1)));
@@ -108,7 +109,7 @@ function qvDrawList(){
   $("#qvList").innerHTML=list.map(x=>`<div class="tr-item ${x.id===qvSel&&!qvEd?"on":""}" data-qid="${x.id}"><div class="tt">${x.pinned?"📌 ":""}${esc(x.title)}</div>
       <div class="ts">${qvLangPill(x)}${x.use_count?`<span>사용 ${x.use_count}회</span>`:""}${x.tags.slice(0,3).map(g=>`<span class="tg ghost">${esc(g)}</span>`).join("")}</div>
       <div class="sn">${esc((x.purpose.trim()||x.sql.trim()).replace(/\s+/g," ").slice(0,120))}</div>${(x.code_locs.length||x.rm_nos.length)?`<div class="ts">${x.code_locs.slice(0,2).map(l=>`<span class="tg ghost">📄 ${esc(l.length>22?l.slice(0,22)+"…":l)}</span>`).join("")}${x.rm_nos.slice(0,3).map(no=>`<span class="tg ghost">#${no}</span>`).join("")}${x.rm_nos.length>3?`<span>+${x.rm_nos.length-3}</span>`:""}</div>`:""}</div>`).join("")
-    ||`<div class="meta" style="padding:10px 4px">${kindRows.length?"조건에 맞는 항목이 없어요":`아직 보관한 ${kindLabel}가 없어요. ＋ 새 ${kindLabel}로 시작하거나, 노트의 코드 상자에서 ‘📚 보관함’ 을 눌러 보세요`}</div>`;
+    ||`<div class="meta" style="padding:10px 4px">${kindRows.length?"조건에 맞는 항목이 없어요":`아직 보관한 ${kindText}가 없어요. ＋ 새 ${kindText}로 시작하거나, 노트의 코드 상자에서 ‘📚 보관함’ 을 눌러 보세요`}</div>`;
   document.querySelectorAll("#qvLangs [data-qd]").forEach(b=>b.onclick=()=>{qvLang=b.dataset.qd;qvDrawList()});
   document.querySelectorAll("#qvTags [data-tg]").forEach(b=>b.onclick=()=>{qvTag=qvTag===b.dataset.tg?"":b.dataset.tg;qvDrawList()});
   document.querySelectorAll("#qvList [data-qid]").forEach(b=>b.onclick=async()=>{
