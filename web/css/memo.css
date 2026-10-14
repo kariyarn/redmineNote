@@ -16,6 +16,8 @@
   box-shadow:inset 0 2px 14px rgba(70,40,10,.35),0 8px 26px rgba(0,0,0,.12)}
 :root[data-theme=dark] .cork.b-cork{background-color:#8a6a43;border-color:#6b4f2e}
 .cork-empty{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;color:rgba(60,35,10,.7);line-height:1.8;pointer-events:none}
+.cork-sel{position:absolute;z-index:200000;border:2px dashed var(--accent,#3b82f6);border-radius:6px;background:color-mix(in srgb,var(--accent,#3b82f6) 12%,transparent);pointer-events:none}
+.cork-sel.small{border-color:var(--sub,#888);background:transparent}
 .cork-empty b{font-size:1.1rem}.cork-empty[hidden]{display:none}
 .stk{position:absolute;display:flex;flex-direction:column;background:var(--sc,#fff0a0);color:#2b2618;border-radius:3px 3px 8px 3px;box-shadow:0 2px 3px rgba(0,0,0,.18),0 10px 18px rgba(0,0,0,.18);min-width:140px;min-height:110px}
 .stk::before{content:"";position:absolute;left:50%;top:-8px;width:44px;height:16px;margin-left:-22px;background:rgba(255,255,255,.45);border:1px solid rgba(0,0,0,.06);transform:rotate(-2deg);pointer-events:none}

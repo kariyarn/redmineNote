@@ -2,6 +2,7 @@
    레드마인·용어 사전·검색·그래프·요약·코드 이력과 완전히 별개. 하루 = 보드 한 장, Ctrl+N 으로 오늘 보드에 새 포스트잇.
    저장은 서버(내 PC의 notes.db 안 별도 표 `sticky`)에 바로바로 자동으로 된다.
    보드는 포스트잇이 놓인 곳을 따라 상하좌우로 늘어난다 (자리는 음수 좌표도 허용). */
+const STK_MIN={w:140,h:110};   // 포스트잇 최소 크기 (크기 바꾸기 · 끌어서 만들기 공통)
 const STK={yellow:"#faefb0",pink:"#f8d3df",green:"#d5ebc3",blue:"#cfe3f6",orange:"#f9dcb8",purple:"#e4d8f6"};   // 채도를 낮춘 파스텔
 /* 보드 색: 비어 있으면 테마를 따라가고, 고르면 그 색으로 고정. 점·선·안내 글자 색은 바탕 밝기에 맞춰 자동으로 정한다 */
 const BOARD_COLORS=[["","테마 따라가기"],["#ffffff","화이트"],["#fbf4e4","크림"],["#e3f2ea","민트"],["#e1eef9","하늘"],["#ebe5f6","라벤더"],["#f8e6ec","핑크"],["#3a3f47","차콜"],["#d6ad74","코르크 갈색"]];
@@ -76,7 +77,7 @@ async function renderMemoInner(){
       <div class="memo-cal" id="mCal"></div><div class="mcolor" id="mColorPop"></div>
     </div>
     <div class="memo-days" id="mDays"></div><div id="mSearch"></div><div id="mPins"></div>
-    <div class="cork b-${memoBoard()}" id="cork"><div class="cork-empty" id="corkEmpty" hidden><b>이 날의 포스트잇이 없어요</b>빈 곳을 <b>더블클릭</b>하거나 Ctrl+N · ‘＋ 새 포스트잇’으로 바로 적어 보세요.<br>레드마인·검색·사전과 상관없이 나만 보는 메모예요.</div></div>`;
+    <div class="cork b-${memoBoard()}" id="cork"><div class="cork-empty" id="corkEmpty" hidden><b>이 날의 포스트잇이 없어요</b>빈 곳을 <b>더블클릭</b>하거나 <b>끌어서</b> 크기를 그리거나 Ctrl+N · ‘＋ 새 포스트잇’으로 바로 적어 보세요.<br>레드마인·검색·사전과 상관없이 나만 보는 메모예요.</div></div>`;
   try{await loadMemo()}catch(e){toast("메모를 불러오지 못했어요: "+e.message,6000);return}
   if(view!=="memo")return;
   drawMemo();
@@ -107,6 +108,25 @@ async function renderMemoInner(){
     const cork=$("#cork");if(e.target!==cork)return;
     e.preventDefault();const r=cork.getBoundingClientRect();
     newSticky({from:memoDay,at:{x:e.clientX-r.left,y:e.clientY-r.top}});
+  });
+  $("#cork").addEventListener("pointerdown",e=>{   // 빈 보드를 끌면 끈 크기만큼 새 포스트잇 (편집 중일 때는 누르기만 해도 편집이 끝나야 하니 제외)
+    const cork=$("#cork");if(e.button!==0||e.target!==cork)return;
+    const a=document.activeElement;if(a&&a!==document.body&&(a.isContentEditable||/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)))return;
+    e.preventDefault();
+    const r=cork.getBoundingClientRect(),sx=e.clientX-r.left,sy=e.clientY-r.top;let box=null,rc=null;
+    const mv=ev=>{
+      const x=Math.max(0,Math.min(r.width,ev.clientX-r.left)),y=Math.max(0,Math.min(r.height,ev.clientY-r.top));
+      rc={x:Math.min(sx,x),y:Math.min(sy,y),w:Math.abs(x-sx),h:Math.abs(y-sy)};
+      if(!box){if(rc.w<8&&rc.h<8)return;box=document.createElement("div");box.className="cork-sel";cork.appendChild(box)}
+      Object.assign(box.style,{left:rc.x+"px",top:rc.y+"px",width:rc.w+"px",height:rc.h+"px"});
+      box.classList.toggle("small",rc.w<STK_MIN.w||rc.h<STK_MIN.h);
+    };
+    const up=()=>{
+      document.removeEventListener("pointermove",mv);document.removeEventListener("pointerup",up);document.removeEventListener("pointercancel",up);
+      if(!box)return;box.remove();
+      if(rc.w>=40&&rc.h>=30)newSticky({from:memoDay,rect:rc});     // 너무 작게 끈 것은 실수로 보고 만들지 않는다 (최소 크기보다 작으면 최소 크기로)
+    };
+    document.addEventListener("pointermove",mv);document.addEventListener("pointerup",up);document.addEventListener("pointercancel",up);
   });
 }
 function gotoMemo(d){memoDay=d;memoCal.open=false;renderMemo()}
@@ -206,7 +226,7 @@ function mkSticky(sn){
       else if(intoEd&&!ed.hidden)showEdit();};
     document.addEventListener("pointermove",mv);document.addEventListener("pointerup",up);document.addEventListener("pointercancel",up);
   });
-  drag(el.querySelector(".stk-rs"),(o,dx,dy)=>{sn.w=Math.max(140,Math.min(viewW()-sn.x-8,Math.round(o.w+dx)));sn.h=Math.max(110,Math.min(viewH()-sn.y-8,Math.round(o.h+dy)))});
+  drag(el.querySelector(".stk-rs"),(o,dx,dy)=>{sn.w=Math.max(STK_MIN.w,Math.min(viewW()-sn.x-8,Math.round(o.w+dx)));sn.h=Math.max(STK_MIN.h,Math.min(viewH()-sn.y-8,Math.round(o.h+dy)))});
   el.querySelectorAll(".stk-colors i").forEach(i=>i.onclick=()=>{sn.color=i.dataset.c;place();stkSave(sn);el.classList.remove("pick")});
   el.querySelector('[data-a="col"]').onclick=e=>{e.stopPropagation();el.classList.toggle("pick")};     // 글자를 가리지 않게, 팔레트는 머리줄 안에서만 바뀐다
   el.querySelector('[data-a="pin"]').onclick=()=>{sn.pinned=sn.pinned?0:1;el.classList.toggle("pinned",!!sn.pinned);place();stkSave(sn).then(()=>loadPins().then(()=>{if(memoPinsOpen)drawPins(true)}));toast(sn.pinned?"📌 고정했어요 (맨 위 · 자동 배치에서 제외)":"고정을 풀었어요",1800)};
@@ -307,12 +327,12 @@ async function pickRange(init,title){
 }
 async function newSticky(opts={}){
   const target=opts.from||todayStr();
-  if(nav!=="memo"){memoDay=target;setNav("memo");await memoReady}      // 어느 화면에서든: 메모 화면의 오늘(또는 시작일) 보드로 이동한 뒤 만든다
+  if(nav!=="memo"){memoDay=target;setNav("memo",{keepDay:true});await memoReady}      // 어느 화면에서든: 메모 화면의 오늘(또는 시작일) 보드로 이동한 뒤 만든다
   else if(memoDay!==target){memoDay=target;await renderMemo()}
-  const W=Math.min(230,viewW()-24),H=Math.min(200,viewH()-24),cols=Object.keys(STK),
-    pos=opts.at?{x:opts.at.x-W/2,y:opts.at.y-18,free:true}:freeSpot(W,H,memoList);   // 더블클릭한 자리 / 보드 어디든 무작위, 가능하면 겹치지 않는 자리
+  const rc=opts.rect,W=rc?Math.max(STK_MIN.w,Math.round(rc.w)):Math.min(230,viewW()-24),H=rc?Math.max(STK_MIN.h,Math.round(rc.h)):Math.min(200,viewH()-24),cols=Object.keys(STK),
+    pos=rc?{x:rc.x,y:rc.y,free:true}:opts.at?{x:opts.at.x-W/2,y:opts.at.y-18,free:true}:freeSpot(W,H,memoList);   // 끌어서 그린 자리 / 더블클릭한 자리 / 보드 어디든 무작위, 가능하면 겹치지 않는 자리
   const sn={id:null,day:memoDay,until:opts.to&&opts.to>memoDay?opts.to:"",text:"",color:cols[Math.floor(Math.random()*cols.length)],x:pos.x,y:pos.y,w:W,h:H,z:++memoZ,pinned:0};
-  if(opts.at)clampSn(sn);     // 보드 밖으로 나가지 않게
+  if(opts.at||rc)clampSn(sn);     // 보드 밖으로 나가지 않게
   memoList.push(sn);if(!pos.free)toast("보드가 가득 찼어요 — 겹쳐서 붙였어요. 정리(정렬)하거나 안 쓰는 메모를 지워 주세요",4200);
   await stkSave(sn,true);                     // 먼저 만들어 id 를 받는다 (빈 칸으로 새로 고침해도 남는다)
   memoDays=await api("/api/sticky/days").catch(()=>memoDays);drawMemo();

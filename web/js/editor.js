@@ -81,6 +81,8 @@ function mkText(s){
   d.contentEditable="plaintext-only";if(d.contentEditable!=="plaintext-only")d.contentEditable="true";
   d.spellcheck=false;fillText(d,s);
   d.addEventListener("keydown",e=>{
+    if(e.key==="`"&&!e.ctrlKey&&!e.altKey&&!e.metaKey&&!e.isComposing&&wrapSel(d,e))return;
+    if(e.key!=="`")d._bq=null;
     if(e.key!=="Enter"||e.isComposing)return;
     e.preventDefault();
     const g=getSelection(),c=g.anchorNode&&g.anchorNode.parentElement&&g.anchorNode.parentElement.closest("code.ic");
@@ -93,6 +95,37 @@ function mkText(s){
   d.addEventListener("input",e=>{if(!e.isComposing)processText(d)});
   d.addEventListener("compositionend",()=>processText(d));
   return d;
+}
+/* 글자를 끌어서 고른 뒤 ` 를 누르면: 한 번 = 작은 코드(`글자`), 이어서 세 번째(```)까지 누르면 = 큰 코드 상자.
+   여러 줄을 골랐으면 작은 코드가 될 수 없으니 바로 큰 코드 상자로 바꾼다. */
+const BQ_S="\uE000",BQ_E="\uE001";
+function wrapSel(tb,e){
+  const g=getSelection();if(!g.rangeCount||g.isCollapsed)return false;
+  const r=g.getRangeAt(0),root=tb.parentElement;if(!tb.contains(r.startContainer)||!tb.contains(r.endContainer))return false;
+  const inCode=n=>(n.nodeType===3?n.parentElement:n).closest("code.ic"),cs=inCode(r.startContainer),ce=inCode(r.endContainer);
+  e.preventDefault();
+  if(cs&&cs===ce){      // 이미 작은 코드인 글자를 골라 ` 를 또 누름: 세 번째에서 큰 코드 상자로
+    const q=tb._bq&&tb._bq.code===cs?tb._bq:(tb._bq={code:cs,n:1});
+    if(++q.n<3)return true;
+    tb._bq=null;cs.replaceWith(document.createTextNode(BQ_S+cs.textContent+BQ_E));
+  }else{
+    if(cs)r.setStartBefore(cs);if(ce)r.setEndAfter(ce);    // 코드 모양에 걸쳐 고르면 그 코드까지 통째로
+    const en=r.cloneRange();en.collapse(false);en.insertNode(document.createTextNode(BQ_E));
+    r.insertNode(document.createTextNode(BQ_S));
+  }
+  const s=serText(tb),i=s.indexOf(BQ_S),j=s.indexOf(BQ_E);
+  const pre=s.slice(0,i),body=s.slice(i+1,j).replace(/`/g,""),post=s.slice(j+1);
+  if(!body.trim()){fillText(tb,pre+body+post);return true}
+  if(/\n/.test(body)||cs&&cs===ce){   // 큰 코드 상자: 위아래 줄을 나눠 ``` 로 감싼다
+    tb._bq=null;const pre2=pre.replace(/[ \t]+$/,""),post2=post.replace(/^[ \t]+/,"");   // 줄 가운데서 바꾸면 상자 앞뒤에 남는 공백은 버린다
+    convertBlock(tb,pre2+(pre2&&!pre2.endsWith("\n")?"\n":"")+"```\n"+body.replace(/^\n+|\n+$/g,"")+"\n```"+(post2&&!post2.startsWith("\n")?"\n":"")+post2);
+  }else{                               // 작은 코드: 그 자리에서 코드 모양으로 바꾸고, 고른 상태는 그대로 둔다 (` 를 두 번 더 누르면 큰 상자)
+    fillText(tb,pre+"`"+body+"`"+post);
+    const code=tb.querySelectorAll("code.ic")[(pre.match(/`[^`\n]+`/g)||[]).length];
+    if(code){g.removeAllRanges();const rr=document.createRange();rr.selectNodeContents(code);g.addRange(rr);tb._bq={code,n:1}}
+  }
+  root.dispatchEvent(new Event("input",{bubbles:true}));   // 저장(자동 저장 · 초안)이 바뀐 글을 알게 한다
+  return true;
 }
 function processText(tb){
   if(!tb.isConnected||!tb.parentElement)return;      // 이미 코드 상자로 바뀌어 사라진 입력칸에 남은 이벤트는 무시
