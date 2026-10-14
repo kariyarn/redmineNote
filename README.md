@@ -7,6 +7,14 @@
 ![deps](https://img.shields.io/badge/dependencies-none-brightgreen)
 ![license](https://img.shields.io/badge/license-MIT-green)
 
+### ⬇️ 최신 버전 내려받기
+
+**[설치 파일 (RedmineNotes2-Setup.exe)](https://github.com/kariyarn/redmineNote/releases/latest/download/RedmineNotes2-Setup.exe)** — 권장 · 다시 설치하면 새 버전으로 덮어씀 · 데이터는 그대로
+· [exe 만 (RedmineNotes2.exe)](https://github.com/kariyarn/redmineNote/releases/latest/download/RedmineNotes2.exe)
+· [모든 버전](https://github.com/kariyarn/redmineNote/releases)
+
+> 새 버전 올리기: **Actions → build → Run workflow** 를 `main` 에서 돌리면 위 링크가 그 파일로 바뀝니다.
+
 ## 이런 도구입니다
 
 - **내 일감을 노트로**: 레드마인에서 내 일감을 내려받아, 일감마다 처리 내용 · 고친 코드 · 판단 이유를 적어 둡니다.

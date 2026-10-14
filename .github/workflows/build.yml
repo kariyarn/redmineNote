@@ -1,4 +1,5 @@
 # 깃허브에서 exe · 설치 파일 만들기: Actions → build → Run workflow (브랜치 고르기) → 끝나면 아래 Artifacts 에서 받기
+# main 에서 Run workflow 로 돌리면 Releases 에 v<버전> 으로도 올린다 → README 맨 위 '최신 버전 내려받기' 링크가 늘 이 파일을 가리킨다
 name: build
 
 on:
@@ -6,7 +7,7 @@ on:
   pull_request:   # PR 마다 빌드가 되는지도 확인한다 (받는 방법은 같음)
 
 permissions:
-  contents: read
+  contents: write   # Releases 에 올리기 (main 에서 직접 돌릴 때만 쓴다)
 
 jobs:
   build:
@@ -78,3 +79,25 @@ jobs:
             dist/RedmineNotes2.exe
           if-no-files-found: error
           retention-days: 30
+
+      - name: Releases 에 올리기 (main 에서 Run workflow 로 돌렸을 때만)
+        if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VER: ${{ steps.ver.outputs.version }}
+        run: |
+          # 파일 이름을 고정해 두면 .../releases/latest/download/<이름> 이 늘 최신 파일을 가리킨다
+          New-Item -ItemType Directory -Force rel | Out-Null
+          Copy-Item "dist\RedmineNotes2-Setup-$env:VER.exe" rel\RedmineNotes2-Setup.exe
+          Copy-Item dist\RedmineNotes2.exe rel\RedmineNotes2.exe
+          $tag = "v$env:VER"
+          gh release view $tag *> $null
+          if ($LASTEXITCODE -eq 0) {
+            "같은 버전($tag)이 이미 있어서 파일만 새로 바꿔 올려요"
+            gh release upload $tag rel\RedmineNotes2-Setup.exe rel\RedmineNotes2.exe --clobber
+          } else {
+            gh release create $tag rel\RedmineNotes2-Setup.exe rel\RedmineNotes2.exe --target $env:GITHUB_SHA --title "레드마인 노트 $env:VER" --notes "설치 파일: RedmineNotes2-Setup.exe (권장) · exe 만: RedmineNotes2.exe. 바뀐 내용은 docs/CHANGELOG.md 참고." --latest
+          }
+          if ($LASTEXITCODE -ne 0) { throw "Releases 에 올리지 못했어요" }
+          $global:LASTEXITCODE = 0
