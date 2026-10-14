@@ -14,6 +14,13 @@ function cmdPut(row){
   if(i<0)cmdItems.push(row);else cmdItems[i]=row;
   cmdSort();
 }
+function cmdExpandDates(text,now=new Date()){
+  return text.replace(/#\{next(Tue|Thu)\}/g,(_,day)=>{
+    const target=day==="Tue"?2:4,offset=(target-now.getDay()+7)%7;
+    const date=new Date(now.getFullYear(),now.getMonth(),now.getDate()+offset);
+    return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`;
+  });
+}
 const cmdSig=d=>JSON.stringify([d.shortcut,d.description]);
 const cmdDirty=()=>!!(cmdDraft&&$("#cmdShortcut")&&cmdSig({shortcut:$("#cmdShortcut").value,description:$("#cmdDescription").value})!==cmdDraft._base);
 function cmdPaintComposer(c){
@@ -28,7 +35,8 @@ function cmdPaintComposer(c){
   box.querySelectorAll("[data-cmd-id]").forEach(b=>b.onclick=()=>{
     const item=cmdItems.find(x=>x.id===+b.dataset.cmdId),ta=c.querySelector(".cmta");
     if(!item||!ta)return;
-    const current=edGet(ta),next=current?current+(current.endsWith("\n")?"":"\n")+item.description:item.description;
+    const description=cmdExpandDates(item.description);
+    const current=edGet(ta),next=current?current+(current.endsWith("\n")?"":"\n")+description:description;
     edInit(ta,next);setDraft(nIssueId(c),edGet(ta));syncComposers(curNote(),ta);
     const last=ta.querySelector(".tb:last-of-type")||ta.lastElementChild;if(last&&last.focus)last.focus();
   });
@@ -83,6 +91,7 @@ function cmdDrawMain(){
       <input type="text" id="cmdShortcut" maxlength="40" placeholder="예) 배포요청" value="${esc(cmdDraft.shortcut)}">
       <label class="tr-lab" for="cmdDescription">댓글에 넣을 설명 문구</label>
       <textarea id="cmdDescription" rows="8" maxlength="20000" placeholder="예) 운영 서버 배포를 요청드립니다.">${esc(cmdDraft.description)}</textarea>
+      <div class="meta">날짜 자동 입력: <code>#{nextTue}</code>는 돌아오는 화요일, <code>#{nextThu}</code>는 돌아오는 목요일 날짜로 바뀝니다.</div>
       <div class="row" style="margin-top:14px"><button type="button" class="primary" id="cmdSave">저장</button><button type="button" id="cmdCancel">취소</button></div></div>`;
     $("#cmdSave").onclick=async()=>{
       try{

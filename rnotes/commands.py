@@ -5,12 +5,44 @@ import sqlite3
 from .storage import db
 
 
+WEEKDAY_COMMANDS = (
+    ("화요일", """안녕하세요 개발팀 장재우입니다.
+
+요청주신 "" 완료되었습니다.
+현재 스테이징 FO에 반영된 상태이며 추가 요청사항 없을 시 #{nextTue}(화) 14:00 정기배포 이후 운영 FO에 반영될 예정이니 참고바랍니다.
+
+확인해주시고 문의사항 있으시면 연락주시길 바랍니다.
+감사합니다."""),
+    ("목요일", """안녕하세요 개발팀 장재우입니다.
+
+요청주신 "" 완료되었습니다.
+현재 스테이징 FO에 반영된 상태이며 추가 요청사항 없을 시 #{nextThu}(목) 14:00 정기배포 이후 운영 FO에 반영될 예정이니 참고바랍니다.
+
+확인해주시고 문의사항 있으시면 연락주시길 바랍니다.
+감사합니다."""),
+)
+
+
 def command_row(row):
     return {key: row[key] for key in ("id", "shortcut", "description", "created_at", "updated_at")}
 
 
 def command_list():
     with db() as c:
+        seeded = c.execute(
+            "SELECT value FROM settings WHERE key='weekday_commands_seeded'"
+        ).fetchone()
+        if not seeded:
+            now = datetime.datetime.now().isoformat(timespec="seconds")
+            for shortcut, description in WEEKDAY_COMMANDS:
+                c.execute(
+                    "INSERT OR IGNORE INTO commands (shortcut, description, created_at, updated_at) "
+                    "VALUES (?,?,?,?)",
+                    (shortcut, description, now, now),
+                )
+            c.execute(
+                "INSERT INTO settings (key,value) VALUES ('weekday_commands_seeded','1')"
+            )
         return [command_row(row) for row in c.execute(
             "SELECT * FROM commands ORDER BY shortcut COLLATE NOCASE, id LIMIT 5000"
         )]
