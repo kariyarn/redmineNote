@@ -8,6 +8,7 @@ import urllib.parse
 import urllib.request
 import webbrowser
 
+from .autosync import autosync_loop
 from .config import DATA_DIR, FROZEN, IDLE_QUIT_SEC, PORT, STATE
 from .http_handler import Handler, Server
 from .lifecycle import alarm_loop, idle_watchdog, open_browser, start_tray
@@ -46,6 +47,7 @@ def run():
     start_tray()
     open_browser()
     threading.Thread(target=alarm_loop, daemon=True).start()
+    threading.Thread(target=autosync_loop, daemon=True).start()   # 자동 가져오기 (켜져 있을 때만 가져온다)
     if IDLE_QUIT_SEC > 0:
         STATE["last_ping"] = time.time()
         threading.Thread(target=idle_watchdog, daemon=True).start()

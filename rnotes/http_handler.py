@@ -17,6 +17,7 @@ from http.server import ThreadingHTTPServer
 from pathlib import Path
 
 from .alarms import alarm_ack, alarms_due, future_notice, sticky_calendar
+from .autosync import status as autosync_status
 from .config import WEB_DIR, APP_VERSION, BACKUP_DIR, DATA_DIR, DB_PATH, DEFAULT_URL, FONT_DIR, FONT_EXT, FROZEN, HOME_DIR, MAX_UPLOAD, POINTER_PATH, PORT, SETTING_KEYS, STATE, conn
 from .fonts import font_files
 from .lifecycle import open_or_notify, shutdown
@@ -25,6 +26,8 @@ from .rm_deploy import deploy_issues, deploy_state, rm_peek, rm_projects, rm_sea
 from .rm_write import do_write, preview_write, refresh_local, rm_attachments, write_info
 from .sticky import sticky_row, sticky_save
 from .storage import backup_path, configured, db, get_settings, list_backups, note_count, restore_bytes, save_config, snapshot_zip, stamp
+from .holiday_api import HolidayApiError, fetch_and_store, week_start
+from .holiday_api import status as holiday_status
 from .holidays import extra_days, holiday_dates
 from .queries import query_delete, query_import, query_list, query_pin, query_restore, query_save, query_use, query_versions
 from .commands import command_delete, command_list, command_save
@@ -159,6 +162,9 @@ class Handler(BaseHTTPRequestHandler):
             STATE["alarm_poll"] = time.time()
             STATE["alarm_hidden"] = q.get("hidden") == "1"
             self.send_json({"alarms": alarms_due(), "notice": future_notice(), "server_started": STATE["started"], "now": datetime.datetime.now().isoformat(timespec="seconds")})
+        elif u.path == "/api/autosync":         # 자동 가져오기 상태 + since 뒤의 결과들 (화면이 30초마다 가져간다)
+            since = q.get("since")
+            self.send_json(autosync_status(int(since) if since and since.lstrip("-").isdigit() else None))
         elif u.path == "/api/holidays":         # 그 해의 공휴일(내장 표 + 설정의 추가 휴일). 달력 표시용
             try:
                 self.send_json(holiday_dates(int(q.get("year") or datetime.date.today().year), extra_days(get_settings().get("holiday_extra"))))
@@ -487,6 +493,12 @@ class Handler(BaseHTTPRequestHandler):
                     self.send_json(trouble_save(d))
                 except ValueError as e:
                     self.send_json({"error": str(e)}, 400)
+            elif u.path == "/api/holiday/fetch":   # 이번 주 공휴일을 지금 받기
+                try:
+                    fetch_and_store(week_start(datetime.date.today()))
+                except HolidayApiError as e:
+                    return self.send_json({"error": str(e)}, 502)
+                self.send_json(holiday_status())
             elif u.path == "/api/rm/refresh":   # 일감 1건을 레드마인에서 다시 읽어 저장 (읽기 전용: 레드마인에서 지운 댓글·바뀐 상태 반영)
                 try:
                     iid = int(d.get("issue_id") or 0)

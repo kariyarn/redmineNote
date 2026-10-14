@@ -9,6 +9,8 @@ async function renderSettings(){
   const keepTop=$("#modal").classList.contains("show")&&$("#modal .mbox")?$("#modal .mbox").scrollTop:0;     // 테마·노트 모양을 눌러 다시 그릴 때 보던 자리를 유지한다
   let bks=[];try{bks=await api("/api/backups")}catch(e){}
   let wlog=[];try{wlog=await api("/api/write/log?limit=12")}catch(e){}
+  let ast=autoSync.st;try{ast=await api("/api/autosync")}catch(e){}      // 자동 가져오기 · 공휴일 상태 (서버가 알려 준 값)
+  const aw=(ast&&ast.window)||["08:30","18:30"],hs=(ast&&ast.holiday)||{key_set:false,days:[],week:["",""]};
   const wc=wcfg(),names=extraNames();
   $("#modal").innerHTML=`<div class="mbox">
    <div class="mhead"><h3>설정</h3><button class="icon" id="mclose">✕</button></div>
@@ -23,6 +25,15 @@ async function renderSettings(){
    <div class="msec"><h4>시작 설정</h4>
      <div class="desc">서버를 켠 뒤 처음 화면을 열 때 한 번만 실행됩니다. 이미 받은 일감은 다시 내려받지 않고, 바뀐 것만 갱신합니다.</div>
      <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="sAuto" ${S.auto_check==="1"?"checked":""}> 처음 열 때 최근 7일 동안 바뀐 일감을 자동으로 확인</label></div>
+
+   <div class="msec"><h4>자동 가져오기</h4>
+     <div class="desc">정한 간격마다 레드마인에서 바뀐 일감을 가져옵니다. 창을 최소화하거나 닫아 <b>트레이에만 있어도</b> 동작하고, <b>영업일(토 · 일 · 공휴일 제외) ${aw[0]} ~ ${aw[1]}</b> 에만 가져옵니다. 켜 두면 창을 닫아도 프로그램이 스스로 꺼지지 않습니다 (트레이 아이콘 우클릭 → 서버 닫기, 또는 Ctrl+Q).</div>
+     <div class="frow"><label>간격</label><input type="number" id="sAutoSync" min="0" max="1440" step="5" value="${autoSyncMin()}" style="width:5.5rem;flex:none"> 분마다 (0 = 끔, 최소 ${AUTO_SYNC_MIN}분)</div>
+     <div class="frow"><label>가져올 기간</label><input type="number" id="sAutoDays" min="1" max="${AUTO_SYNC_MAX_DAYS}" value="${autoSyncDays()}" style="width:5.5rem;flex:none"> 일 (최근 N일 동안 바뀐 일감 · 1 = 오늘만 · 최대 ${AUTO_SYNC_MAX_DAYS}일)</div>
+     <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="sAutoNotify" ${autoSyncNotify()?"checked":""}> 새 일감이 들어오면 알림 (창이 보이면 알림 창, 최소화 · 트레이에 있으면 윈도우 알림)</label>
+     <div class="desc">마지막으로 가져온 때부터 시간을 잽니다. 한 번도 가져온 적이 없으면 시작하지 않으니, 처음에는 왼쪽 <b>가져오기</b>로 직접 받아 주세요. 글을 쓰는 중에는 화면을 다시 그리지 않고 기다렸다가 반영합니다.</div>
+     <div class="frow"><label>공휴일</label><span class="meta" style="flex:1">공공데이터포털 <b>한국천문연구원_특일 정보</b>(공휴일 정보 조회)로 <b>매주 첫 영업일</b>에 그 주(월 ~ 일) 공휴일만 받아요 (인증키 내장, 넣을 필요 없음)</span><button type="button" id="sHolFetch">이번 주 다시 받기</button></div>
+     <div class="desc">${holidayLine(hs)}</div></div>
 
    <div class="msec"><h4>경고 · 그래프 기준</h4>
      <div class="desc">⏳ 표시는 레드마인에서 <b>마지막으로 수정된 날</b>부터 지난 일수 기준입니다.</div>
@@ -127,6 +138,19 @@ async function renderSettings(){
     go();
   };
   q("#sAuto").onchange=e=>{saveS("auto_check",e.target.checked?"1":"0");toast(e.target.checked?"처음 열 때 최근 7일 변경을 확인합니다":"처음 열 때 자동 확인을 끕니다",2500)};
+  q("#sAutoSync").onchange=async e=>{
+    const raw=parseInt(e.target.value,10)||0,v=raw>0?Math.max(AUTO_SYNC_MIN,Math.min(1440,raw)):0;e.target.value=v;
+    await saveS("auto_sync_min",v);await autoSyncPoll();
+    toast(!v?"자동 가져오기를 껐어요":`${raw<AUTO_SYNC_MIN?`레드마인 부하를 줄이려고 최소 ${AUTO_SYNC_MIN}분으로 맞췄어요 · `:""}${v}분마다 자동으로 가져와요${S.last_sync?"":" (처음 한 번은 왼쪽 가져오기로 직접 받아 주세요)"}`,4000)};
+  const holToast=h=>h.days.length?h.days.map(d=>`${d.date.slice(5)} ${d.name}`).join(", "):"이번 주 공휴일 없음";
+  if(q("#sHolFetch"))q("#sHolFetch").onclick=async()=>{
+    try{const h=await post("/api/holiday/fetch",{});toast(`이번 주 공휴일을 받았어요 (${holToast(h)})`,4000)}catch(e){toast("공휴일을 받지 못했어요: "+e.message,10000)}
+    await autoSyncPoll();renderSettings()};
+  q("#sAutoNotify").onchange=e=>{saveS("auto_sync_notify",e.target.checked?"1":"0");toast(e.target.checked?"새 일감이 들어오면 알려 줘요":"새 일감 알림을 껐어요 (알림 없이 목록에만 반영해요)",2600)};
+  q("#sAutoDays").onchange=async e=>{
+    const v=Math.max(1,Math.min(AUTO_SYNC_MAX_DAYS,parseInt(e.target.value,10)||AUTO_SYNC_MAX_DAYS));e.target.value=v;
+    await saveS("auto_sync_days",v);await autoSyncPoll();
+    toast(v===1?"자동 가져오기는 오늘 바뀐 일감만 받아요":`자동 가져오기는 최근 ${v}일 동안 바뀐 일감을 받아요`,2600)};
   q("#sHol").onchange=async e=>{await saveS("holiday_extra",e.target.value.trim());sbc.hol=null;sbcLoad();toast("추가 휴일을 저장했어요",1800)};
   q("#sWatch").onchange=async e=>{await saveS("watch_auto_days",Math.max(0,Math.min(365,parseInt(e.target.value,10)||0)));renderList()};
   q("#sStale").onchange=async e=>{await saveS("stale_days",Math.max(1,Math.min(365,parseInt(e.target.value,10)||7)));renderTabs();renderList()};

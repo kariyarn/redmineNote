@@ -203,7 +203,8 @@ function renderLastSync(){
   let i=null;try{i=JSON.parse(S.last_sync||"null")}catch(e){}
   const el=$("#lastsync");
   if(!i){el.textContent="아직 가져온 적이 없어요";return}
-  el.innerHTML=`${esc(i.at.slice(5))} 가져옴 · ${i.found}건${i.added?` · 신규 ${i.added}`:""}${i.failed?` · <a href="#" id="syncbad" class="bad">확인 필요 ${i.failed}</a>`:""}${i.skipped?` · <a href="#" id="syncskip">건너뜀 ${i.skipped}</a>`:""}`;
+  const ast=autoSync.st&&autoSync.st.enabled?autoSync.st:null;      // 자동 가져오기가 켜져 있으면 간격 (마우스를 올리면 기간 · 시간대 · 다음 예정 시각)
+  el.innerHTML=`${esc(i.at.slice(5))} 가져옴 · ${i.found}건${i.added?` · 신규 ${i.added}`:""}${i.failed?` · <a href="#" id="syncbad" class="bad">확인 필요 ${i.failed}</a>`:""}${i.skipped?` · <a href="#" id="syncskip">건너뜀 ${i.skipped}</a>`:""}${ast?` · <span title="${esc(autoSyncTip(ast))}">자동 ${ast.minutes}분</span>`:""}`;
   if($("#syncbad"))$("#syncbad").onclick=e=>{e.preventDefault();showSyncReport()};
   if($("#syncskip"))$("#syncskip").onclick=e=>{e.preventDefault();showSyncReport()};
 }
