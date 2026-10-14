@@ -18,6 +18,7 @@ WNDPROC = ctypes.WINFUNCTYPE(LRESULT, wintypes.HWND, wintypes.UINT, wintypes.WPA
 WM_DESTROY, WM_NULL, WM_COMMAND, WM_USER = 0x0002, 0x0000, 0x0111, 0x0400
 WM_LBUTTONUP, WM_LBUTTONDBLCLK, WM_RBUTTONUP, WM_CONTEXTMENU = 0x0202, 0x0203, 0x0205, 0x007B
 WM_TRAY = WM_USER + 1
+NIN_BALLOONUSERCLICK = WM_USER + 5   # 말풍선(윈도우 10 에서는 알림 센터 알림)을 눌렀을 때
 NIM_ADD, NIM_MODIFY, NIM_DELETE = 0, 1, 2
 NIF_MESSAGE, NIF_ICON, NIF_TIP, NIF_INFO = 0x1, 0x2, 0x4, 0x10
 NIIF_INFO = 0x1
@@ -139,7 +140,7 @@ def _menu(hwnd):
 def _wndproc(hwnd, msg, wp, lp):
     if msg == WM_TRAY:
         ev = lp & 0xFFFF
-        if ev in (WM_LBUTTONUP, WM_LBUTTONDBLCLK):
+        if ev in (WM_LBUTTONUP, WM_LBUTTONDBLCLK, NIN_BALLOONUSERCLICK):   # 알림을 눌러도 창을 연다 (열려 있으면 앞으로)
             _call(_S["open"])
         elif ev in (WM_RBUTTONUP, WM_CONTEXTMENU):
             _menu(hwnd)

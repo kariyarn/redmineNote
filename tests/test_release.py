@@ -1,9 +1,11 @@
 """시험 모드 해제 후 + 줄바꿈 변환 + 첨부파일 (가짜 레드마인만 사용)"""
-import json, os, urllib.parse, subprocess, sys, tempfile, time, urllib.request, urllib.error
+import datetime, json, os, urllib.parse, subprocess, sys, tempfile, time, urllib.request, urllib.error
 SP = os.path.dirname(os.path.abspath(__file__)); SRV = sys.argv[1]
 FP, AP = int(os.environ.get("RN_FAKE_PORT") or 18951), int(os.environ.get("RN_APP_PORT") or 18952)   # 다른 시험과 겹치면 환경변수로 바꾼다
 home = tempfile.mkdtemp(prefix="rn2-rel-")
-env = dict(os.environ, REDMINE_NOTES_HOME=home, REDMINE_NOTES_PORT=str(AP), REDMINE_NOTES_IDLE_SEC="0", REDMINE_NOTES_NO_APPWIN="1", PYTHONIOENCODING="utf-8")
+env = dict(os.environ, REDMINE_NOTES_HOME=home, REDMINE_NOTES_PORT=str(AP), REDMINE_NOTES_IDLE_SEC="0", REDMINE_NOTES_NO_APPWIN="1", PYTHONIOENCODING="utf-8",
+           REDMINE_NOTES_HOLIDAY_API=f"http://127.0.0.1:{FP}/B090041/openapi/service/SpcdeInfoService",   # 공휴일 API 도 가짜 서버로
+           REDMINE_NOTES_HOLIDAY_KEY="good-holiday-key")   # 시험 키 (코드에 고정된 실제 키가 가짜 서버로 가지 않게)
 env.pop("REDMINE_NOTES_WRITE_ALLOW", None)
 json.dump({"url": f"http://127.0.0.1:{FP}", "api_key": "good-key", "dev_field_id": "18"}, open(os.path.join(home, "config.json"), "w", encoding="utf-8"))
 fake = subprocess.Popen([sys.executable, os.path.join(SP, "fake_rm_write.py"), str(FP)])
@@ -168,5 +170,22 @@ try:
     r302 = [x for x in notes if x["issue_id"] == 302][0]["roles"].split(","); r300 = [x for x in notes if x["issue_id"] == 300][0]["roles"].split(",")
     chk("동기화 뒤에도 '추가됨' 유지(+새 역할 합쳐짐)", "추가됨" in r302 and "담당자" in r302, r302)
     chk("동기화 뒤에도 '배포요청' 유지", "배포요청" in r300, r300)
+    # 자동 가져오기 (2.15): 간격(분) · 기간(일)은 설정 허용 목록에 있어야 저장되고, /api/autosync 가 상태를 알려 준다
+    s, a0 = call("GET", "/api/autosync")
+    chk("자동 가져오기 기본은 꺼짐", s == 200 and a0["enabled"] is False and a0["minutes"] == 0 and a0["days"] == 7 and a0["window"] == ["08:30", "18:30"] and a0["runs"] == [], a0)
+    s, st = call("POST", "/api/settings", {"auto_sync_min": "10", "auto_sync_days": "3", "auto_sync_notify": "0", "not_a_setting": "x"})
+    chk("자동 가져오기 설정 저장 (허용 목록 밖 키는 무시)", s == 200 and st.get("auto_sync_min") == "10" and st.get("auto_sync_days") == "3" and st.get("auto_sync_notify") == "0" and "not_a_setting" not in st, st)
+    s, a1 = call("GET", "/api/autosync?since=0")
+    chk("자동 가져오기 켜짐 상태", s == 200 and a1["enabled"] is True and a1["minutes"] == 10 and a1["days"] == 3 and isinstance(a1["runs"], list), a1)
+    # 공휴일 API (한국천문연구원 특일 정보, 가짜): 인증키는 코드에 고정(사용자 입력 없음) · 어떤 응답에도 나오지 않는다. 이번 주(월 ~ 일) 공휴일만 받는다
+    chk("공휴일: 인증키 내장 · 아직 안 받음 · 새 일감 알림 끔(방금 설정)", a1["holiday"]["key_set"] is True and a1["holiday"]["fetched"] is False and a1["notify"] is False, a1)
+    s, r = call("POST", "/api/holiday/key", {"key": "x"}); chk("인증키 저장 경로는 없음 (고정 키)", s == 404, r)
+    s2, h = call("POST", "/api/holiday/fetch", {})
+    tdy = datetime.date.today(); mon = tdy - datetime.timedelta(days=tdy.weekday()); wk = {(mon + datetime.timedelta(days=i)).isoformat() for i in range(7)}
+    chk("이번 주 공휴일만 받음 (공휴일 아닌 날 · 주 밖은 빼고)", s2 == 200 and h["fetched"] and {"date": tdy.isoformat(), "name": "가짜 휴일(오늘)"} in h["days"]
+        and all(x["date"] in wk for x in h["days"]) and not any("기념일" in x["name"] for x in h["days"]) and h["error"] == "", h)
+    s, a2 = call("GET", "/api/autosync"); s3, sts = call("GET", "/api/settings")
+    chk("오늘이 공휴일이면 쉬는 날", a2["holiday"]["today_off"] is True, a2["holiday"])
+    chk("인증키는 화면 · 설정 응답에 없음", "good-holiday-key" not in json.dumps([a2, sts, h], ensure_ascii=False), sts.keys())
 finally:
     app.terminate(); fake.terminate(); print("ALL PASS" if ok else "SOME FAILED")

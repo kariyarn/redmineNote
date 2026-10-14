@@ -6,6 +6,7 @@ import time
 import webbrowser
 
 from .alarms import ALARM_TICK, alarm_pending, alarms_due
+from .autosync import enabled as autosync_enabled
 from .config import ALIVE_SEC, APP_DIR, APP_VERSION, FROZEN, HOME_DIR, IDLE_QUIT_SEC, PORT, RUN, STATE
 
 
@@ -13,7 +14,7 @@ def idle_watchdog():
     """앱 창을 닫으면 서버는 트레이에 남고, 창도 화면 신호도 없이 IDLE_QUIT_SEC(기본 10분)이 지나면 서버를 끈다."""
     while True:
         time.sleep(15)
-        if app_window_open() or alarm_pending():   # 앞으로 울릴 알림이 있으면 창이 없어도 서버를 켜 둔다
+        if app_window_open() or alarm_pending() or autosync_enabled():   # 앞으로 울릴 알림이 있거나 자동 가져오기가 켜져 있으면 창이 없어도 서버를 켜 둔다
             STATE["last_active"] = time.time()
         if time.time() - max(STATE["last_ping"], STATE["last_active"]) > IDLE_QUIT_SEC:
             shutdown()

@@ -3,6 +3,7 @@ import datetime
 import json
 import re
 import sqlite3
+import threading
 import time
 import urllib.error
 import urllib.parse
@@ -327,9 +328,17 @@ def fetch_linked(c, failed, limit=LINKED_LIMIT, passes=2):
     return added
 
 
+SYNC_LOCK = threading.Lock()   # 가져오기는 한 번에 하나씩 (직접 가져오기와 자동 가져오기가 겹치지 않게)
+
+
 def sync(date_from, date_to):
     """내가 담당자 / 개발담당자 / 관람자인 일감만 가져온다. 연결된 다른 일감은 자동으로 받지 않는다
-    (필요하면 노트 안의 '연결된 일감'에서 한 건씩 눌러서 받는다)."""
+    (필요하면 노트 안의 '연결된 일감'에서 한 건씩 눌러서 받는다). 다른 가져오기가 돌고 있으면 끝날 때까지 기다린다."""
+    with SYNC_LOCK:
+        return _sync(date_from, date_to)
+
+
+def _sync(date_from, date_to):
     try:
         ensure_daily_backup()  # 가져오기 전에 하루 한 번 자동 백업
     except Exception:
