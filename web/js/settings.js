@@ -67,7 +67,9 @@ async function renderSettings(){
 
    <div class="msec"><h4>화면 디자인</h4>
      <div class="desc"><b>새 디자인</b>은 선 아이콘 · 밑줄 탭 · 묶은 메뉴로 화면을 덜어 낸 모양이에요. 정리 기록 자동 저장, 댓글 상태 선택칸, 목록형 오늘 화면 같은 몇 가지 동작도 함께 바뀌어요. 누르면 바로 바뀌고, 언제든 기존으로 돌아갈 수 있어요. 저장된 데이터는 똑같아요.</div>
-     <div class="row" style="margin:0"><div class="seg"><button type="button" id="dsOld" class="${V2()?"":"on"}">기존 디자인</button><button type="button" id="dsV2" class="${V2()?"on":""}">새 디자인</button></div></div></div>
+     <div class="row" style="margin:0"><div class="seg"><button type="button" id="dsOld" class="${V2()?"":"on"}">기존 디자인</button><button type="button" id="dsV2" class="${V2()?"on":""}">새 디자인</button></div></div>
+     <div class="desc" style="margin-top:12px"><b>왼쪽 메뉴 줄 간격</b> — 메뉴가 길어 스크롤이 생기면 <b>촘촘</b>으로 바꿔 보세요. 새 디자인에서는 <b>일감 · 내 도구 · 보관함 · 분석</b> 제목을 누르면 묶음을 접을 수 있고, 가져오기 단추 옆 ▸ 로 마지막 가져오기 · 기간을 접을 수 있어요.</div>
+     <div class="row" style="margin:0"><div class="seg"><button type="button" id="ndNorm" class="${ui.navDense?"":"on"}">보통</button><button type="button" id="ndDense" class="${ui.navDense?"on":""}">촘촘</button></div></div></div>
 
    <div class="msec"><h4>노트 모양</h4>
      <div class="desc">노트 화면을 <b>한 장의 문서</b>(굵은 구분선 + 큰 제목)처럼 보거나, 예전처럼 <b>카드</b>로 나눠 볼 수 있어요. 누르면 바로 바뀌고, 선택은 저장돼요. 내용·저장 데이터는 똑같아요.</div>
@@ -117,6 +119,8 @@ async function renderSettings(){
   q("#nsDoc").onclick=()=>setNs("doc");q("#nsCard").onclick=()=>setNs("card");
   const setDs=v=>{ui.design=v;saveUI();applyTheme();if(v!=="v2")eiRestore();renderAll();renderSettings()};
   q("#dsOld").onclick=()=>setDs("classic");q("#dsV2").onclick=()=>setDs("v2");
+  const setNd=v=>{ui.navDense=v;saveUI();applyTheme();renderSettings()};
+  q("#ndNorm").onclick=()=>setNd(false);q("#ndDense").onclick=()=>setNd(true);
   [["#wsDev","st_dev"],["#wsConf","st_confirm"],["#wsDone","st_done"]].forEach(([id,k])=>q(id).onchange=async e=>{
     const v=Math.max(1,parseInt(e.target.value,10)||0);if(!v){return}
     await saveS(k,v);cfg=await api("/api/config");toast("저장했습니다",1500)});

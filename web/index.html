@@ -24,8 +24,8 @@
   <div class="nv-brand"><span class="logo"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h12a3 3 0 0 1 3 3v13H7a3 3 0 0 1-3-3z"/><path d="M8 9h7M8 13h5"/></svg></span><b>레드마인 노트</b><span class="ver">2</span></div>
   <div id="navitems"></div>
   <div class="nv-sp"></div>
-  <div class="nv-sync">
-    <button class="primary" id="sync" title="레드마인에서 새로 생기거나 바뀐 내 일감을 가져옵니다"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg>가져오기</button>
+  <div class="nv-sync" id="navsync">
+    <div class="nv-syncrow"><button class="primary" id="sync" title="레드마인에서 새로 생기거나 바뀐 내 일감을 가져옵니다"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg>가져오기</button><button type="button" class="icon" id="syncFold" title="마지막 가져오기 · 기간 접기/펴기"></button></div>
     <div class="meta" id="lastsync"></div>
     <details id="syncopt"><summary>가져오기 기간</summary>
       <select id="syncRange" title="레드마인에서 내려받을 기간 (수정일 기준)"><option value="today">오늘 (당일만)</option><option value="7d" selected>최근 7일</option><option value="30d">최근 30일</option><option value="90d">최근 3개월</option><option value="365d">최근 1년</option><option value="custom">직접 지정…</option></select>
