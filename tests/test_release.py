@@ -37,13 +37,13 @@ try:
     text = NL.join(["첫줄", "둘째줄", "* 항목1", "* 항목2", "`x` 와 ```sql", "SELECT 1", "```"])
     s, r = call("POST", "/api/rm/write", {"issue_id": 200, "notes": text})
     p = json.loads(urllib.request.urlopen(f"http://127.0.0.1:{FP}/__puts").read())[-1]["body"]["issue"]["notes"]
-    want = NL.join(["첫줄<br />", "둘째줄", "* 항목1", "* 항목2", "@x@ 와 <pre><code class=\"sql\">", "SELECT 1", "</code></pre>"])
-    chk("줄바꿈 <br /> 변환(목록 제외)", p == want, repr(p))
-    # 엔터를 여러 번 친 빈 줄이 레드마인(HTML)에서 사라지지 않는지: 친 횟수만큼 <br />
+    want = NL.join(["<p>첫줄</p>", "<p>둘째줄</p>", "<p>* 항목1</p>", "<p>* 항목2</p>", "<p>@x@ 와</p>", "<pre><code class=\"sql\">", "SELECT 1", "</code></pre>"])
+    chk("줄마다 <p> 문단 (레드마인 편집기와 같은 간격, 목록 줄 포함)", p == want, repr(p))
+    # 엔터를 여러 번 친 빈 줄이 레드마인(HTML)에서 사라지지 않는지: 편집기처럼 빈 문단 <p>&nbsp;</p>
     text2 = NL.join(["안녕하세요.", "", "http://x/issues/1", "일전에", "확인", "", "", "감사합니다"])
     call("POST", "/api/rm/write", {"issue_id": 200, "notes": text2})
     p2 = json.loads(urllib.request.urlopen(f"http://127.0.0.1:{FP}/__puts").read())[-1]["body"]["issue"]["notes"]
-    want2 = NL.join(["안녕하세요.<br /><br />", "http://x/issues/1<br />", "일전에<br />", "확인<br /><br /><br />", "감사합니다"])
+    want2 = NL.join(["<p>안녕하세요.</p>", "<p>&nbsp;</p>", "<p>http://x/issues/1</p>", "<p>일전에</p>", "<p>확인</p>", "<p>&nbsp;</p>", "<p>&nbsp;</p>", "<p>감사합니다</p>"])
     chk("빈 줄(엔터 여러 번)도 줄바꿈 유지", p2 == want2, repr(p2))
     # 저장된 댓글에 원문(raw)이 같이 들어 있는지 (코드 상자 다시 그리기용)
     s, notes = call("GET", "/api/notes")
