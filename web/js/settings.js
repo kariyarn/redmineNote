@@ -209,7 +209,7 @@ function gbLast(g){
 function gbSection(g){
   const conflict=g.last&&!g.last.ok&&g.last.kind==="conflict";
   return `<div class="msec" id="gbSec"><h4>깃허브 백업</h4>
-     <div class="desc">노트 DB와 등록한 폰트를 <b>내 비공개(Private) 깃허브 저장소</b>에 올려 둡니다. <b>동기화가 아니라 백업</b>이라, 올리기만 자동이고 내려받기(복원)는 아래 목록에서 직접 골라요. 바뀐 게 없으면 올리지 않고, 저장소에 이 PC가 모르는 기록(다른 PC · 직접 수정)이 있으면 덮어쓰지 않고 멈춰요. API 키 · 토큰은 올라가지 않아요.</div>
+     <div class="desc">노트 DB(노트 · 사전 · 메모 · 보관함 · 설정)를 <b>내 비공개(Private) 깃허브 저장소</b>에 올려 둡니다. 등록한 폰트는 올리지 않아요. <b>동기화가 아니라 백업</b>이라, 올리기만 자동이고 내려받기(복원)는 아래 목록에서 직접 골라요. 바뀐 게 없으면 올리지 않고, 저장소에 이 PC가 모르는 기록(다른 PC · 직접 수정)이 있으면 덮어쓰지 않고 멈춰요. API 키 · 토큰은 올라가지 않아요.</div>
      <div class="desc">준비: ① 깃허브에서 <b>Private</b> 저장소를 새로 만들고 ② <b>Settings → Developer settings → Fine-grained tokens</b> 에서 그 저장소 하나만 고르고 <b>Contents: Read and write</b> 권한으로 토큰을 만들어 아래에 넣으세요. 토큰은 이 PC에 암호화해서 저장하고 화면에 다시 보여 주지 않아요.</div>
      <div class="frow"><label>저장소</label><input type="text" id="gbRepo" value="${esc(g.repo)}" placeholder="소유자/저장소 (예: kariyarn/redmine-notes-backup)"></div>
      <div class="frow"><label>브랜치</label><input type="text" id="gbBranch" value="${esc(g.branch)}" style="width:10rem;flex:none"></div>

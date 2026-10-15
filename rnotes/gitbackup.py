@@ -1,4 +1,5 @@
-"""깃허브 백업: 노트 DB(notes.db 스냅샷)와 등록한 폰트를 내 비공개(Private) 깃허브 저장소에 올린다. 외부 라이브러리 없음.
+"""깃허브 백업: 노트 DB(notes.db 스냅샷)를 내 비공개(Private) 깃허브 저장소에 올린다. 외부 라이브러리 없음.
+(등록한 폰트는 올리지 않는다: 다시 등록하면 되고, 저장소만 커진다.)
 
 - 동기화가 아니라 '백업'이다: 올리기만 자동이고, 내려받기(복원)는 사용자가 백업 시점을 골라 직접 한다.
 - 올리는 때(하나만 고른다): 앱 창을 닫을 때 / N시간마다 / 매일 정한 시각. 바뀐 게 없으면 올리지 않는다.
@@ -25,7 +26,7 @@ import urllib.parse
 import urllib.request
 import zipfile
 
-from .config import APP_VERSION, DB_PATH, FONT_DIR, FONT_EXT, HOME_DIR, RUN
+from .config import APP_VERSION, DB_PATH, HOME_DIR, RUN
 from .storage import db, restore_bytes
 
 API = (os.environ.get("REDMINE_NOTES_GITHUB_API") or "https://api.github.com").rstrip("/")   # 시험에서는 가짜 깃허브 주소
@@ -274,7 +275,7 @@ def _blob_sha(data):
 
 
 def _snapshot():
-    """올릴 파일들 {경로: bytes}: notes.db(안전한 스냅샷) + fonts/ 의 폰트."""
+    """올릴 파일들 {경로: bytes}: notes.db(안전한 스냅샷)."""
     tmp = tempfile.mkdtemp()
     try:
         snap = os.path.join(tmp, "notes.db")
@@ -288,10 +289,6 @@ def _snapshot():
             files = {"notes.db": f.read()}
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
-    if FONT_DIR.exists():
-        for f in sorted(FONT_DIR.iterdir()):
-            if f.is_file() and f.suffix.lower() in FONT_EXT:
-                files["fonts/" + f.name] = f.read_bytes()
     return files
 
 
@@ -353,8 +350,7 @@ def upload(reason="수동", force=False, now=None):
             head = _init_branch(d, info)
         base_tree, remote = _tree(d, head)
         local = {p: _blob_sha(b) for p, b in files.items()}
-        gone = [p for p in remote if p.startswith("fonts/") and p not in local]
-        if all(remote.get(p) == s for p, s in local.items()) and not gone:
+        if all(remote.get(p) == s for p, s in local.items()):
             _update(known=head)
             res.update(ok=True, commit=head)
             return res
@@ -371,7 +367,6 @@ def upload(reason="수동", force=False, now=None):
             ib = json.dumps(info, ensure_ascii=False, indent=2).encode("utf-8")
             blob = _req(d, "POST", f"{_repo_path(d)}/git/blobs", {"content": base64.b64encode(ib).decode("ascii"), "encoding": "base64"})
             entries.append({"path": "backup-info.json", "mode": "100644", "type": "blob", "sha": blob["sha"]})
-            entries += [{"path": p, "mode": "100644", "type": "blob", "sha": None} for p in gone]
             tree = _req(d, "POST", f"{_repo_path(d)}/git/trees", {"base_tree": base_tree, "tree": entries})
             msg = f"백업 {now:%Y-%m-%d %H:%M} · 노트 {n}건 · {_pc()} ({reason})"
             commit = _req(d, "POST", f"{_repo_path(d)}/git/commits", {"message": msg, "tree": tree["sha"], "parents": [head]})
@@ -428,7 +423,7 @@ def history(limit=30):
 
 
 def fetch_zip(sha):
-    """그 백업 시점의 notes.db + fonts 를 zip(bytes)으로 받는다 (복원 · 파일로 받기에 같이 쓴다)."""
+    """그 백업 시점의 notes.db 를 zip(bytes)으로 받는다 (복원 · 파일로 받기에 같이 쓴다). 폰트는 넣지 않는다 (이 PC의 폰트는 그대로)."""
     if not re.match(r"^[0-9a-f]{7,40}$", sha or ""):
         raise BackupError("백업 시점이 올바르지 않아요", "config")
     d = load()
@@ -439,9 +434,7 @@ def fetch_zip(sha):
     buf = io.BytesIO()
     try:
         with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
-            for p, bsha in files.items():
-                if p == "notes.db" or (p.startswith("fonts/") and os.path.splitext(p)[1].lower() in FONT_EXT):
-                    z.writestr(p, _req(d, "GET", f"{_repo_path(d)}/git/blobs/{bsha}", raw=True, timeout=300))
+            z.writestr("notes.db", _req(d, "GET", f"{_repo_path(d)}/git/blobs/{files['notes.db']}", raw=True, timeout=300))
     except Exception as e:
         raise _explain(e, d)
     return buf.getvalue()
