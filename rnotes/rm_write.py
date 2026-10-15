@@ -38,6 +38,7 @@ def write_info():
 
 _FENCE = re.compile(r"```([A-Za-z0-9_+#.-]*)[ \t]*\n(.*?)```", re.S)
 _PRE = re.compile(r"(<pre>.*?</pre>|<pre><code[^>]*>.*?</code></pre>)", re.S)
+_SOFT_BREAK = "\uE002"
 
 
 def _paragraphs(seg):
@@ -51,7 +52,10 @@ def _paragraphs(seg):
         lines.pop(0)
     while not lines[-1].strip():
         lines.pop()
-    return "\n".join(f"<p>{x}</p>" if x.strip() else "<p>&nbsp;</p>" for x in lines)
+    return "\n".join(
+        f"<p>{'<br />'.join(x.split(_SOFT_BREAK))}</p>" if x.strip() else "<p>&nbsp;</p>"
+        for x in lines
+    )
 
 
 def to_textile(text):

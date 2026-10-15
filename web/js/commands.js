@@ -36,8 +36,7 @@ function cmdPaintComposer(c){
     const item=cmdItems.find(x=>x.id===+b.dataset.cmdId),ta=c.querySelector(".cmta");
     if(!item||!ta)return;
     const description=cmdExpandDates(item.description);
-    const current=edGet(ta),next=current?current+(current.endsWith("\n")?"":"\n")+description:description;
-    edInit(ta,next);setDraft(nIssueId(c),edGet(ta));syncComposers(curNote(),ta);
+    edInit(ta,description);setDraft(nIssueId(c),edGet(ta));syncComposers(curNote(),ta);
     const last=ta.querySelector(".tb:last-of-type")||ta.lastElementChild;if(last&&last.focus)last.focus();
   });
 }
