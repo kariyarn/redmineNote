@@ -365,3 +365,15 @@ a.btn:hover{border-color:var(--accent);color:var(--accent)}
 details{margin-bottom:18px}
 @media (max-width:900px){main{grid-template-columns:1fr!important;display:block}.split{display:none}.search input{width:8rem}}
 
+
+/* 설정 창 탭: 제목 아래에 붙어 있고, 고른 탭의 묶음만 보인다 */
+.stop{position:sticky;top:0;z-index:2;background:var(--surface)}
+.stop .mhead{position:static;border-bottom:0;padding-bottom:4px}
+.stabs{display:flex;gap:2px;flex-wrap:wrap;padding:6px 14px 0;background:var(--surface);border-bottom:1px solid var(--line)}
+.stabs button{border:0;background:none;border-radius:0;margin:0;padding:8px 12px 9px;color:var(--sub);font-size:.92rem;border-bottom:2px solid transparent;margin-bottom:-1px}
+.stabs button:hover{color:var(--text);background:none}
+.stabs button.on{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
+.mbox.stabbed .msec{display:none}
+.mbox.stabbed[data-st=gen] .msec[data-st=gen],.mbox.stabbed[data-st=sync] .msec[data-st=sync],.mbox.stabbed[data-st=view] .msec[data-st=view],
+.mbox.stabbed[data-st=font] .msec[data-st=font],.mbox.stabbed[data-st=write] .msec[data-st=write],.mbox.stabbed[data-st=backup] .msec[data-st=backup]{display:block}
+.mbox.stabbed{min-height:min(560px,80vh)}

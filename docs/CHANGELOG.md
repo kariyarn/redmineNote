@@ -345,4 +345,5 @@ build-exe.bat
   - 공개(Public) 저장소 · 쓰기 권한 없음 · 100MB 넘는 파일은 막는다. 토큰(fine-grained, Contents 읽기/쓰기)은 `HOME_DIR/gitbackup.json` 에 DPAPI 로 암호화해 두고 화면 · 응답 · 백업에 넣지 않는다. 설정(저장소 · 올리는 때 · 마지막 결과)도 이 PC 의 그 파일에만 있어서 노트를 복원해도 바뀌지 않는다.
   - 깃허브 Git Data API 로 한 번에 커밋(blob → tree → commit → ref 빨리 감기만). 빈 저장소면 README 로 첫 커밋, 기본 브랜치가 아닌 백업 브랜치는 기본 브랜치에서 만든다. 커밋에는 `backup-info.json`(버전 · 시각 · PC · 노트 수)도 같이 올린다.
   - 서버 `rnotes/gitbackup.py`(30초마다 확인하는 `loop`, 종료 때 `on_shutdown`), API `GET /api/gitbackup` · `/history` · `/download?sha=`, `POST /api/gitbackup/config` · `/check` · `/upload` · `/restore` · `/disconnect`. 시험 `tests/test_gitbackup.py`(가짜 깃허브 `tests/fake_github.py`).
+- **설정 창 탭**: 한 화면에 길게 이어지던 설정을 `일반 · 가져오기 · 기준 · 화면 · 글꼴 · 레드마인 쓰기 · 백업` 탭으로 나눴다. 제목과 탭은 위에 붙어 있고, 마지막에 본 탭을 기억한다.
 - **왼쪽 메뉴 정돈**: 새 디자인의 메뉴 묶음(일감 · 내 도구 · 보관함 · 분석)을 제목으로 접고 편다(저장, 지금 보는 화면이 든 묶음은 펼쳐 둠, 접힌 묶음은 제목 옆에 숫자 · 🔔 · 🚀). 설정 → 화면 디자인에 **메뉴 줄 간격(보통 / 촘촘)**. 가져오기 단추 옆 ▸ 로 마지막 가져오기 · 기간을 접는다('확인 필요'는 접어도 보임). 메뉴가 길면 메뉴 목록만 스크롤하고 가져오기 · 달력 · 설정은 아래에 남는다.
