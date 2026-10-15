@@ -174,6 +174,9 @@ try:
     r302 = [x for x in notes if x["issue_id"] == 302][0]["roles"].split(","); r300 = [x for x in notes if x["issue_id"] == 300][0]["roles"].split(",")
     chk("동기화 뒤에도 '추가됨' 유지(+새 역할 합쳐짐)", "추가됨" in r302 and "담당자" in r302, r302)
     chk("동기화 뒤에도 '배포요청' 유지", "배포요청" in r300, r300)
+    rl = {x["issue_id"]: x["roles"].split(",") for x in notes}
+    chk("일반 가져오기로 들어온 배포요청 일감(배포요청 프로젝트 · 제목)에도 '배포요청' 구분", "배포요청" in rl.get(304, []) and "담당자" in rl.get(304, []), rl.get(304))
+    chk("제목만 같고 다른 프로젝트인 일감은 배포요청 아님", 305 in rl and "배포요청" not in rl[305], rl.get(305))
     # 작성자 ID (2.16.1): 받을 때 저장하고, 예전에 받아 ID 가 없는(0) 일감은 다음 가져오기에서 다시 받아 채운다 ('변경'으로 세지 않음)
     aid = {x["issue_id"]: x.get("author_id") for x in notes}
     chk("작성자 ID 저장 (가져오기 · 배포요청 직접 가져오기)", aid.get(302) == 55 and aid.get(300) == 60, aid)

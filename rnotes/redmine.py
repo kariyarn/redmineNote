@@ -220,6 +220,32 @@ def build_changes(full):
     return out
 
 
+DEPLOY_PROJECT = "request-2021"   # 배포요청 프로젝트 (식별자)
+DEPLOY_SUBJECT = re.compile(r"배포요청.*\d{4}-\d{2}-\d{2}")   # 제목: [운영서버 배포요청 / 2026-10-15]
+
+
+_DEPLOY_PID_FAIL = [0.0]
+
+
+def deploy_project_id():
+    """배포요청 프로젝트의 번호 (일감 응답에는 식별자가 없어서 번호로 비교한다). 못 읽으면 None (5분 동안은 다시 묻지 않는다)."""
+    if time.time() - _DEPLOY_PID_FAIL[0] < 300:
+        return None
+    try:
+        return cached("deploy_pid", 3600, lambda: rm_get(f"/projects/{DEPLOY_PROJECT}.json", {})["project"]["id"])
+    except Exception:
+        _DEPLOY_PID_FAIL[0] = time.time()
+        return None
+
+
+def is_deploy_issue(full):
+    """배포요청 일감인가: 배포요청 프로젝트이고 제목이 '배포요청 / 날짜'. 어느 경로로 받든 '배포요청' 구분을 붙이는 데 쓴다."""
+    if not DEPLOY_SUBJECT.search(full.get("subject") or ""):
+        return False
+    pid = deploy_project_id()
+    return pid is not None and (full.get("project") or {}).get("id") == pid
+
+
 def upsert_issue(c, iid, role_text, exists):
     """일감 상세를 받아 저장(신규) 또는 갱신하고, 연결 정보도 다시 만든다."""
     full = rm_get(f"/issues/{iid}.json", {"include": "journals,relations"})["issue"]
@@ -235,6 +261,8 @@ def upsert_issue(c, iid, role_text, exists):
         for j in full.get("journals", [])
         if plain(j.get("notes", ""))
     ]
+    if is_deploy_issue(full) and "배포요청" not in role_text.split(","):   # 배포요청 일감은 일반 가져오기로 들어와도 배포요청 화면에서만 보이게
+        role_text = ",".join([x for x in role_text.split(",") if x and x != "연관"] + ["배포요청"])
     if exists:   # 가져오기가 역할을 다시 계산해도, 내가 직접 붙인 구분(추가됨 · 배포요청)은 지우지 않는다
         old = c.execute("SELECT roles FROM notes WHERE issue_id=?", (iid,)).fetchone()
         keep = [r for r in ((old["roles"] if old else "") or "").split(",") if r in ("추가됨", "배포요청")]
