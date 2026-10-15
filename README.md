@@ -27,6 +27,7 @@
 |---|---|
 | 일감 노트 | 원문 · 댓글 이력 · 내 정리 기록(처리 내용 / 코드 / 이유) |
 | 자동 가져오기 | 정한 간격마다 바뀐 일감을 가져옴 (트레이에서도, 영업일 08:30 ~ 18:30, 공휴일은 공공데이터포털 특일 정보), 새 일감 알림 |
+| 깃허브 백업 | 내 비공개 깃허브 저장소에 노트를 자동으로 올림 (앱 닫을 때 / N시간마다 / 매일 정한 시각). 복원은 백업 시점을 골라 직접 |
 | 주제 사전 | 용어로 비슷한 일감에 바로 접근 |
 | 메모 · 알림 | 포스트잇 메모, 달력, 알림(확인 / 미루기) |
 | 보관함 | 왼쪽 메뉴에서 코드 · 쿼리 · 명령어를 선택. 코드/쿼리는 언어 · 코드 위치 · 버전 메모와 코드 색칠, 명령어는 내가 등록한 댓글 단축어와 문구 삽입 |
@@ -78,6 +79,7 @@ python tests/test_exe.py dist/RedmineNotes2.exe
 ```bash
 python tests/test_alarm.py .
 python tests/test_autosync.py .
+python tests/test_gitbackup.py .
 python tests/test_queries.py .
 python tests/test_commands.py .
 python tests/test_release.py main.py
@@ -88,6 +90,7 @@ python tests/test_write.py main.py
 |---|---|
 | `test_alarm.py` | 메모 알림 로직 |
 | `test_autosync.py` | 자동 가져오기 로직 (간격 · 기간 · 업무 시간) |
+| `test_gitbackup.py` | 깃허브 백업 (가짜 깃허브: 올리기 · 변경 없음 · 충돌 · 복원 · 올리는 때) |
 | `test_queries.py` | 보관함의 코드/쿼리 로직 |
 | `test_commands.py` | 보관함의 명령어 로직 |
 | `test_release.py` | 가져오기 · 검색 · 배포요청 |
@@ -104,6 +107,7 @@ python tests/test_write.py main.py
 | `REDMINE_NOTES_IDLE_SEC` | `600` | 화면이 닫힌 뒤 자동 종료까지 초 (`0` = 끄지 않음) |
 | `REDMINE_NOTES_NO_APPWIN` | | `1` 이면 브라우저/앱 창을 열지 않음 (시험용) |
 | `REDMINE_NOTES_ALARM_TICK` | | 알림 확인 간격(초) |
+| `REDMINE_NOTES_GITHUB_API` | `https://api.github.com` | 깃허브 백업이 부르는 API 주소 (시험용 가짜 깃허브) |
 
 ## 폴더 구조
 
@@ -120,6 +124,7 @@ rnotes/                 서버 (기능별 모듈, 위에서 아래로만 의존)
   alarms.py             메모 알림 계산 · 달력 · 오늘 볼 메모
   holidays.py           대한민국 공휴일 표 · 쉬는 날 판단 (알림이 주말·공휴일을 건너뜀)
   autosync.py           자동 가져오기 (정한 간격마다 서버가 스스로 가져옴, 영업일 업무 시간에만)
+  gitbackup.py          깃허브 백업 (비공개 저장소에 올리기 · 백업 시점 목록 · 복원)
   holiday_api.py        공휴일 API (공공데이터포털 '한국천문연구원_특일 정보', 매주 첫 영업일에 그 주 것)
   trouble.py            트러블슈팅 문서
   queries.py            보관함의 코드/쿼리
@@ -132,7 +137,7 @@ web/                    화면
   index.html            뼈대 + CSS/JS 불러오기
   css/*.css             기능별 스타일 (v2.css = 새 디자인, html[data-design=v2] 아래에서만 적용)
   js/*.js               기능별 스크립트 (v2.js = 새 디자인 아이콘 교체)
-tests/                  시험 (가짜 레드마인)
+tests/                  시험 (가짜 레드마인 · 가짜 깃허브)
 tools/make_icon.py      아이콘 생성
 docs/CHANGELOG.md       버전별 변경 기록
 ```
@@ -153,7 +158,7 @@ docs/CHANGELOG.md       버전별 변경 기록
 버그 제보 · 아이디어는 [Issues](https://github.com/kariyarn/redmineNote/issues) 에, 코드 수정은 Pull Request 로 보내 주세요.
 
 1. 저장소를 Fork 하고 새 브랜치를 만듭니다. (예: `fix/memo-alarm`)
-2. 고친 뒤 위 **시험** 6종이 모두 통과하는지 확인합니다.
+2. 고친 뒤 위 **시험** 7종이 모두 통과하는지 확인합니다.
 3. 외부 패키지는 추가하지 않습니다(표준 라이브러리만).
 4. 실제 레드마인 주소 · API 키 · 회사 데이터는 올리지 마세요.
 5. Pull Request 에 **무엇을 왜 바꿨는지** 적어 주세요.

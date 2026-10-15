@@ -9,7 +9,8 @@ async function renderSettings(){
   const keepTop=$("#modal").classList.contains("show")&&$("#modal .mbox")?$("#modal .mbox").scrollTop:0;     // 테마·노트 모양을 눌러 다시 그릴 때 보던 자리를 유지한다
   let bks=[];try{bks=await api("/api/backups")}catch(e){}
   let wlog=[];try{wlog=await api("/api/write/log?limit=12")}catch(e){}
-  let ast=autoSync.st;try{ast=await api("/api/autosync")}catch(e){}      // 자동 가져오기 · 공휴일 상태 (서버가 알려 준 값)
+  let ast=autoSync.st;try{ast=await api("/api/autosync")}catch(e){}
+  let gst=null;try{gst=await api("/api/gitbackup")}catch(e){}      // 깃허브 백업 설정 · 마지막 결과 (토큰은 있는지만)      // 자동 가져오기 · 공휴일 상태 (서버가 알려 준 값)
   const aw=(ast&&ast.window)||["08:30","18:30"],hs=(ast&&ast.holiday)||{key_set:false,days:[],week:["",""]};
   const wc=wcfg(),names=extraNames();
   $("#modal").innerHTML=`<div class="mbox">
@@ -102,6 +103,7 @@ async function renderSettings(){
      <div class="row" style="margin:0 0 12px"><button class="primary" id="bNow">지금 백업 만들기</button><a class="btn" href="/api/backup/download" style="padding:6px 12px">현재 상태를 파일로 내려받기</a>
        <label class="btn" style="padding:6px 12px;cursor:pointer;margin:0;font-weight:400">파일에서 복원…<input type="file" id="bFile" accept=".zip,.db" style="display:none"></label></div>
      ${bks.map(b=>`<div class="bk"><span class="nm">${esc(b.name)}</span><span class="meta">${b.mtime} · ${kb(b.size)}</span><a class="btn" href="/api/backup/download?name=${encodeURIComponent(b.name)}">다운로드</a><button data-restore="${esc(b.name)}">복원</button><button class="danger" data-delbk="${esc(b.name)}">삭제</button></div>`).join("")||`<span class="meta">아직 백업이 없습니다.</span>`}</div>
+   ${gst?gbSection(gst):""}
   </div>`;
   if(keepTop)$("#modal .mbox").scrollTop=keepTop;
   const q=s=>$("#modal "+s);
@@ -192,5 +194,62 @@ async function renderSettings(){
   document.querySelectorAll("[data-delbk]").forEach(b=>b.onclick=async()=>{
     if(!await askC(`백업 '${b.dataset.delbk}' 를 삭제할까요?`))return;
     await api("/api/backups/"+encodeURIComponent(b.dataset.delbk),{method:"DELETE"});renderSettings()});
+  if(gst)gbWire(q,afterRestore);
+}
+
+/* ---------- 깃허브 백업: 올리기는 자동(고른 때), 내려받기(복원)는 백업 시점을 골라 직접 ---------- */
+let gbHist=null,gbErr="";      // 백업 시점 목록 (누를 때만 깃허브에서 가져온다)
+const GB_MODE={off:"끔",close:"앱 창을 닫을 때",hours:"정한 시간마다",daily:"매일 정한 시각"};
+const gbWhen=s=>s?s.replace("T"," ").slice(0,16):"";
+function gbLast(g){
+  const l=g.last;if(!l)return `<span class="meta">아직 올린 적이 없어요.</span>`;
+  const ok=l.ok?`<b style="color:#2b8a3e">✓ ${l.changed?"올림":"바뀐 것 없음"}</b>`:`<b style="color:#c0392b">✕ 실패</b>`;
+  return `${ok} · ${esc(gbWhen(l.at))} (${esc(l.reason||"")})${l.ok?"":`<br><span style="color:#c0392b">${esc(l.error)}</span>`}${!l.ok&&g.last_ok?`<br><span class="meta">마지막으로 올린 때: ${esc(gbWhen(g.last_ok.at))}</span>`:""}`;
+}
+function gbSection(g){
+  const conflict=g.last&&!g.last.ok&&g.last.kind==="conflict";
+  return `<div class="msec" id="gbSec"><h4>깃허브 백업</h4>
+     <div class="desc">노트 DB와 등록한 폰트를 <b>내 비공개(Private) 깃허브 저장소</b>에 올려 둡니다. <b>동기화가 아니라 백업</b>이라, 올리기만 자동이고 내려받기(복원)는 아래 목록에서 직접 골라요. 바뀐 게 없으면 올리지 않고, 저장소에 이 PC가 모르는 기록(다른 PC · 직접 수정)이 있으면 덮어쓰지 않고 멈춰요. API 키 · 토큰은 올라가지 않아요.</div>
+     <div class="desc">준비: ① 깃허브에서 <b>Private</b> 저장소를 새로 만들고 ② <b>Settings → Developer settings → Fine-grained tokens</b> 에서 그 저장소 하나만 고르고 <b>Contents: Read and write</b> 권한으로 토큰을 만들어 아래에 넣으세요. 토큰은 이 PC에 암호화해서 저장하고 화면에 다시 보여 주지 않아요.</div>
+     <div class="frow"><label>저장소</label><input type="text" id="gbRepo" value="${esc(g.repo)}" placeholder="소유자/저장소 (예: kariyarn/redmine-notes-backup)"></div>
+     <div class="frow"><label>브랜치</label><input type="text" id="gbBranch" value="${esc(g.branch)}" style="width:10rem;flex:none"></div>
+     <div class="frow"><label>토큰</label><input type="password" id="gbToken" autocomplete="off" placeholder="${g.token_set?"저장됨 — 바꿀 때만 새로 입력":"github_pat_…"}"><button id="gbSave" class="primary">저장 · 연결 확인</button>${g.token_set?`<button id="gbDisc" class="danger" title="토큰을 지우고 자동 올리기를 꺼요">연결 해제</button>`:""}</div>
+     <div class="frow"><label>올리는 때</label><select id="gbMode" style="max-width:14rem" ${g.token_set?"":"disabled"}>${Object.entries(GB_MODE).map(([k,v])=>`<option value="${k}" ${g.mode===k?"selected":""}>${v}</option>`).join("")}</select>
+       <span id="gbHoursW" ${g.mode==="hours"?"":"hidden"}><input type="number" id="gbHours" min="${g.min_hours}" max="${g.max_hours}" value="${g.hours}" style="width:4.5rem"> 시간마다</span>
+       <span id="gbAtW" ${g.mode==="daily"?"":"hidden"}><input type="time" id="gbAt" value="${esc(g.at)}" style="width:7.5rem"> 에</span></div>
+     <div class="desc">${g.mode==="close"?"앱 창을 닫거나 프로그램을 끌 때 올려요.":g.mode==="hours"||g.mode==="daily"?`프로그램이 켜져 있는 동안 올려요 (창을 닫아 트레이에만 있어도). 켜 두면 창을 닫아도 프로그램이 스스로 꺼지지 않아요.${g.mode==="daily"?" 그 시각에 꺼져 있었으면 다음에 켤 때 올려요.":""}`:"자동으로 올리지 않아요. 아래 '지금 올리기'로 직접 올릴 수 있어요."}${g.next?` · 다음 예정 <b>${esc(gbWhen(g.next))}</b>`:""}</div>
+     <div class="frow"><label>마지막 결과</label><span style="flex:1;line-height:1.5">${g.busy?"올리는 중…":gbLast(g)}</span></div>
+     <div class="row" style="margin:0 0 12px"><button id="gbUp" ${g.token_set&&g.repo?"":"disabled"}>지금 올리기</button>${conflict?`<button id="gbForce" class="danger" title="저장소의 기록은 지우지 않고, 그 위에 이 PC의 노트를 이어서 올려요">그래도 이어서 올리기</button>`:""}<button id="gbHist" ${g.token_set&&g.repo?"":"disabled"}>${gbHist?"백업 시점 다시 불러오기":"백업 시점 불러오기 (내려받기 · 복원)"}</button></div>
+     ${gbErr?`<div class="desc" style="color:#c0392b">${esc(gbErr)}</div>`:""}
+     ${gbHist?(gbHist.length?gbHist.map(h=>`<div class="bk"><span class="nm" title="${esc(h.sha)}">${esc(h.message||h.sha.slice(0,7))}</span><span class="meta">${esc(h.at)} · ${esc(h.sha.slice(0,7))}</span><a class="btn" href="/api/gitbackup/download?sha=${encodeURIComponent(h.sha)}">파일로 받기</a><button data-gbrestore="${esc(h.sha)}" data-gbat="${esc(h.at)}">복원</button></div>`).join(""):`<span class="meta">저장소에 아직 백업이 없어요.</span>`):""}
+   </div>`;
+}
+function gbWire(q,afterRestore){
+  const save=async(body,msg)=>{
+    try{const r=await post("/api/gitbackup/config",body);
+      if(r.check)toast(r.check.ok?"깃허브 저장소에 연결했어요":"연결 확인 실패: "+r.check.error,r.check.ok?2600:9000);else if(msg)toast(msg,2600);
+      renderSettings()}catch(e){toast("저장하지 못했어요: "+e.message,6000)}};
+  q("#gbSave").onclick=()=>{const tk=q("#gbToken").value.trim();gbHist=null;gbErr="";
+    save({repo:q("#gbRepo").value.trim(),branch:q("#gbBranch").value.trim(),...(tk?{token:tk}:{})})};
+  if(q("#gbDisc"))q("#gbDisc").onclick=async()=>{if(!await askC("깃허브 백업 연결을 해제할까요?\n이 PC에 저장된 토큰을 지우고 자동 올리기를 꺼요. 저장소의 백업은 그대로 남아요."))return;
+    await post("/api/gitbackup/disconnect",{});gbHist=null;toast("연결을 해제했어요",2400);renderSettings()};
+  q("#gbMode").onchange=e=>{const m=e.target.value;save({mode:m},m==="off"?"깃허브 자동 올리기를 껐어요":`이제 '${GB_MODE[m]}' 올려요`)};
+  q("#gbHours").onchange=e=>save({hours:e.target.value},"올리는 간격을 저장했어요");
+  q("#gbAt").onchange=e=>e.target.value&&save({at:e.target.value},"올리는 시각을 저장했어요");
+  const up=async force=>{
+    if(force&&!await askC("저장소에 이 PC가 모르는 기록이 있어요.\n그 기록은 지우지 않고, 그 위에 이 PC의 노트를 이어서 올릴까요?\n(다른 PC의 백업이라면 섞이지 않게 다른 저장소를 쓰는 편이 좋아요)"))return;
+    toast("깃허브에 올리는 중…",0);
+    try{const r=await post("/api/gitbackup/upload",{force});toast(r.changed?"깃허브에 올렸어요":"바뀐 게 없어서 올리지 않았어요",3000)}
+    catch(e){toast("올리지 못했어요: "+e.message,9000)}
+    renderSettings()};
+  q("#gbUp").onclick=()=>up(false);
+  if(q("#gbForce"))q("#gbForce").onclick=()=>up(true);
+  q("#gbHist").onclick=async()=>{toast("백업 시점을 불러오는 중…",0);
+    try{gbHist=await api("/api/gitbackup/history");gbErr="";toast(`백업 시점 ${gbHist.length}개를 불러왔어요`,2000)}catch(e){gbHist=null;gbErr=e.message;toast("불러오지 못했어요",3000)}
+    renderSettings()};
+  document.querySelectorAll("#modal [data-gbrestore]").forEach(b=>b.onclick=async()=>{
+    if(!await askC(`깃허브 백업 (${b.dataset.gbat}) 으로 복원할까요?\n현재 노트·사전이 이 백업의 내용으로 교체됩니다. (복원 직전 상태는 이 PC의 backups 에 자동으로 백업됩니다)`))return;
+    toast("깃허브에서 내려받아 복원하는 중…",0);
+    try{afterRestore(await post("/api/gitbackup/restore",{sha:b.dataset.gbrestore}))}catch(err){toast("복원 실패: "+err.message,9000)}});
 }
 
