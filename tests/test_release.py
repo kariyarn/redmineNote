@@ -174,6 +174,16 @@ try:
     r302 = [x for x in notes if x["issue_id"] == 302][0]["roles"].split(","); r300 = [x for x in notes if x["issue_id"] == 300][0]["roles"].split(",")
     chk("동기화 뒤에도 '추가됨' 유지(+새 역할 합쳐짐)", "추가됨" in r302 and "담당자" in r302, r302)
     chk("동기화 뒤에도 '배포요청' 유지", "배포요청" in r300, r300)
+    # 작성자 ID (2.15.3): 받을 때 저장하고, 예전에 받아 ID 가 없는(0) 일감은 다음 가져오기에서 다시 받아 채운다 ('변경'으로 세지 않음)
+    aid = {x["issue_id"]: x.get("author_id") for x in notes}
+    chk("작성자 ID 저장 (가져오기 · 배포요청 직접 가져오기)", aid.get(302) == 55 and aid.get(300) == 60, aid)
+    import sqlite3
+    dbf = [os.path.join(dp, f) for dp, _, fs in os.walk(home) for f in fs if f == "notes.db"][0]
+    with sqlite3.connect(dbf) as cx: cx.execute("UPDATE notes SET author_id=0 WHERE issue_id IN (302, 300)")
+    s, sy2 = call("POST", "/api/sync", {"from": "2026-01-01", "to": "2026-12-31"})
+    s, notes = call("GET", "/api/notes"); aid = {x["issue_id"]: x.get("author_id") for x in notes}
+    chk("ID 없는 일감은 수정 시각이 같아도 다시 받아 채움 · 변경으로 안 셈", aid.get(302) == 55 and 302 not in sy2["changed_ids"] and not sy2["failed"], (aid.get(302), sy2))
+    chk("목록에 없는 일감(배포요청)은 그대로 0 (노트를 열 때 · 화면은 이름으로 판별)", aid.get(300) == 0, aid.get(300))
     # 자동 가져오기 (2.15): 간격(분) · 기간(일)은 설정 허용 목록에 있어야 저장되고, /api/autosync 가 상태를 알려 준다
     s, a0 = call("GET", "/api/autosync")
     chk("자동 가져오기 기본은 꺼짐", s == 200 and a0["enabled"] is False and a0["minutes"] == 0 and a0["days"] == 7 and a0["window"] == ["08:30", "18:30"] and a0["runs"] == [], a0)

@@ -146,6 +146,7 @@ const isMine=n=>!!(reqEdited(n)||n.action.trim()||n.code_change.trim()||n.reason
 /* 기록 모드: 기본은 '기록 불필요'. 뭔가 써서 저장하면 '기록'으로 바뀌고, '기록' 모드인데 내용이 비어 있을 때만 '기록 필요'로 보인다. */
 const needsRec=n=>n.rec_mode==="record"&&!isMine(n);
 const myComments=n=>n.journals.filter(j=>j.user&&cfg.meId&&j.user.id===cfg.meId);
+const authoredByMe=n=>n.author_id?!!cfg.meId&&n.author_id===cfg.meId:(me=>!!me&&(n.author||"").includes(me))((cfg.meName||"").trim());   // 작성자가 나인가: ID 로. ID 를 아직 못 받은(2.15.3 전) 일감만 이름으로 (다음 가져오기에서 채워진다)
 
 /* ---------- 기간: 화면마다 따로 (수정일 기준) ----------
    - 노트 목록 : 현안 모드는 '전체 기간', 전체 모드는 '최근 7일'이 기본 (전체는 목록이 너무 길어지므로)

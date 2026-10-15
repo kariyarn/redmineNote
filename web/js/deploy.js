@@ -1,7 +1,7 @@
 /* ---------- 배포요청: 하루 한 건인 배포요청 일감을 바로 열고, 내가 쓴 배포요청 댓글을 따로 모아 본다 ----------
    배포요청 일감은 평소 노트와 똑같이 저장·표시되고(구분 '배포요청'), 댓글도 평소 댓글 쓰기로 쓴다. 일감을 새로 만들지는 않는다. */
 const deployDate=n=>((n.subject||"").match(/(\d{4}-\d{2}-\d{2})/)||[])[1]||"";
-const myDeployBody=n=>{const me=(cfg.meName||"").trim();return !!me&&(n.author||"").trim()===me&&!!(n.desc_raw||n.description||"").trim()};   // 내가 쓴 배포요청서: 본문(revision · 커밋 메시지 등)도 모음에 넣는다
+const myDeployBody=n=>authoredByMe(n)&&!!(n.desc_raw||n.description||"").trim();   // 내가 쓴 배포요청서: 본문(revision · 커밋 메시지 등)도 모음에 넣는다
 function deployEntries(){
   const out=[];
   all.filter(n=>rolesOf(n).includes("배포요청")).forEach(n=>{

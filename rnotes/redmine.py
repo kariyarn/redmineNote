@@ -251,12 +251,13 @@ def upsert_issue(c, iid, role_text, exists):
         description,
         json.dumps(journals, ensure_ascii=False),
         role_text,
+        int(full.get("author", {}).get("id") or 0),
     )
     if not exists:
         c.execute(
             "INSERT INTO notes (subject,project,tracker,rm_status,author,"
-            "assignee,updated_on,description,journals,roles,issue_id,"
-            "requirement,desc_raw,changes) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            "assignee,updated_on,description,journals,roles,author_id,issue_id,"
+            "requirement,desc_raw,changes) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             fields + (iid, make_draft(description), desc_raw, changes_json),
         )
     else:
@@ -270,7 +271,7 @@ def upsert_issue(c, iid, role_text, exists):
         c.execute(
             "UPDATE notes SET subject=?,project=?,tracker=?,rm_status=?,"
             "author=?,assignee=?,updated_on=?,description=?,journals=?,"
-            "roles=?,desc_raw=?,changes=? WHERE issue_id=?",
+            "roles=?,author_id=?,desc_raw=?,changes=? WHERE issue_id=?",
             fields + (desc_raw, changes_json, iid),
         )
     c.execute("DELETE FROM links WHERE src=?", (iid,))
@@ -363,21 +364,27 @@ def _sync(date_from, date_to):
     failed = []
     consec, aborted = 0, None  # 연결 문제(시간 초과·네트워크·서버 오류)가 연속으로 나면 계속해도 소용없으니 멈춘다
     with db() as c:
-        local = {
-            r["issue_id"]: r["updated_on"]
-            for r in c.execute("SELECT issue_id, updated_on FROM notes")
-        }
+        local, no_author = {}, set()
+        for r in c.execute("SELECT issue_id, updated_on, author_id FROM notes"):
+            local[r["issue_id"]] = r["updated_on"]
+            if not r["author_id"]:
+                no_author.add(r["issue_id"])
         for iid, brief in listed.items():
             role_text = ",".join(roles[iid])
             # 이미 받았고 레드마인 수정 시각이 같으면 상세를 다시 받지 않는다(부하 감소).
-            if local.get(iid) == brief["updated_on"]:
+            # 단, 작성자 ID 가 없는(2.15.3 전에 받은) 일감은 한 번 다시 받아 채운다. 레드마인에서 바뀐 것은 아니라서 '변경'으로 세지 않는다.
+            same = local.get(iid) == brief["updated_on"]
+            if same and iid not in no_author:
                 old = c.execute("SELECT roles FROM notes WHERE issue_id=?", (iid,)).fetchone()
                 keep = [r for r in ((old["roles"] if old else "") or "").split(",") if r in ("추가됨", "배포요청")]   # 직접 붙인 구분은 유지
                 c.execute("UPDATE notes SET roles=? WHERE issue_id=?", (",".join([x for x in role_text.split(",") if x not in keep] + keep), iid))
                 c.commit()
                 unchanged += 1
             elif try_upsert(c, iid, role_text, iid in local, failed, brief.get("subject")):
-                (changed_ids if iid in local else added_ids).append(iid)
+                if same:
+                    unchanged += 1
+                else:
+                    (changed_ids if iid in local else added_ids).append(iid)
                 consec = 0
             else:
                 consec = consec + 1 if failed[-1]["kind"] in ("timeout", "network", "server", "busy") else 0
