@@ -20,6 +20,12 @@ html[data-design=v2] .seg button.on{background:var(--surface);color:var(--text)}
 /* ---- 왼쪽 메뉴: 3묶음 ---- */
 html[data-design=v2] .nv-grp{margin:16px 10px 4px;font-size:.74rem;font-weight:600;letter-spacing:.04em;color:var(--sub)}
 html[data-design=v2] .nv-grp:first-child{margin-top:6px}
+html[data-design=v2] button.nv-grp{display:flex;align-items:center;gap:6px;width:calc(100% - 20px);border:0;background:none;padding:2px 0;border-radius:6px;text-align:left;cursor:pointer;user-select:none}
+html[data-design=v2] button.nv-grp:hover{color:var(--text)}
+html[data-design=v2] button.nv-grp>span:first-child{flex:1}
+html[data-design=v2] button.nv-grp .chev{font-size:.85rem}
+html[data-design=v2] .nv-gx{display:inline-flex;align-items:center;gap:4px;font-weight:500;letter-spacing:0}
+html[data-design=v2] .nv-gx .cnt{font-size:.74rem;color:var(--sub);background:color-mix(in srgb,var(--text) 8%,transparent);border-radius:10px;padding:0 7px}
 html[data-design=v2] .nv-item{padding:7px 10px;border-radius:8px;font-size:.95rem}
 html[data-design=v2] .nv-item .ic{width:17px;height:17px;opacity:.75}
 html[data-design=v2] .nv-item.on .ic{opacity:1}

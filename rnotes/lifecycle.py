@@ -21,7 +21,13 @@ def idle_watchdog():
 
 
 def shutdown():
-    """프로그램 종료. 트레이 아이콘을 먼저 지워서 알림 영역에 유령 아이콘이 남지 않게 한다."""
+    """프로그램 종료. 트레이 아이콘을 먼저 지워서 알림 영역에 유령 아이콘이 남지 않게 한다.
+    깃허브 자동 올리기가 켜져 있으면 끄기 전에 한 번 올린다 (바뀐 게 없으면 금방 끝난다)."""
+    try:
+        from . import gitbackup
+        gitbackup.on_shutdown()
+    except Exception:
+        pass
     try:
         if sys.platform == "win32":
             from . import appwin
