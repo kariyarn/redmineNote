@@ -184,6 +184,13 @@ try:
     s, notes = call("GET", "/api/notes"); aid = {x["issue_id"]: x.get("author_id") for x in notes}
     chk("ID 없는 일감은 수정 시각이 같아도 다시 받아 채움 · 변경으로 안 셈", aid.get(302) == 55 and 302 not in sy2["changed_ids"] and not sy2["failed"], (aid.get(302), sy2))
     chk("목록에 없는 일감(배포요청)은 그대로 0 (노트를 열 때 · 화면은 이름으로 판별)", aid.get(300) == 0, aid.get(300))
+    s, fr = call("POST", "/api/fetch", {"ids": [300, 301], "role": "배포요청"})   # 배포요청 화면의 '지난 30일 가져오기'
+    s, notes = call("GET", "/api/notes"); n300 = [x for x in notes if x["issue_id"] == 300][0]
+    chk("지난 30일 가져오기: 이미 있는 일감도 ID 가 0 이면 다시 받아 채움 · 구분 유지", sorted(fr["got"]) == [300, 301] and not fr["failed"]
+        and n300["author_id"] == 60 and "배포요청" in n300["roles"].split(",") and len(n300["journals"]) >= 2, (fr, n300["author_id"], n300["roles"]))
+    with sqlite3.connect(dbf) as cx: cx.execute("INSERT INTO notes (issue_id, subject, roles, journals, updated_on, author_id) VALUES (99001, '[운영서버 배포요청 / 2001-01-01]', '배포요청', '[]', '2001-01-01T00:00:00Z', 0)")
+    s, fr = call("POST", "/api/fetch", {"ids": [99001], "role": "배포요청"}); s, sk = call("GET", "/api/skipped")
+    chk("다시 받기에 실패해도 이미 있는 일감은 그대로 열림 (실패 · 건너뜀으로 안 남음)", fr["got"] == [99001] and not fr["failed"] and "99001" not in sk, (fr, sk))
     # 자동 가져오기 (2.15): 간격(분) · 기간(일)은 설정 허용 목록에 있어야 저장되고, /api/autosync 가 상태를 알려 준다
     s, a0 = call("GET", "/api/autosync")
     chk("자동 가져오기 기본은 꺼짐", s == 200 and a0["enabled"] is False and a0["minutes"] == 0 and a0["days"] == 7 and a0["window"] == ["08:30", "18:30"] and a0["runs"] == [], a0)

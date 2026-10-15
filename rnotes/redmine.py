@@ -439,11 +439,21 @@ def fetch_ids(ids, role="연관"):
     with db() as c:
         for iid in ids:
             c.execute("DELETE FROM skipped WHERE issue_id=?", (iid,))  # 직접 요청이면 다시 시도
-            row = c.execute("SELECT roles FROM notes WHERE issue_id=?", (iid,)).fetchone()
+            row = c.execute("SELECT roles, author_id FROM notes WHERE issue_id=?", (iid,)).fetchone()
             if row:
-                if role != "연관" and role not in row["roles"].split(","):   # 이미 있는 일감: 구분만 덧붙인다 (참조뿐이었다면 바꾼다)
-                    cur = row["roles"].strip()
-                    c.execute("UPDATE notes SET roles=? WHERE issue_id=?", (role if cur in ("", "연관") else cur + "," + role, iid))
+                roles = row["roles"].strip()
+                if role != "연관" and role not in roles.split(","):   # 이미 있는 일감: 구분만 덧붙인다 (참조뿐이었다면 바꾼다)
+                    roles = role if roles in ("", "연관") else roles + "," + role
+                # 작성자 ID 가 없는(2.16.1 전에 받은) 일감은 이참에 다시 받아 채운다 (구분은 위와 같이 유지).
+                # 못 받아도 이미 있는 일감이라 실패로 치지 않고 구분만 고친다 (다음에 다시 시도)
+                if not row["author_id"]:
+                    n_fail = len(failed)
+                    if try_upsert(c, iid, roles, True, failed):
+                        got.append(iid)
+                        continue
+                    del failed[n_fail:]
+                    c.execute("DELETE FROM skipped WHERE issue_id=?", (iid,))
+                c.execute("UPDATE notes SET roles=? WHERE issue_id=?", (roles, iid))
                 got.append(iid)
             elif try_upsert(c, iid, role, False, failed):
                 got.append(iid)

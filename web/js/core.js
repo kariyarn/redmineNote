@@ -134,8 +134,8 @@ const rolesOf=n=>n.roles.split(",");
 function pool(useTerm=true,useDate=true){
   const q=$("#q").value.trim().toLowerCase(),[f0,t0]=rangeOf("note"),f=q?"":f0,t=q?"":t0;   // 검색 중에는 기간을 적용하지 않는다 (기간 때문에 결과가 비는 것을 막는다)
   // 최근 변경 / 즐겨찾기 / 오래 대기 칩이 켜져 있으면 기간과 무관하게 그 조건만 본다 (여러 개면 모두 만족)
-  if(onlyFresh||starOnly||staleOnly||needOnly)return all.filter(n=>(!onlyFresh||fresh[n.issue_id])&&(!starOnly||n.starred)&&(!staleOnly||isStale(n))&&(!needOnly||needsRec(n))&&qmatch(n,q));
-  return all.filter(n=>(!(useTerm&&sel.length)||hasSel(n))&&(!useDate||((!f||n._d>=f)&&(!t||n._d<=t)))&&qmatch(n,q));
+  if(onlyFresh||starOnly||staleOnly||needOnly)return all.filter(n=>notDeploy(n)&&(!onlyFresh||fresh[n.issue_id])&&(!starOnly||n.starred)&&(!staleOnly||isStale(n))&&(!needOnly||needsRec(n))&&qmatch(n,q));
+  return all.filter(n=>notDeploy(n)&&(!(useTerm&&sel.length)||hasSel(n))&&(!useDate||((!f||n._d>=f)&&(!t||n._d<=t)))&&qmatch(n,q));
 }
 const byRole=(l,r)=>r==="전체"?l:l.filter(n=>rolesOf(n).includes(r));
 const byStat=(l,s)=>s==="전체"?l:s==="현안"?l.filter(n=>{const x=stOf(n);return x==="대기"||x==="진행"}):l.filter(n=>stOf(n)===s);

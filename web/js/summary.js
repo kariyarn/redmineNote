@@ -12,7 +12,7 @@ function drPeriod(f){const t=todayStr();return f.per==="month"?[t.slice(0,8)+"01
 function drCands(){   // 기간·역할·요청자까지 적용한 목록 (상태 칩의 개수는 여기서 센다)
   const f=drF(),[a,b]=drPeriod(f),role=f.role==="auto"?(drSel==="week"?"dev":"assigned"):f.role;
   return all.filter(n=>{
-    if(catOf(n)!=="DR")return false;
+    if(catOf(n)!=="DR"||!notDeploy(n))return false;
     const r=rolesOf(n),as=r.includes("담당자"),dv=r.includes("개발담당자");
     if(role==="assigned"&&!as)return false;if(role==="dev"&&!dv)return false;if(role==="both"&&!(as&&dv))return false;
     if(drSel==="now"){if(!isActive(n))return false}                    // 현안: 대기·진행, 기간 무관
