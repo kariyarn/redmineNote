@@ -37,9 +37,10 @@ t("bad branch", raises("config", GB.save_config, branch="a..b"))
 GB.save_config(repo="https://github.com/me/notes-backup.git", branch="", token="good-token")
 d = GB.load()
 t("repo normalized", d["repo"] == FG.REPO and d["branch"] == "main")
-t("connected, still off", GB.connected() and not GB.enabled() and GB.mode(d) == "off")
-t("hours clamp", [GB.hours({"hours": v}) for v in ("", "0", "1", "5", "99", "x")] == [3, 3, 1, 5, 24, 3])
-t("daily at", [GB.daily_at({"at": v}).strftime("%H:%M") for v in ("", "9:05", "18:30", "25:00", "x")] == ["18:00", "09:05", "18:30", "18:00", "18:00"])
+t("connected, still off", GB.connected() and not GB.enabled() and not GB.auto(d))
+t("hours clamp", [GB.hours({"hours": v}) for v in ("", "0", "1", "5", "99", "x", "-3")] == [3, 0, 1, 5, 24, 3, 0] and GB.hours({}) == 3)
+t("old settings migrate", GB.auto({"mode": "close"}) and GB.hours({"mode": "close"}) == 0 and GB.hours({"mode": "daily"}) == 24
+  and GB.auto({"mode": "hours", "hours": 5}) and GB.hours({"mode": "hours", "hours": 5}) == 5 and not GB.auto({"mode": "off"}))
 st = GB.status()
 t("status hides token", st["token_set"] and "token" not in json.dumps(st).replace("token_set", ""))
 
@@ -132,63 +133,93 @@ GB.MAX_FILE, keep = 10, GB.MAX_FILE
 t("too big", raises("size", GB.upload))
 GB.MAX_FILE = keep
 
-# 11. 언제 올리나
+# 11. 언제 올리나: 닫을 때는 늘, 켜져 있는 동안 N시간마다 (0 = 닫을 때만). 꺼져 있던 사이에 지났으면 켤 때 한 번만
 NOW = D.datetime(2026, 10, 14, 18, 0)
-d = {"repo": FG.REPO, "token": "good-token", "mode": "hours", "hours": "3"}
+d = {"repo": FG.REPO, "token": "good-token", "auto": True, "hours": 3}
 t("hours first", GB.due(NOW, d, None))
 t("hours wait", not GB.due(NOW, d, NOW - D.timedelta(hours=2, minutes=59)))
 t("hours due", GB.due(NOW, d, NOW - D.timedelta(hours=3)))
-d.update(mode="daily", at="18:00")
-t("daily before", not GB.due(NOW - D.timedelta(minutes=1), d, None))
-t("daily at time", GB.due(NOW, d, NOW - D.timedelta(days=1)))
-t("daily once", not GB.due(NOW + D.timedelta(hours=1), d, NOW + D.timedelta(minutes=1)))
-t("daily catch up when app was off", GB.due(NOW.replace(hour=21), d, NOW - D.timedelta(hours=20)))
-t("daily next", GB.next_at(NOW.replace(hour=21), {**d, "sched_try": "2026-10-14T21:00:00"}) == D.datetime(2026, 10, 15, 18, 0))
-d.update(mode="close")
-t("close not timed", not GB.due(NOW, d, None))
-t("off", not GB.due(NOW, {**d, "mode": "off"}, None))
-GB.save_config(mode_="daily", at="18:00")
-t("daily starts from next time", GB.load()["sched_try"])
+t("app off 3 days -> just due (once)", GB.due(NOW, d, NOW - D.timedelta(days=3)))
+t("close only -> never timed", not GB.due(NOW, {**d, "hours": 0}, None) and GB.next_at(NOW, {**d, "hours": 0}) is None)
+t("off", not GB.due(NOW, {**d, "auto": False}, None))
+t("base = later of try / last ok", GB._base({"sched_try": "2026-10-14T10:00:00", "last_ok": {"at": "2026-10-14T12:00:00"}}) == D.datetime(2026, 10, 14, 12))
+t("next", GB.next_at(NOW, {**d, "last_ok": {"at": "2026-10-14T17:00:00"}}) == D.datetime(2026, 10, 14, 20, 0))
 
-# 12. tick: 창이 닫히는 순간 올린다 / 정해진 때 올린다 / 실패하면 15분 뒤 다시
+# 12. tick
 calls = []
 real = GB.upload
-GB.upload = lambda reason="", force=False, now=None: calls.append(reason) or {"ok": True}
-GB.save_config(mode_="close")
-GB.tick(window_open=True)
-GB.tick(window_open=True)
+def fake_up(reason="", force=False, now=None, wait=1):
+    calls.append(reason); return {"ok": True}
+GB.upload = fake_up
+def fresh(hours_, base_ago=None):
+    """시험 상태 초기화: 프로그램을 막 켠 것처럼"""
+    dd = GB.load(); dd.pop("last_ok", None); dd["sched_try"] = (NOW - base_ago).isoformat() if base_ago else ""
+    GB._save(dd); GB.save_config(auto_=True, hours_=hours_)
+    GB._RT.update(was_open=False, pending=False, again="", started=False); calls.clear()
+# 12-1. 꺼져 있던 사이에 N시간이 지났으면 켤 때 한 번만 (밀린 횟수만큼 올리지 않는다)
+fresh(2, base_ago=D.timedelta(days=2))
+GB.tick(now=NOW, window_open=None)
+GB.tick(now=NOW + D.timedelta(seconds=30), window_open=True)
+t("catch up once at start", calls == ["앱 켤 때 (밀린 백업)"])
+# 12-2. 창을 닫는 순간 (N시간과 상관없이 늘)
+fresh(0, base_ago=D.timedelta(minutes=5))
+GB.tick(now=NOW, window_open=True); GB.tick(now=NOW, window_open=True)
 t("open: nothing", calls == [])
-GB.tick(window_open=False)
+GB.tick(now=NOW, window_open=False)
 t("closed -> upload", calls == ["앱 닫을 때"])
-GB.tick(window_open=False)
+GB.tick(now=NOW, window_open=False)
 t("only once per close", calls == ["앱 닫을 때"])
-GB.save_config(mode_="hours", hours_=2)
-GB.tick(now=NOW)
-t("hours tick", calls[-1] == "2시간마다")
-GB.tick(now=NOW + D.timedelta(hours=1))
-t("hours not again", len(calls) == 2)
-def boom(reason="", force=False, now=None):
-    calls.append("fail:" + reason)
-    raise GB.BackupError("연결 안 됨", "network")
+# 12-3. 켜져 있는 동안 N시간마다
+fresh(2, base_ago=D.timedelta(minutes=10))
+GB.tick(now=NOW, window_open=True)
+t("not yet", calls == [])
+GB.tick(now=NOW + D.timedelta(hours=2), window_open=True)
+t("hours tick", calls == ["2시간마다"])
+GB.tick(now=NOW + D.timedelta(hours=3), window_open=True)
+t("hours not again", len(calls) == 1)
+GB.tick(now=NOW + D.timedelta(hours=3, minutes=1), window_open=False)
+t("close resets the clock", calls[-1] == "앱 닫을 때")
+GB.tick(now=NOW + D.timedelta(hours=4), window_open=False)
+t("no hours right after close", len(calls) == 2)
+# 12-4. 올리는 중에 들어온 요청은 쌓지 않고 마지막 것만 한 번
+fresh(2, base_ago=D.timedelta(minutes=10))
+def busy(reason="", force=False, now=None, wait=1):
+    calls.append("busy:" + reason); raise GB.BackupError("이미 올리는 중이에요", "busy")
+GB.upload = busy
+for r in ("앱 닫을 때", "2시간마다", "다시 시도"):
+    GB.run_scheduled(r)
+t("queued only last", GB._RT["again"] == "다시 시도" and GB.status()["queued"])
+GB.upload = fake_up; calls.clear()
+GB.tick(now=NOW + D.timedelta(minutes=11), window_open=True)
+GB.tick(now=NOW + D.timedelta(minutes=12), window_open=True)
+t("queued request runs once", calls == ["다시 시도"] and not GB._RT["again"])
+# 12-5. 실패하면 15분 뒤 다시 (충돌은 다시 하지 않는다)
+def boom(reason="", force=False, now=None, wait=1):
+    calls.append("fail:" + reason); raise GB.BackupError("연결 안 됨", "network")
 GB.upload = boom
-GB.tick(now=NOW + D.timedelta(hours=2))
+GB.tick(now=NOW + D.timedelta(hours=2, minutes=15), window_open=True)   # 12-4 에서 NOW+12분에 올렸으니 그로부터 2시간
 t("failure -> pending", GB._RT["pending"] and calls[-1] == "fail:2시간마다")
-GB.tick(now=NOW + D.timedelta(hours=2, minutes=1))
-t("no immediate retry", len(calls) == 3)
+n = len(calls)
+GB.tick(now=NOW + D.timedelta(hours=2, minutes=16), window_open=True)
+t("no immediate retry", len(calls) == n)
 GB._RT["next_retry"] = time.time() - 1
-GB.upload = lambda reason="", force=False, now=None: calls.append(reason) or {"ok": True}
-GB.tick(now=NOW + D.timedelta(hours=2, minutes=20))
+GB.upload = fake_up
+GB.tick(now=NOW + D.timedelta(hours=2, minutes=40), window_open=True)
 t("retry later", calls[-1] == "다시 시도" and not GB._RT["pending"])
-def conflict(reason="", force=False, now=None):
+def conflict(reason="", force=False, now=None, wait=1):
     raise GB.BackupError("모르는 기록", "conflict")
 GB.upload = conflict
 GB.run_scheduled("x")
 t("conflict not retried", not GB._RT["pending"])
+# 12-6. 끄면 미뤄 둔 요청도 버린다
+GB._RT["again"] = "x"; GB.save_config(auto_=False); GB.tick(now=NOW, window_open=True)
+t("off clears queue", not GB._RT["again"] and GB.tick(now=NOW + D.timedelta(days=1), window_open=False) is None)
 GB.upload = real
 
 # 13. 연결 해제: 토큰을 지우고 끈다
+GB.save_config(auto_=True)
 GB.disconnect()
-t("disconnect", not GB.connected() and GB.mode(GB.load()) == "off" and GB.load().get("repo") == FG.REPO)
+t("disconnect", not GB.connected() and not GB.auto(GB.load()) and GB.load().get("repo") == FG.REPO)
 
 srv.shutdown()
 print("OK", ok, "FAIL", fail)

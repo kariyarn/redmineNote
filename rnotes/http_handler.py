@@ -619,7 +619,7 @@ class Handler(BaseHTTPRequestHandler):
                 try:
                     act = u.path.rsplit("/", 1)[-1]
                     if act == "config":       # 바꾼 값만 저장. 저장소 · 토큰을 바꿨으면 바로 연결을 확인한다
-                        gitbackup.save_config(d.get("repo"), d.get("branch"), d.get("token"), d.get("mode"), d.get("hours"), d.get("at"))
+                        gitbackup.save_config(d.get("repo"), d.get("branch"), d.get("token"), d.get("auto"), d.get("hours"))
                         out = gitbackup.status()
                         if (d.get("repo") is not None or d.get("token")) and gitbackup.connected():
                             try:

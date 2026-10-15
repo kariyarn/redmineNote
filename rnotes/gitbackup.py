@@ -2,7 +2,9 @@
 (등록한 폰트는 올리지 않는다: 다시 등록하면 되고, 저장소만 커진다.)
 
 - 동기화가 아니라 '백업'이다: 올리기만 자동이고, 내려받기(복원)는 사용자가 백업 시점을 골라 직접 한다.
-- 올리는 때(하나만 고른다): 앱 창을 닫을 때 / N시간마다 / 매일 정한 시각. 바뀐 게 없으면 올리지 않는다.
+- 올리는 때: 자동 올리기를 켜면 ① 앱 창을 닫을 때(프로그램을 끌 때 포함)는 늘 올리고, ② 켜져 있는 동안 N시간마다 올린다(0 = 닫을 때만).
+  꺼져 있던 사이에 N시간이 지났으면 켤 때 한 번만 올린다. 요청이 여러 번 겹치면(닫기 · 시간 · 다시 시도) 마지막 요청 하나만 남긴다.
+  바뀐 게 없으면 올리지 않는다.
 - PC 한 대 기준: 저장소의 최신 기록이 이 PC가 마지막으로 올린(또는 복원한) 것이 아니면 올리지 않고 알린다 (덮어쓰기 · 병합 없음).
 - 토큰은 API 키처럼 윈도우 사용자별 암호화(DPAPI)로 HOME_DIR/gitbackup.json 에 둔다. 화면으로는 돌려주지 않고, 백업 zip 에도 들어가지 않는다.
 - 깃허브 Git Data API 로 한 번에 커밋한다: blob(파일) → tree → commit → ref 이동(빨리 감기만 허용).
@@ -31,14 +33,14 @@ from .storage import db, restore_bytes
 
 API = (os.environ.get("REDMINE_NOTES_GITHUB_API") or "https://api.github.com").rstrip("/")   # 시험에서는 가짜 깃허브 주소
 CFG_PATH = HOME_DIR / "gitbackup.json"
-MODES = ("off", "close", "hours", "daily")
-MIN_HOURS, MAX_HOURS = 1, 24
+MAX_HOURS = 24                 # 켜져 있는 동안 올리는 간격(시간). 0 = 앱을 닫을 때만
+DEFAULT_HOURS = 3
 MAX_FILE = 100 * 1024 * 1024   # 깃허브 파일 하나 최대 100MB
 RETRY_SEC = 15 * 60            # 정해진 때 올리기가 실패하면 15분마다 다시 해 본다 (충돌 · 설정 오류는 다시 하지 않는다)
 TICK = int(os.environ.get("REDMINE_NOTES_GITBACKUP_TICK") or 30)
 REPO_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
 LOCK = threading.Lock()
-_RT = {"was_open": False, "pending": False, "next_retry": 0.0, "notified": ""}   # 실행 중에만 쓰는 상태
+_RT = {"was_open": False, "pending": False, "next_retry": 0.0, "notified": "", "again": "", "started": False}   # 실행 중에만 쓰는 상태 (again: 올리는 중에 들어와 미뤄 둔 마지막 요청)
 
 
 class BackupError(Exception):
@@ -99,25 +101,23 @@ def _store_token(d, token):
         d["token"] = token
 
 
-def mode(d):
-    m = d.get("mode") or "off"
-    return m if m in MODES else "off"
+def auto(d):
+    """자동 올리기를 켰는가. (예전 설정 mode = close · hours · daily 도 켬으로 본다)"""
+    if "auto" in d:
+        return bool(d["auto"])
+    return d.get("mode") in ("close", "hours", "daily")
 
 
 def hours(d):
+    """켜져 있는 동안 올리는 간격(시간, 0 ~ 24). 0 = 앱을 닫을 때만. 정한 적이 없으면 3."""
+    v = d.get("hours")
+    if v is None or v == "":
+        v = {"close": 0, "daily": 24}.get(d.get("mode"), DEFAULT_HOURS)   # 예전 설정에서 옮겨 온다
     try:
-        v = int(d.get("hours") or 0)
+        v = int(v)
     except (TypeError, ValueError):
-        v = 0
-    return max(MIN_HOURS, min(MAX_HOURS, v)) if v > 0 else 3
-
-
-def daily_at(d):
-    """매일 올릴 시각 (HH:MM). 잘못된 값이면 18:00."""
-    m = re.match(r"^(\d{1,2}):(\d{2})$", str(d.get("at") or ""))
-    if m and int(m.group(1)) < 24 and int(m.group(2)) < 60:
-        return datetime.time(int(m.group(1)), int(m.group(2)))
-    return datetime.time(18, 0)
+        v = DEFAULT_HOURS
+    return max(0, min(MAX_HOURS, v))
 
 
 def connected(d=None):
@@ -127,10 +127,10 @@ def connected(d=None):
 
 def enabled(d=None):
     d = load() if d is None else d
-    return connected(d) and mode(d) != "off"
+    return connected(d) and auto(d)
 
 
-def save_config(repo=None, branch=None, token=None, mode_=None, hours_=None, at=None):
+def save_config(repo=None, branch=None, token=None, auto_=None, hours_=None):
     """화면에서 바꾼 값만 저장한다. token 이 None 이면 그대로 둔다. 저장소가 바뀌면 '이 PC가 아는 마지막 기록'을 지운다."""
     d = load()
     if repo is not None:
@@ -149,16 +149,14 @@ def save_config(repo=None, branch=None, token=None, mode_=None, hours_=None, at=
         d["branch"] = b
     if token is not None:
         _store_token(d, token.strip())
-    if mode_ is not None:
-        if mode_ not in MODES:
-            raise BackupError("올리는 때를 다시 골라 주세요", "config")
-        if mode_ != d.get("mode"):   # N시간마다는 켜자마자 한 번 올리고, 매일 몇 시는 다음 그 시각부터 센다
-            d["sched_try"] = datetime.datetime.now().isoformat(timespec="seconds") if mode_ == "daily" else ""
-        d["mode"] = mode_
+    if auto_ is not None:
+        if bool(auto_) and not auto(d):
+            d["sched_try"] = ""   # 켜자마자 한 번 올려서 잘 되는지 바로 알 수 있게 한다
+        d["auto"] = bool(auto_)
     if hours_ is not None:
         d["hours"] = hours({"hours": hours_})
-    if at is not None:
-        d["at"] = daily_at({"at": at}).strftime("%H:%M")
+    d.pop("mode", None)   # 예전 설정은 auto · hours 로 옮겼다
+    d.pop("at", None)
     _save(d)
     return d
 
@@ -168,7 +166,8 @@ def disconnect():
     d = load()
     _store_token(d, "")
     d.pop("known", None)
-    d["mode"] = "off"
+    d["auto"] = False
+    d.pop("mode", None)
     _save(d)
     return d
 
@@ -321,11 +320,12 @@ def _init_branch(d, info):
     return _head(d)
 
 
-def upload(reason="수동", force=False, now=None):
+def upload(reason="수동", force=False, now=None, wait=1):
     """지금 올린다. 바뀐 게 없으면 올리지 않는다. 결과(dict)를 돌려주고 마지막 결과로 저장한다.
-    force: 저장소에 이 PC가 모르는 기록이 있어도 그 위에 이어서 올린다 (사용자가 확인했을 때만. 기록은 지워지지 않는다)."""
+    force: 저장소에 이 PC가 모르는 기록이 있어도 그 위에 이어서 올린다 (사용자가 확인했을 때만. 기록은 지워지지 않는다).
+    wait: 다른 올리기가 끝나기를 기다릴 초 (넘으면 'busy')."""
     now = now or datetime.datetime.now()
-    if not LOCK.acquire(timeout=1):
+    if not LOCK.acquire(timeout=wait):
         raise BackupError("이미 올리는 중이에요", "busy")
     d = load()
     res = {"at": now.isoformat(timespec="seconds"), "reason": reason, "ok": False, "changed": False, "commit": "", "error": "", "kind": ""}
@@ -456,38 +456,36 @@ def restore(sha):
 
 
 # ---------- 언제 올리나 ----------
-def due(now, d, last_try):
-    """정해진 때(N시간마다 · 매일 몇 시)가 됐는가. last_try: 마지막으로 정해진 때 올려 본 시각(datetime, 없으면 None).
+def _when(v):
+    try:
+        return datetime.datetime.fromisoformat(v or "")
+    except (TypeError, ValueError):
+        return None
+
+
+def _base(d):
+    """시간을 재는 기준: 마지막으로 정해진 때 올려 본 시각과 마지막으로 올리기에 성공한 시각(직접 · 닫을 때 포함) 중 늦은 것."""
+    ts = [t for t in (_when(d.get("sched_try")), _when((d.get("last_ok") or {}).get("at"))) if t]
+    return max(ts) if ts else None
+
+
+def due(now, d, base):
+    """켜져 있는 동안 N시간마다 올릴 때가 됐는가. base: 기준 시각(_base, 없으면 None = 바로).
+    프로그램이 꺼져 있던 사이에 N시간이 지났어도 켜졌을 때 한 번만 '때가 됐다'가 된다 (밀린 횟수만큼 올리지 않는다).
     '앱을 닫을 때'는 여기서 판단하지 않는다 (창이 닫히는 순간 · 프로그램 종료 때 따로 부른다)."""
-    if not enabled(d):
+    h = hours(d)
+    if not enabled(d) or not h:
         return False
-    m = mode(d)
-    if m == "hours":
-        return last_try is None or (now - last_try).total_seconds() >= hours(d) * 3600
-    if m == "daily":
-        target = datetime.datetime.combine(now.date(), daily_at(d))
-        return now >= target and (last_try is None or last_try < target)   # 그 시각에 꺼져 있었으면 다음에 켰을 때 올린다
-    return False
+    return base is None or (now - base).total_seconds() >= h * 3600
 
 
 def next_at(now, d):
-    """다음 예정 시각 (화면 표시용). 앱을 닫을 때 · 꺼짐이면 None."""
-    if not enabled(d):
+    """다음 시간 예정 시각 (화면 표시용). 꺼짐이거나 '닫을 때만'(0시간)이면 None."""
+    h = hours(d)
+    if not enabled(d) or not h:
         return None
-    m, last = mode(d), _last_try(d)
-    if m == "hours":
-        return now if last is None else max(now, last + datetime.timedelta(hours=hours(d)))
-    if m == "daily":
-        target = datetime.datetime.combine(now.date(), daily_at(d))
-        return target if (now < target or last is None or last < target) else target + datetime.timedelta(days=1)
-    return None
-
-
-def _last_try(d):
-    try:
-        return datetime.datetime.fromisoformat(d.get("sched_try") or "")
-    except ValueError:
-        return None
+    base = _base(d)
+    return now if base is None else max(now, base + datetime.timedelta(hours=h))
 
 
 def _notify_fail(e):
@@ -503,48 +501,58 @@ def _notify_fail(e):
 
 
 def run_scheduled(reason, now=None):
-    """정해진 때 올리기. 실패하면 (충돌 · 설정 문제가 아니면) 15분 뒤 다시 해 본다."""
+    """자동 올리기 한 번. 다른 올리기가 돌고 있으면 기다리지 않고 '마지막 요청'으로만 남긴다
+    (그 사이 몇 번이 들어와도 하나로 합쳐져 다음 확인 때 한 번만 올린다).
+    실패하면 (충돌 · 설정 문제가 아니면) 15분 뒤 다시 해 본다."""
     now = now or datetime.datetime.now()
     try:
         r = upload(reason, now=now)
         _RT["pending"], _RT["notified"] = False, ""
         return r
     except BackupError as e:
-        retry = e.kind in ("network", "server", "other", "busy")
+        if e.kind == "busy":
+            _RT["again"] = reason   # 앞서 들어온 요청은 버리고 마지막 것만
+            return {"ok": False, "queued": True, "error": str(e), "kind": e.kind}
+        retry = e.kind in ("network", "server", "other")
         _RT["pending"], _RT["next_retry"] = retry, time.time() + RETRY_SEC
-        if e.kind != "busy":
-            _notify_fail(e)
+        _notify_fail(e)
         return {"ok": False, "error": str(e), "kind": e.kind}
 
 
 def tick(now=None, window_open=None):
-    """한 번 확인 (30초마다): 창이 닫히는 순간 · 정해진 때 · 실패 뒤 다시 해 볼 때 올린다."""
+    """한 번 확인 (30초마다): 창이 닫히는 순간 · N시간이 지났을 때(켤 때 밀린 것 포함) · 미뤄 둔 요청 · 실패 뒤 다시 해 볼 때 올린다.
+    한 번 확인에 많아야 한 번만 올린다."""
     now = now or datetime.datetime.now()
     d = load()
+    first, _RT["started"] = not _RT["started"], True
     if not enabled(d):
-        _RT["was_open"] = bool(window_open)
+        _RT["was_open"], _RT["again"], _RT["pending"] = bool(window_open), "", False
         return None
-    m = mode(d)
-    if m == "close" and window_open is not None:
-        closed = _RT["was_open"] and not window_open
+    reason = ""
+    if window_open is not None:
+        if _RT["was_open"] and not window_open:
+            reason = "앱 닫을 때"
         _RT["was_open"] = window_open
-        if closed:
-            return run_scheduled("앱 닫을 때", now)
-    if m in ("hours", "daily") and due(now, d, _last_try(d)):
-        _update(sched_try=now.isoformat(timespec="seconds"))
-        return run_scheduled({"hours": f"{hours(d)}시간마다", "daily": f"매일 {daily_at(d):%H:%M}"}[m], now)
-    if _RT["pending"] and time.time() >= _RT["next_retry"]:
-        return run_scheduled("다시 시도", now)
-    return None
+    if not reason and due(now, d, _base(d)):
+        reason = "앱 켤 때 (밀린 백업)" if first else f"{hours(d)}시간마다"
+    if not reason and _RT["again"] and not LOCK.locked():
+        reason = _RT["again"]
+    if not reason and _RT["pending"] and time.time() >= _RT["next_retry"]:
+        reason = "다시 시도"
+    if not reason:
+        return None
+    _RT["again"] = ""
+    _update(sched_try=now.isoformat(timespec="seconds"))   # 닫을 때 올렸어도 N시간은 여기서부터 다시 잰다
+    return run_scheduled(reason, now)
 
 
 def on_shutdown():
-    """프로그램이 꺼질 때: '앱을 닫을 때' 이면 마지막으로 한 번 올린다 (바뀐 게 없으면 금방 끝난다)."""
-    d = load()
-    if enabled(d) and mode(d) == "close":
+    """프로그램이 꺼질 때: 자동 올리기가 켜져 있으면 마지막으로 한 번 올린다 (돌고 있는 올리기가 있으면 끝나기를 기다렸다가 한 번만.
+    바뀐 게 없으면 금방 끝난다)."""
+    if enabled():
         def go():
             try:
-                upload("프로그램 종료")
+                upload("프로그램 종료", wait=80)
             except Exception:
                 pass
         t = threading.Thread(target=go, daemon=True)
@@ -568,9 +576,9 @@ def status(now=None):
     d = load()
     nxt = next_at(now, d)
     return {
-        "repo": d.get("repo", ""), "branch": _branch(d), "token_set": bool(_token(d)), "mode": mode(d),
-        "hours": hours(d), "at": daily_at(d).strftime("%H:%M"), "enabled": enabled(d), "busy": LOCK.locked(),
+        "repo": d.get("repo", ""), "branch": _branch(d), "token_set": bool(_token(d)), "auto": auto(d),
+        "hours": hours(d), "enabled": enabled(d), "busy": LOCK.locked(),
         "known": d.get("known", ""), "last": d.get("last"), "last_ok": d.get("last_ok"),
-        "next": nxt.isoformat(timespec="minutes") if nxt else "", "pending": _RT["pending"],
-        "min_hours": MIN_HOURS, "max_hours": MAX_HOURS,
+        "next": nxt.isoformat(timespec="minutes") if nxt else "", "pending": _RT["pending"], "queued": bool(_RT["again"]),
+        "max_hours": MAX_HOURS,
     }

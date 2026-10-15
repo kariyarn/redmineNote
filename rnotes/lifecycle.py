@@ -14,25 +14,15 @@ def idle_watchdog():
     """앱 창을 닫으면 서버는 트레이에 남고, 창도 화면 신호도 없이 IDLE_QUIT_SEC(기본 10분)이 지나면 서버를 끈다."""
     while True:
         time.sleep(15)
-        if app_window_open() or alarm_pending() or autosync_enabled() or gitbackup_timed():   # 앞으로 울릴 알림이 있거나 자동 가져오기 · 정해진 때 깃허브 백업이 켜져 있으면 창이 없어도 서버를 켜 둔다
+        if app_window_open() or alarm_pending() or autosync_enabled():   # 앞으로 울릴 알림이 있거나 자동 가져오기가 켜져 있으면 창이 없어도 서버를 켜 둔다
             STATE["last_active"] = time.time()
         if time.time() - max(STATE["last_ping"], STATE["last_active"]) > IDLE_QUIT_SEC:
             shutdown()
 
 
-def gitbackup_timed():
-    """깃허브 백업이 'N시간마다 · 매일 몇 시'로 켜져 있는가 (그때 올리려면 서버가 켜져 있어야 한다)."""
-    try:
-        from . import gitbackup
-        d = gitbackup.load()
-        return gitbackup.enabled(d) and gitbackup.mode(d) in ("hours", "daily")
-    except Exception:
-        return False
-
-
 def shutdown():
     """프로그램 종료. 트레이 아이콘을 먼저 지워서 알림 영역에 유령 아이콘이 남지 않게 한다.
-    깃허브 백업이 '앱을 닫을 때'로 켜져 있으면 끄기 전에 한 번 올린다 (바뀐 게 없으면 금방 끝난다)."""
+    깃허브 자동 올리기가 켜져 있으면 끄기 전에 한 번 올린다 (바뀐 게 없으면 금방 끝난다)."""
     try:
         from . import gitbackup
         gitbackup.on_shutdown()
