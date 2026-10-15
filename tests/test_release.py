@@ -41,6 +41,10 @@ try:
     p = json.loads(urllib.request.urlopen(f"http://127.0.0.1:{FP}/__puts").read())[-1]["body"]["issue"]["notes"]
     want = NL.join(["<p>첫줄</p>", "<p>둘째줄</p>", "<p>* 항목1</p>", "<p>* 항목2</p>", "<p>@x@ 와</p>", "<pre><code class=\"sql\">", "SELECT 1", "</code></pre>"])
     chk("줄마다 <p> 문단 (레드마인 편집기와 같은 간격, 목록 줄 포함)", p == want, repr(p))
+    call("POST", "/api/rm/write", {"issue_id": 200, "notes": "한 문단 첫 줄\uE002같은 문단 다음 줄\n새 문단"})
+    p_soft = json.loads(urllib.request.urlopen(f"http://127.0.0.1:{FP}/__puts").read())[-1]["body"]["issue"]["notes"]
+    chk("Shift+Enter 줄바꿈은 같은 문단의 br, Enter는 새 문단",
+        p_soft == "<p>한 문단 첫 줄<br />같은 문단 다음 줄</p>\n<p>새 문단</p>", repr(p_soft))
     # 엔터를 여러 번 친 빈 줄이 레드마인(HTML)에서 사라지지 않는지: 편집기처럼 빈 문단 <p>&nbsp;</p>
     text2 = NL.join(["안녕하세요.", "", "http://x/issues/1", "일전에", "확인", "", "", "감사합니다"])
     call("POST", "/api/rm/write", {"issue_id": 200, "notes": text2})

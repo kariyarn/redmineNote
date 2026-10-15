@@ -28,6 +28,7 @@ function wireCp(root){
    - `글자` 를 입력/붙여넣기     -> 그 자리에서 코드 모양으로 바뀐다
    - 코드 상자 안: ``` 입력 또는 Ctrl+Enter/Esc = 상자 밖으로 나가기, Tab = 들여쓰기 */
 const LANG="[A-Za-z0-9_+#.-]*";
+const SOFT_BREAK="\uE002";
 function parseSegs(s,open){
   const out=[];let last=0,m;const re=new RegExp("```(?:("+LANG+")\\n)?([\\s\\S]*?)```","g");
   while((m=re.exec(s))){
@@ -48,7 +49,7 @@ function serText(el){   // 글 블록 -> 문자열 (인라인 코드는 ` ` 로 
   el.childNodes.forEach(n=>{
     if(n.nodeType===3)s+=n.data;
     else if(n.nodeName==="CODE")s+="`"+n.textContent+"`";
-    else if(n.nodeName==="BR")s+="\n";
+    else if(n.nodeName==="BR")s+=n.dataset.softBreak!==undefined?SOFT_BREAK:"\n";
     else if(n.nodeName==="DIV"){   // 편집기가 Enter 를 <div> 줄로 만든 경우: 줄 하나 = 줄바꿈 하나 (빈 줄 <div><br></div> 도 빈 줄 하나로)
       if(s&&!s.endsWith("\n"))s+="\n";
       if(n.childNodes.length===1&&n.firstChild.nodeName==="BR"){if(n.nextSibling)s+="\n"}
@@ -60,8 +61,9 @@ function serText(el){   // 글 블록 -> 문자열 (인라인 코드는 ` ` 로 
 }
 function fillText(el,s){   // 문자열 -> 글 블록 (`글자` 는 코드 모양 요소로)
   el.textContent="";
-  s.split(/(`[^`\n]+`)/).forEach(p=>{
+  s.split(new RegExp("(`[^`\\n]+`|"+SOFT_BREAK+")")).forEach(p=>{
     if(/^`[^`\n]+`$/.test(p)){const c=document.createElement("code");c.className="ic";c.textContent=p.slice(1,-1);el.appendChild(c);el.appendChild(document.createTextNode("​"))}
+    else if(p===SOFT_BREAK){const br=document.createElement("br");br.dataset.softBreak="";el.appendChild(br);el.appendChild(document.createTextNode("​"))}
     else if(p)el.appendChild(document.createTextNode(p));
   });
 }
@@ -85,6 +87,15 @@ function mkText(s){
     if(e.key!=="`")d._bq=null;
     if(e.key!=="Enter"||e.isComposing)return;
     e.preventDefault();
+    if(e.shiftKey){
+      const g=getSelection();if(!g.rangeCount||!d.contains(g.anchorNode))return;
+      const r=g.getRangeAt(0);r.deleteContents();
+      const br=document.createElement("br");br.dataset.softBreak="";
+      r.insertNode(br);
+      const after=document.createTextNode("​");br.after(after);caretAt(after,1);
+      d.dispatchEvent(new Event("input",{bubbles:true}));
+      return;
+    }
     const g=getSelection(),c=g.anchorNode&&g.anchorNode.parentElement&&g.anchorNode.parentElement.closest("code.ic");
     if(c){const nx=c.nextSibling;if(nx&&nx.nodeType===3)caretAt(nx,nx.data.startsWith("​")?1:0)}   // 코드 모양 밖으로 나온 뒤 줄바꿈
     document.execCommand("insertText",false,"\n");
