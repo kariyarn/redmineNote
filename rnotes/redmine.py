@@ -372,7 +372,7 @@ def _sync(date_from, date_to):
         for iid, brief in listed.items():
             role_text = ",".join(roles[iid])
             # 이미 받았고 레드마인 수정 시각이 같으면 상세를 다시 받지 않는다(부하 감소).
-            # 단, 작성자 ID 가 없는(2.15.3 전에 받은) 일감은 한 번 다시 받아 채운다. 레드마인에서 바뀐 것은 아니라서 '변경'으로 세지 않는다.
+            # 단, 작성자 ID 가 없는(2.16.1 전에 받은) 일감은 한 번 다시 받아 채운다. 레드마인에서 바뀐 것은 아니라서 '변경'으로 세지 않는다.
             same = local.get(iid) == brief["updated_on"]
             if same and iid not in no_author:
                 old = c.execute("SELECT roles FROM notes WHERE issue_id=?", (iid,)).fetchone()

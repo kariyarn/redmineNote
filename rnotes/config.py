@@ -17,7 +17,7 @@ APP_DIR = Path(getattr(sys, "_MEIPASS", None) or ROOT_DIR)  # web/ · icon.ico �
 WEB_DIR = APP_DIR / "web"   # 화면(HTML · CSS · JS)
 EXE_DIR = Path(sys.executable).parent if FROZEN else ROOT_DIR  # 예전 방식(프로그램 폴더)의 데이터 위치
 DEFAULT_URL = ""  # 레드마인 주소는 첫 실행 설정 화면에서 입력
-APP_VERSION = "2.15.3"  # 기능을 고칠 때 올린다. DB 에 기록되어 업데이트 직전 백업 · 낮은 버전 경고에 쓴다.
+APP_VERSION = "2.16.1"  # 기능을 고칠 때 올린다. DB 에 기록되어 업데이트 직전 백업 · 낮은 버전 경고에 쓴다.
 UPGRADE_BACKUP_KEEP = 5
 ALIVE_SEC = int(os.environ.get("REDMINE_NOTES_ALIVE_SEC") or 90)  # 화면 신호가 이 안에 있었으면 "창이 열려 있다"고 본다
 IDLE_QUIT_SEC = int(os.environ.get("REDMINE_NOTES_IDLE_SEC") or 600)  # 화면 신호가 이만큼 끊기면 스스로 종료 (0 = 끄지 않음)

@@ -176,7 +176,7 @@ def init_db():
             c.execute("ALTER TABLE notes ADD COLUMN desc_raw TEXT DEFAULT ''")
         if "changes" not in cols:  # 2.4: 상태·담당자 등 변경 이력 (이름으로 풀어서 저장)
             c.execute("ALTER TABLE notes ADD COLUMN changes TEXT DEFAULT '[]'")
-        if "author_id" not in cols:  # 2.15.3: 작성자 레드마인 ID (0 = 아직 모름 → 다음 가져오기에서 다시 받아 채운다)
+        if "author_id" not in cols:  # 2.16.1: 작성자 레드마인 ID (0 = 아직 모름 → 다음 가져오기에서 다시 받아 채운다)
             c.execute("ALTER TABLE notes ADD COLUMN author_id INTEGER DEFAULT 0")
         if "starred" not in cols:  # 즐겨찾기(상단 고정)
             c.execute("ALTER TABLE notes ADD COLUMN starred INTEGER DEFAULT 0")

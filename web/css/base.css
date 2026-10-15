@@ -365,3 +365,62 @@ a.btn:hover{border-color:var(--accent);color:var(--accent)}
 details{margin-bottom:18px}
 @media (max-width:900px){main{grid-template-columns:1fr!important;display:block}.split{display:none}.search input{width:8rem}}
 
+
+/* 설정 창: 위 제목 · 왼쪽 탭 · 오른쪽 내용(이것만 스크롤). 고른 탭의 묶음만 보인다 */
+.mbox.stabbed{width:min(940px,95vw);height:min(760px,90vh);max-height:90vh;display:flex;flex-direction:column;overflow:hidden}
+.stop{flex:none;border-bottom:1px solid var(--line)}
+.stop .mhead{position:static;border-bottom:0}
+.sbody{flex:1;min-height:0;display:flex}
+.stabs{flex:none;width:176px;display:flex;flex-direction:column;gap:2px;padding:12px 10px;border-right:1px solid var(--line);background:color-mix(in srgb,var(--surface2) 55%,var(--surface));overflow:auto}
+.stabs button{display:flex;align-items:center;gap:9px;border:0;background:none;margin:0;padding:9px 12px;border-radius:9px;color:var(--text);font-size:.93rem;text-align:left}
+.stabs button:hover{background:color-mix(in srgb,var(--text) 6%,transparent)}
+.stabs button.on{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.stabs .sti{width:1.3em;text-align:center;font-size:.95rem;filter:saturate(.7)}
+.spane{flex:1;min-width:0;overflow:auto;padding:6px 26px 28px}
+.mbox.stabbed .msec{display:none;padding:20px 0 18px;border-bottom:1px solid var(--line)}
+.mbox.stabbed[data-st=gen] .msec[data-st=gen],.mbox.stabbed[data-st=sync] .msec[data-st=sync],.mbox.stabbed[data-st=view] .msec[data-st=view],
+.mbox.stabbed[data-st=font] .msec[data-st=font],.mbox.stabbed[data-st=write] .msec[data-st=write],.mbox.stabbed[data-st=backup] .msec[data-st=backup]{display:block}
+.spane .msec h4{font-size:1.02rem;margin:0 0 4px;letter-spacing:-.01em}
+.spane .lead{margin:0 0 14px;color:var(--sub);font-size:.88rem;line-height:1.55}
+.spane .lead .bad,.spane .hint.bad{color:#c0392b}
+/* 한 줄 = 이름(왼쪽 고정 폭) + 조절(오른쪽) */
+.srow{display:flex;align-items:center;gap:14px;padding:7px 0;min-height:40px}
+.srow .sl{flex:none;width:118px;font-size:.9rem;font-weight:600;color:var(--text)}
+.srow .sc{flex:1;min-width:0;display:flex;align-items:center;flex-wrap:wrap;gap:8px}
+.srow .sc>input[type=text],.srow .sc>input[type=password],.srow .sc>select{flex:1;min-width:12rem}
+.srow .sc button,.srow .sc .btn{margin:0}
+.srow input.num{width:4.8rem;flex:none}
+.srow input[type=range]{flex:1;max-width:16rem}
+.spane .hint{color:var(--sub);font-size:.82rem;margin:0}
+.spane p.hint{margin:2px 0 6px 132px;line-height:1.5}
+.spane .chk{display:inline-flex;gap:7px;align-items:center;font-weight:400;cursor:pointer}
+.spane>.msec>.chk{margin:4px 0}
+.spane .dim{opacity:.5}
+.spane .sample{margin-top:10px}
+.spane .fitems{margin-top:8px}
+/* 자세히(긴 설명) · 접는 목록 */
+.smore{margin:4px 0 2px 132px}
+.smore>summary{cursor:pointer;color:var(--sub);font-size:.82rem;width:max-content;list-style:none;padding:2px 0;display:flex;align-items:center;gap:5px}
+.smore>summary::-webkit-details-marker{display:none}
+.smore>summary::before{content:"▶";font-size:.62rem;display:inline-block;transition:transform .15s}
+.smore[open]>summary::before{transform:rotate(90deg)}
+.smore>summary:hover{color:var(--text)}
+.smore .desc{margin:6px 0 0;padding:10px 12px;border-radius:8px;background:color-mix(in srgb,var(--text) 4%,transparent);line-height:1.6}
+.sfold{margin-top:12px;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.sfold>summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px;padding:10px 14px;font-size:.9rem;font-weight:600;background:color-mix(in srgb,var(--text) 3%,transparent)}
+.sfold>summary::-webkit-details-marker{display:none}
+.sfold>summary::before{content:"▶";font-size:.62rem;color:var(--sub);transition:transform .15s}
+.sfold[open]>summary::before{transform:rotate(90deg)}
+.sfold>summary .cnt{font-size:.75rem;font-weight:600;color:var(--sub);background:color-mix(in srgb,var(--text) 8%,transparent);border-radius:10px;padding:0 8px}
+.sfold .flist{max-height:280px;overflow:auto;padding:6px 10px 8px;border-top:1px solid var(--line)}
+.sfold .flist .bk{margin:4px 0}
+@media (max-width:720px){
+  .sbody{flex-direction:column}
+  .stabs{width:auto;flex-direction:row;flex-wrap:wrap;border-right:0;border-bottom:1px solid var(--line);padding:8px}
+  .stabs button{padding:6px 10px}
+  .spane{padding:4px 16px 20px}
+  .srow{flex-wrap:wrap;gap:6px}.srow .sl{width:100%}
+  .spane p.hint,.smore{margin-left:0}
+}
+.srow .val{width:3.4rem;text-align:right;font-variant-numeric:tabular-nums}
+.srow .sc a.btn,.srow .sc label.btn{display:inline-flex;align-items:center;padding:7px 14px;border-radius:9px;border:1px solid var(--line);background:var(--surface2);color:var(--text);text-decoration:none;font-size:.93rem}

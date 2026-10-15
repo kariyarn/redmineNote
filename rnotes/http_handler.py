@@ -32,6 +32,7 @@ from .holidays import extra_days, holiday_dates
 from .queries import query_delete, query_import, query_list, query_pin, query_restore, query_save, query_use, query_versions
 from .commands import command_delete, command_list, command_save
 from .trouble import trouble_row, trouble_save
+from . import gitbackup
 
 
 # ---------- HTTP ----------
@@ -316,6 +317,17 @@ class Handler(BaseHTTPRequestHandler):
                 fname = f"redmine-notes-backup-{stamp()}.zip"
             self.send_bytes(data, "application/zip", headers={
                 "Content-Disposition": f'attachment; filename="{fname}"'})
+        elif u.path == "/api/gitbackup":            # 깃허브 백업 설정 · 마지막 결과 (토큰은 있는지만)
+            self.send_json(gitbackup.status())
+        elif u.path in ("/api/gitbackup/history", "/api/gitbackup/download"):
+            try:
+                if u.path == "/api/gitbackup/history":   # 백업 시점 목록 (최근 것부터)
+                    return self.send_json(gitbackup.history())
+                sha = q.get("sha", "")               # 그 시점을 zip 파일로 받기
+                self.send_bytes(gitbackup.fetch_zip(sha), "application/zip", headers={
+                    "Content-Disposition": f'attachment; filename="redmine-notes-github-{sha[:7]}.zip"'})
+            except gitbackup.BackupError as e:
+                self.send_json({"error": str(e), "kind": e.kind}, 400)
         elif u.path == "/api/fonts":
             self.send_json(font_files())
         elif u.path.startswith("/fonts/"):
@@ -603,6 +615,33 @@ class Handler(BaseHTTPRequestHandler):
                 if not raw:
                     return self.send_json({"error": "복원할 파일이 비어 있습니다"}, 400)
                 self.send_json(restore_bytes(raw))
+            elif u.path.startswith("/api/gitbackup/"):
+                try:
+                    act = u.path.rsplit("/", 1)[-1]
+                    if act == "config":       # 바꾼 값만 저장. 저장소 · 토큰을 바꿨으면 바로 연결을 확인한다
+                        gitbackup.save_config(d.get("repo"), d.get("branch"), d.get("token"), d.get("auto"), d.get("hours"))
+                        out = gitbackup.status()
+                        if (d.get("repo") is not None or d.get("token")) and gitbackup.connected():
+                            try:
+                                gitbackup.check()
+                                out["check"] = {"ok": True}
+                            except gitbackup.BackupError as e:
+                                out["check"] = {"ok": False, "error": str(e), "kind": e.kind}
+                        self.send_json(out)
+                    elif act == "check":
+                        info = gitbackup.check()
+                        self.send_json({"ok": True, "default_branch": info.get("default_branch", "")})
+                    elif act == "upload":     # 지금 올리기 (force: 모르는 기록이 있어도 그 위에 이어서)
+                        self.send_json(gitbackup.upload("직접", force=bool(d.get("force"))))
+                    elif act == "restore":    # 고른 백업 시점으로 복원 (직전 상태는 로컬 before-restore 백업)
+                        self.send_json(gitbackup.restore(d.get("sha", "")))
+                    elif act == "disconnect":
+                        gitbackup.disconnect()
+                        self.send_json(gitbackup.status())
+                    else:
+                        self.send_json({"error": "not found"}, 404)
+                except gitbackup.BackupError as e:
+                    self.send_json({"error": str(e), "kind": e.kind}, 400)
             elif u.path == "/api/fonts":
                 ext = Path("x" + q.get("ext", "")).suffix.lower()
                 name = re.sub(r"[^\w가-힣 .\-]", "", q.get("name", "")).strip()[:40]

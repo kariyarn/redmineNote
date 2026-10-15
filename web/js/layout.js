@@ -61,11 +61,17 @@ function renderNav(){
   const aN=alr.list.length,nN=ui.memoSeenDay!==todayStr()?alr.notice.length:0;
   const memoEx=(aN?`<span class="nvb bell" data-nvb="al" title="울린 메모 알림 ${aN}개 — 누르면 알림 창을 다시 열어요">🔔${aN}</span>`:"")+(nN?`<span class="nvb" data-nvb="nt" title="오늘 볼 메모 ${nN}개 (미리 적어 둔 것) — 누르면 오늘 보드로">📝${nN}</span>`:"");
   const dictBtn=`<button class="nv-item ${dictVisible()&&!todayFull()?"on":""}" data-act="dict" title="용어(주제) 사전을 오른쪽에 열고 닫습니다">${NAVICON.dict}<span>주제 사전</span></button>`;
-  if(V2()){   // 새 디자인: 하는 일 기준 3묶음, '더 보기' 없이 모두 보인다. 배포요청은 일감 묶음 (오늘 배포요청이 있으면 🚀)
-    const g=t=>`<div class="nv-grp">${t}</div>`;
-    $("#navitems").innerHTML=g("일감")+mk("today","오늘",nowN)+mk("history","이력")+dictBtn+mk("mine","내 기록")+mk("deploy","배포요청",0,dpIc)
-      +g("내 도구")+mk("memo","메모",0,memoEx)+mk("trouble","트러블슈팅")+g("보관함")+mk("vaultCode","코드")+mk("vaultQuery","쿼리")+mk("vaultCommands","명령어")
-      +g("분석")+mk("summary","요약")+mk("graph","그래프")+mk("code","코드 이력");
+  if(V2()){   // 새 디자인: 하는 일 기준 4묶음. 묶음 제목을 누르면 접히고(저장), 지금 보는 화면이 든 묶음은 항상 펼친다. 접힌 묶음은 제목 옆에 숫자 · 🔔 · 🚀 만 보여 준다
+    const fold=ui.navFold||{};
+    const g=(k,t,ids,items,ex)=>{const here=ids.includes(nav),open=!fold[k]||here;
+      return `<button type="button" class="nv-grp ${open?"":"shut"}" data-grp="${k}" ${here?"data-here":""} title="${open?"접기":"펼치기"}${here&&fold[k]?" (지금 보는 화면이 있어서 펼쳐 둠)":""}"><span>${t}</span>${open?"":`<span class="nv-gx">${ex||""}</span>`}${chev(open&&!fold[k])}</button>`+(open?items:"")};
+    $("#navitems").innerHTML=g("work","일감",["today","history","mine","deploy"],mk("today","오늘",nowN)+mk("history","이력")+dictBtn+mk("mine","내 기록")+mk("deploy","배포요청",0,dpIc),(nowN?`<span class="cnt">${nowN}</span>`:"")+dpIc)
+      +g("tools","내 도구",["memo","trouble"],mk("memo","메모",0,memoEx)+mk("trouble","트러블슈팅"),memoEx)
+      +g("vault","보관함",["vaultCode","vaultQuery","vaultCommands","queries","commands"],mk("vaultCode","코드")+mk("vaultQuery","쿼리")+mk("vaultCommands","명령어"))
+      +g("anal","분석",["summary","graph","code"],mk("summary","요약")+mk("graph","그래프")+mk("code","코드 이력"));
+    document.querySelectorAll("#nav [data-grp]").forEach(b=>b.onclick=()=>{
+      const k=b.dataset.grp,shut=!(ui.navFold||{})[k];ui.navFold={...(ui.navFold||{}),[k]:shut};saveUI();renderNav();
+      if(b.hasAttribute("data-here"))toast(shut?"지금 보는 화면이 이 묶음에 있어서 펼쳐 둬요. 다른 화면으로 가면 접혀요":"이 묶음을 늘 펼쳐 둬요",2600)});
   }else
   $("#navitems").innerHTML=mk("today","오늘",nowN)+mk("history","이력")+mk("mine","내 기록")+mk("memo","메모",0,memoEx)
     +`<div class="nv-sec" id="navmore"><span>더 보기${!more&&dpIc?" "+dpIcon(true):""}</span>${chev(more)}</div>`

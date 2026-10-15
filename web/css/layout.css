@@ -24,6 +24,21 @@ body{display:block;overflow:hidden;height:100vh}
 .nv-sync summary{cursor:pointer;padding:2px 0}
 .nv-sync select{width:100%;margin-top:4px}
 .nv-sync .dates input{width:100%;margin-top:4px}
+#navitems{flex:0 1 auto;min-height:0;overflow:auto;margin:0 -4px;padding:0 4px}   /* 메뉴가 길면 메뉴만 스크롤하고, 가져오기 · 달력 · 설정은 아래에 남는다 */
+.nv-syncrow{display:flex;gap:4px;align-items:stretch}
+.nv-syncrow .primary{flex:1}
+.nv-syncrow .icon{flex:none;font-size:.9rem;background:none;border:0;color:var(--sub);border-radius:8px;padding:0 6px;margin:0}
+.nv-syncrow .icon:hover{background:color-mix(in srgb,var(--text) 7%,transparent);color:var(--text)}
+.nv-sync.shut #syncopt,.nv-sync.shut #lastsync:not(.warn){display:none}
+.nv-sync.shut{padding-bottom:2px}
+/* 왼쪽 메뉴 줄 간격 '촘촘' (설정 → 화면 디자인) */
+html[data-navdense] #nav{padding-top:12px}
+html[data-navdense] .nv-brand{padding-bottom:10px}
+html[data-navdense] #nav .nv-item{padding-top:4px;padding-bottom:4px;margin:0;font-size:.9rem}
+html[data-navdense] #nav .nv-grp,html[data-navdense] #nav .nv-sec,html[data-navdense] #nav .nv-vault-hd{margin-top:9px;margin-bottom:2px}
+html[data-navdense] .nv-sync{padding-top:6px;gap:4px}
+html[data-navdense] #sbCal{margin-top:4px;padding-top:5px}
+html[data-navdense] .sbc-d,html[data-navdense] .sbc-g i{height:24px}
 .nv-foot{display:flex;align-items:center;gap:4px;padding:6px 2px 0;border-top:1px solid var(--line);margin-top:6px}
 .nv-foot .icon{background:none;border:0;color:var(--sub);border-radius:8px}
 .nv-foot .icon:hover{background:color-mix(in srgb,var(--text) 7%,transparent);color:var(--text)}

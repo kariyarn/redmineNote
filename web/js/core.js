@@ -68,6 +68,8 @@ function applyTheme(){
   if(V2())r.dataset.design="v2";else r.removeAttribute("data-design");
   if(ui.theme!=="auto"&&!THEMES.some(t=>t.id===ui.theme)){ui.theme=THEME_MIGRATE[ui.theme]||"light";saveUI()}
   if(ui.theme==="auto")r.removeAttribute("data-theme");else r.dataset.theme=ui.theme;
+  if(ui.navDense)r.dataset.navdense="1";else r.removeAttribute("data-navdense");     // 왼쪽 메뉴 줄 간격: 보통 / 촘촘 (설정 → 화면 디자인)
+  const sy=$("#navsync");if(sy){sy.classList.toggle("shut",!!ui.syncFold);$("#syncFold").innerHTML=chev(!ui.syncFold)}
 }
 
 /* ---------- 글꼴 ---------- */
@@ -146,7 +148,7 @@ const isMine=n=>!!(reqEdited(n)||n.action.trim()||n.code_change.trim()||n.reason
 /* 기록 모드: 기본은 '기록 불필요'. 뭔가 써서 저장하면 '기록'으로 바뀌고, '기록' 모드인데 내용이 비어 있을 때만 '기록 필요'로 보인다. */
 const needsRec=n=>n.rec_mode==="record"&&!isMine(n);
 const myComments=n=>n.journals.filter(j=>j.user&&cfg.meId&&j.user.id===cfg.meId);
-const authoredByMe=n=>n.author_id?!!cfg.meId&&n.author_id===cfg.meId:(me=>!!me&&(n.author||"").includes(me))((cfg.meName||"").trim());   // 작성자가 나인가: ID 로. ID 를 아직 못 받은(2.15.3 전) 일감만 이름으로 (다음 가져오기에서 채워진다)
+const authoredByMe=n=>n.author_id?!!cfg.meId&&n.author_id===cfg.meId:(me=>!!me&&(n.author||"").includes(me))((cfg.meName||"").trim());   // 작성자가 나인가: ID 로. ID 를 아직 못 받은(2.16.1 전) 일감만 이름으로 (다음 가져오기에서 채워진다)
 
 /* ---------- 기간: 화면마다 따로 (수정일 기준) ----------
    - 노트 목록 : 현안 모드는 '전체 기간', 전체 모드는 '최근 7일'이 기본 (전체는 목록이 너무 길어지므로)
@@ -196,6 +198,7 @@ function wireRangeCtl(v,idp,after){
 }
 /* 레드마인 가져오기 기간 (위쪽 '가져오기') */
 const syncDates=()=>{const k=$("#syncRange").value;return k==="custom"?[$("#from").value,$("#to").value]:presetDates(k)};
+$("#syncFold").onclick=()=>{ui.syncFold=!ui.syncFold;saveUI();applyTheme()};
 $("#syncRange").onchange=()=>{
   const c=$("#syncRange").value==="custom";$("#syncDates").style.display=c?"":"none";
   if(c&&!$("#from").value){const [f,t]=presetDates("30d");$("#from").value=f;$("#to").value=t}
@@ -203,6 +206,7 @@ $("#syncRange").onchange=()=>{
 function renderLastSync(){
   let i=null;try{i=JSON.parse(S.last_sync||"null")}catch(e){}
   const el=$("#lastsync");
+  el.classList.toggle("warn",!!(i&&i.failed));     // 가져오기 영역을 접어 둬도 '확인 필요'가 있으면 보인다
   if(!i){el.textContent="아직 가져온 적이 없어요";return}
   const ast=autoSync.st&&autoSync.st.enabled?autoSync.st:null;      // 자동 가져오기가 켜져 있으면 간격 (마우스를 올리면 기간 · 시간대 · 다음 예정 시각)
   el.innerHTML=`${esc(i.at.slice(5))} 가져옴 · ${i.found}건${i.added?` · 신규 ${i.added}`:""}${i.failed?` · <a href="#" id="syncbad" class="bad">확인 필요 ${i.failed}</a>`:""}${i.skipped?` · <a href="#" id="syncskip">건너뜀 ${i.skipped}</a>`:""}${ast?` · <span title="${esc(autoSyncTip(ast))}">자동 ${ast.minutes}분</span>`:""}`;
