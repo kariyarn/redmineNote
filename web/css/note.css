@@ -41,7 +41,10 @@ details.cmd-help{border:1px solid var(--line);border-radius:10px;padding:6px 12p
 .cmd-help button{white-space:nowrap}.cmd-help td:last-child:has(button){width:1%}
 .cmd-help table.ex td:first-child{min-width:8em}
 .vparam{display:grid;grid-template-columns:minmax(8rem,1.2fr) 7.5rem minmax(8rem,1.4fr) auto;gap:6px;align-items:center;margin-top:6px}
-.vparam-hd{font-size:.85em;color:var(--sub);margin-top:2px}.vparam .vp-name{font-family:var(--mono)}
+.vparam-hd{font-size:.85em;color:var(--sub);margin-top:2px}
+button#varParamAdd{border:1.5px solid var(--accent);background:var(--accent-soft);color:var(--accent);font-weight:600;padding:4px 12px}
+button#varParamAdd:hover:not(:disabled){background:var(--accent);color:var(--accent-ink)}
+button#varParamAdd:disabled{border:1.5px dashed var(--line);background:transparent;color:var(--sub);font-weight:500;cursor:not-allowed}.vparam .vp-name{font-family:var(--mono)}
 table.vptab{border-collapse:collapse}table.vptab th,table.vptab td{text-align:left;padding:3px 10px 3px 0;border-bottom:1px solid var(--line)}.cmd-help table.ex td:nth-child(2){white-space:nowrap}
 .cmd-description{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.6}
 .cmp .cmrow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:8px}
