@@ -74,6 +74,24 @@ def pre_upgrade_check():
             pass  # 백업이 안 돼도 구조 변경은 '추가만' 하므로 계속 진행
 
 
+# 명령어 변수 기본값 (처음 한 번만 넣는다. 지우거나 고쳐도 다시 넣지 않는다). 예전 날짜 자동 입력 #{nextTue} · #{nextThu} 를 그대로 잇는다
+DEFAULT_CMD_VARS = (
+    ("today", "func", "return ctx.fmt(ctx.now);", "오늘 날짜 (YYYY-MM-DD)"),
+    ("nextTue", "func", "return ctx.fmt(ctx.nextWeekday(2));", "돌아오는 화요일 (오늘이 화요일이면 오늘)"),
+    ("nextThu", "func", "return ctx.fmt(ctx.nextWeekday(4));", "돌아오는 목요일 (오늘이 목요일이면 오늘)"),
+)
+
+
+def seed_cmd_vars(c):
+    if c.execute("SELECT 1 FROM settings WHERE key='cmd_vars_seeded'").fetchone():
+        return
+    now = datetime.datetime.now().isoformat(timespec="seconds")
+    for name, kind, value, desc in DEFAULT_CMD_VARS:
+        c.execute("INSERT OR IGNORE INTO cmd_vars (name, kind, value, description, created_at, updated_at) VALUES (?,?,?,?,?,?)",
+                  (name, kind, value, desc, now, now))
+    c.execute("INSERT INTO settings (key,value) VALUES ('cmd_vars_seeded','1') ON CONFLICT(key) DO NOTHING")
+
+
 def init_db():
     pre_upgrade_check()
     with db() as c:
@@ -156,6 +174,13 @@ def init_db():
                 created_at TEXT, updated_at TEXT
             );
             CREATE UNIQUE INDEX IF NOT EXISTS idx_commands_shortcut ON commands(shortcut COLLATE NOCASE);
+            -- 명령어 변수: 문구 안의 #{이름} 을 바꿔 넣는다. kind = const(값 그대로) / func(JavaScript 함수 본문을 실행한 결과)
+            CREATE TABLE IF NOT EXISTS cmd_vars (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL, kind TEXT NOT NULL DEFAULT 'const', value TEXT NOT NULL DEFAULT '',
+                description TEXT DEFAULT '', created_at TEXT, updated_at TEXT
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_cmd_vars_name ON cmd_vars(name COLLATE NOCASE);
             -- 메모 알림: 날짜(또는 기간)마다 '확인했는지 / 다시 알림 시각'을 기록 (없으면 아직 확인 안 한 것)
             CREATE TABLE IF NOT EXISTS sticky_alarm (
                 sticky_id INTEGER NOT NULL, date TEXT NOT NULL, acked_at TEXT, snooze_until TEXT,
@@ -209,6 +234,10 @@ def init_db():
                 c.execute(f"ALTER TABLE sticky ADD COLUMN {col} {ddl}")
         if "until" not in scols:  # 2.7.0: 노출 기간의 종료일 (비어 있으면 그 날 하루만)
             c.execute("ALTER TABLE sticky ADD COLUMN until TEXT DEFAULT ''")
+        cmd_cols = {r["name"] for r in c.execute("PRAGMA table_info(commands)")}
+        if "pinned" not in cmd_cols:  # 2.17.0: 버튼으로 꺼내 두기 (명령어가 많아 선택칸으로 접혀도 버튼으로 남긴다)
+            c.execute("ALTER TABLE commands ADD COLUMN pinned INTEGER DEFAULT 0")
+        seed_cmd_vars(c)
         repair_truncated_requirements(c)
         if not STATE["newer_db"]:  # 더 새 버전의 DB 는 버전 기록을 낮추지 않는다
             c.execute("INSERT INTO settings (key,value) VALUES ('app_version',?) "
