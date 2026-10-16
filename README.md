@@ -14,6 +14,8 @@
 · [모든 버전](https://github.com/kariyarn/redmineNote/releases)
 
 > 새 버전 올리기: **Actions → build → Run workflow** 를 `main` 에서 돌리면 위 링크가 그 파일로 바뀝니다.
+>
+> 2.19 부터는 **앱 안에서 업데이트**할 수 있어요: 켤 때(하루 한 번) 새 버전을 확인해 알려 주고, **설정 → 일반 → 업데이트**에서 `받고 업데이트` → `바꾸고 다시 시작` 하면 앱이 잠깐 꺼졌다가 새 버전으로 켜져요. 설치 파일로 깐 경우는 새 설치 파일을 조용히 실행하고, exe 만 쓰는 경우는 exe 를 바꿔 끼워요. 처음 2.19 로 올라갈 때만 위 링크로 직접 받으면 돼요.
 
 ## 이런 도구입니다
 
@@ -80,6 +82,7 @@ python tests/test_exe.py dist/RedmineNotes2.exe
 python tests/test_alarm.py .
 python tests/test_autosync.py .
 python tests/test_gitbackup.py .
+python tests/test_update.py .
 python tests/test_queries.py .
 python tests/test_commands.py .
 python tests/test_release.py main.py
@@ -91,6 +94,7 @@ python tests/test_write.py main.py
 | `test_alarm.py` | 메모 알림 로직 |
 | `test_autosync.py` | 자동 가져오기 로직 (간격 · 기간 · 업무 시간) |
 | `test_gitbackup.py` | 깃허브 백업 (가짜 깃허브: 올리기 · 변경 없음 · 충돌 · 복원 · 올리는 때) |
+| `test_update.py` | 앱 업데이트 (가짜 Releases: 확인 · 받기 · 크기/SHA-256/실행 파일 검증 · 바꾸기 준비 · 자동 확인) |
 | `test_queries.py` | 보관함의 코드/쿼리 로직 |
 | `test_commands.py` | 보관함의 명령어 로직 |
 | `test_release.py` | 가져오기 · 검색 · 배포요청 |
@@ -108,6 +112,9 @@ python tests/test_write.py main.py
 | `REDMINE_NOTES_NO_APPWIN` | | `1` 이면 브라우저/앱 창을 열지 않음 (시험용) |
 | `REDMINE_NOTES_ALARM_TICK` | | 알림 확인 간격(초) |
 | `REDMINE_NOTES_GITHUB_API` | `https://api.github.com` | 깃허브 백업이 부르는 API 주소 (시험용 가짜 깃허브) |
+| `REDMINE_NOTES_UPDATE_API` | `https://api.github.com` | 앱 업데이트가 최신 릴리스를 확인하는 API 주소 (시험용 가짜 깃허브) |
+| `REDMINE_NOTES_UPDATE_DRYRUN` | (없음) | `1` 이면 업데이트를 바꿀 때 도우미를 띄우지도 앱을 끄지도 않는다 (시험용) |
+| `REDMINE_NOTES_UPDATE_MODE` | (자동) | `installer` · `exe` · `source` 로 설치 방식을 정해 둔다 (시험용) |
 
 ## 폴더 구조
 

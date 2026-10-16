@@ -1,0 +1,325 @@
+"""앱 안에서 업데이트: 깃허브 Releases 의 최신 버전을 확인하고, 받아서 검증한 뒤, 앱을 끄고 새 버전으로 바꿔 다시 켠다.
+
+설치 방식에 따라 바꾸는 방법이 다르다.
+- installer: 설치 파일로 깐 경우 (exe 옆에 unins000.exe). 새 설치 파일을 조용히(/VERYSILENT) 실행해 같은 자리에 덮어쓰고 다시 켠다 (/RELAUNCH=1).
+- exe: exe 하나만 쓰는 경우. 새 exe 로 바꿔 끼우고 다시 켠다 (예전 exe 는 .old 로 남겼다가 다음 실행 때 지운다).
+- source: python main.py 로 실행 중. 확인만 하고 바꾸지는 않는다 (git pull).
+앱이 꺼진 다음에 파일을 바꿔야 해서, 바꾸는 일은 따로 띄운 도우미(cmd 스크립트)가 한다. 경로는 환경 변수로 넘겨서 한글 경로도 깨지지 않게 한다."""
+import datetime
+import hashlib
+import json
+import os
+import re
+import subprocess
+import sys
+import tempfile
+import threading
+import time
+import urllib.error
+import urllib.request
+from pathlib import Path
+
+from .config import APP_VERSION, FROZEN
+from .storage import db, get_settings
+
+REPO = "kariyarn/redmineNote"
+API = (os.environ.get("REDMINE_NOTES_UPDATE_API") or "https://api.github.com").rstrip("/")   # 시험에서는 가짜 깃허브
+SETUP_NAME, EXE_NAME = "RedmineNotes2-Setup.exe", "RedmineNotes2.exe"   # Releases 에 늘 같은 이름으로 올린다 (build.yml)
+CHECK_EVERY = 24 * 3600          # 자동 확인 간격
+CACHE_KEY = "update_info"        # settings: 마지막 확인 결과 (화면이 바꿀 수 없는 서버 전용 키)
+WORK_DIR = Path(tempfile.gettempdir()) / "RedmineNotes2-update"
+DRY_RUN = os.environ.get("REDMINE_NOTES_UPDATE_DRYRUN") == "1"   # 시험: 도우미를 띄우지도, 앱을 끄지도 않는다
+_LOCK = threading.Lock()
+_DL = {"state": "idle", "done": 0, "total": 0, "error": "", "file": "", "version": ""}   # 받기 진행 상태 (메모리)
+
+
+class UpdateError(Exception):
+    """사용자에게 그대로 보여 줄 한국어 설명."""
+
+
+def parse_ver(s):
+    """'v2.18.0' · '2.18' → (2, 18, 0). 숫자만 본다."""
+    nums = [int(x) for x in re.findall(r"\d+", str(s or ""))[:3]]
+    return tuple(nums + [0] * (3 - len(nums))) if nums else (0, 0, 0)
+
+
+def is_newer(latest, current=APP_VERSION):
+    return parse_ver(latest) > parse_ver(current)
+
+
+def install_mode():
+    forced = os.environ.get("REDMINE_NOTES_UPDATE_MODE")   # 시험 전용: 화면 흐름을 소스 실행에서도 확인하려고
+    if forced in ("installer", "exe", "source"):
+        return forced
+    if not FROZEN:
+        return "source"
+    exe = Path(sys.executable)
+    return "installer" if (exe.parent / "unins000.exe").exists() else "exe"
+
+
+def auto_on(s=None):
+    """시작할 때 · 하루에 한 번 자동으로 확인 (설정 update_auto, 기본 켬)."""
+    return str((get_settings() if s is None else s).get("update_auto") or "1") != "0"
+
+
+def _cache(s=None):
+    try:
+        c = json.loads((get_settings() if s is None else s).get(CACHE_KEY) or "{}")
+    except ValueError:
+        c = {}
+    return c if isinstance(c, dict) else {}
+
+
+def _save_cache(c):
+    with db() as conn:
+        conn.execute("INSERT INTO settings (key,value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+                     (CACHE_KEY, json.dumps(c, ensure_ascii=False)))
+
+
+def _get(url, timeout=20):
+    req = urllib.request.Request(url, headers={"Accept": "application/vnd.github+json", "User-Agent": f"RedmineNotes2/{APP_VERSION}"})
+    return urllib.request.urlopen(req, timeout=timeout)
+
+
+# ---------- 확인 ----------
+def check():
+    """최신 릴리스를 확인해서 남기고 돌려준다. 실패하면 이유를 남기고 UpdateError."""
+    now = datetime.datetime.now().isoformat(timespec="seconds")
+    c = _cache()
+    c["checked_at"] = now
+    try:
+        with _get(f"{API}/repos/{REPO}/releases/latest") as r:
+            rel = json.loads(r.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        msg = "아직 올라온 릴리스가 없어요" if e.code == 404 else (
+            "깃허브 확인 횟수 제한에 걸렸어요 — 한 시간쯤 뒤에 다시 확인해요" if e.code in (403, 429) else f"깃허브가 오류로 응답했어요 (HTTP {e.code})")
+        c.update(error=msg)
+        _save_cache(c)
+        raise UpdateError(msg) from None
+    except (urllib.error.URLError, TimeoutError, OSError, ValueError):
+        msg = "깃허브에 연결할 수 없어요 — 네트워크를 확인하세요"
+        c.update(error=msg)
+        _save_cache(c)
+        raise UpdateError(msg) from None
+    latest = str(rel.get("tag_name") or "").lstrip("vV")
+    assets = {a.get("name"): a for a in rel.get("assets") or [] if isinstance(a, dict)}
+    pick = {"installer": SETUP_NAME, "exe": EXE_NAME}.get(install_mode())
+    a = assets.get(pick) if pick else None
+    c.update(error="", latest=latest, page=rel.get("html_url") or f"https://github.com/{REPO}/releases/latest",
+             published_at=rel.get("published_at") or "", notes=str(rel.get("body") or "")[:2000],
+             asset={"name": a.get("name"), "url": a.get("browser_download_url"), "size": int(a.get("size") or 0),
+                    "digest": str(a.get("digest") or "")} if a else None)
+    _save_cache(c)
+    return status()
+
+
+def maybe_check(now=None):
+    """자동 확인: 켜져 있고 마지막 확인에서 하루가 지났으면. 실패해도 조용히 넘어간다 (이유는 남는다)."""
+    now = now or time.time()
+    if not auto_on():
+        return None
+    last = _cache().get("checked_at")
+    try:
+        if last and now - datetime.datetime.fromisoformat(last).timestamp() < CHECK_EVERY:
+            return None
+    except ValueError:
+        pass
+    try:
+        return check()
+    except UpdateError:
+        return None
+
+
+def status():
+    c = _cache()
+    latest = c.get("latest") or ""
+    mode = install_mode()
+    return {
+        "current": APP_VERSION, "mode": mode, "auto": auto_on(), "checked_at": c.get("checked_at") or "", "error": c.get("error") or "",
+        "latest": latest, "newer": bool(latest) and is_newer(latest), "page": c.get("page") or f"https://github.com/{REPO}/releases",
+        "published_at": c.get("published_at") or "", "notes": c.get("notes") or "",
+        "can_apply": mode != "source" and bool(c.get("asset")), "asset_size": (c.get("asset") or {}).get("size") or 0,
+        "download": dict(_DL),
+    }
+
+
+# ---------- 받기 ----------
+def start_download():
+    """새 버전 파일을 백그라운드로 받는다. 진행은 status()['download'] 로 본다."""
+    st = status()
+    if not st["newer"]:
+        raise UpdateError("받을 새 버전이 없어요 — 먼저 업데이트를 확인하세요")
+    if st["mode"] == "source":
+        raise UpdateError("소스(python main.py)로 실행 중이라 앱 안에서 바꿀 수 없어요 — git pull 로 받으세요")
+    asset = _cache().get("asset")
+    if not asset or not asset.get("url"):
+        raise UpdateError("이 버전에는 받을 파일이 없어요 — 릴리스 페이지에서 직접 받으세요")
+    with _LOCK:
+        if _DL["state"] == "downloading":
+            return status()
+        if _DL["state"] == "ready" and _DL["version"] == st["latest"] and Path(_DL["file"]).exists():
+            return status()
+        _DL.update(state="downloading", done=0, total=int(asset.get("size") or 0), error="", file="", version=st["latest"])
+    threading.Thread(target=_download, args=(asset, st["latest"]), daemon=True).start()
+    return status()
+
+
+def _download(asset, version):
+    WORK_DIR.mkdir(parents=True, exist_ok=True)
+    final = WORK_DIR / f"{Path(asset['name']).stem}-{version}.exe"
+    part = final.with_suffix(".part")
+    try:
+        h = hashlib.sha256()
+        with _get(asset["url"], timeout=60) as r, open(part, "wb") as f:
+            total = int(r.headers.get("Content-Length") or asset.get("size") or 0)
+            _DL["total"] = total
+            while True:
+                chunk = r.read(256 * 1024)
+                if not chunk:
+                    break
+                f.write(chunk)
+                h.update(chunk)
+                _DL["done"] += len(chunk)
+        verify(part, asset, h.hexdigest())
+        os.replace(part, final)
+        _DL.update(state="ready", file=str(final))
+    except UpdateError as e:
+        _DL.update(state="error", error=str(e))
+    except (urllib.error.URLError, TimeoutError, OSError) as e:
+        _DL.update(state="error", error=f"받는 중에 끊겼어요 — 다시 시도하세요 ({e.__class__.__name__})")
+    finally:
+        try:
+            part.unlink()
+        except OSError:
+            pass
+
+
+def verify(path, asset, sha_hex=None):
+    """받은 파일이 맞는지: 크기 · (깃허브가 알려 주면) SHA-256 · 윈도우 실행 파일(MZ)."""
+    path = Path(path)
+    size = path.stat().st_size
+    want = int(asset.get("size") or 0)
+    if want and size != want:
+        raise UpdateError(f"받은 파일 크기가 달라요 ({size} / {want} 바이트) — 다시 받으세요")
+    digest = str(asset.get("digest") or "")
+    if digest.startswith("sha256:"):
+        if sha_hex is None:
+            sha_hex = hashlib.sha256(path.read_bytes()).hexdigest()
+        if sha_hex.lower() != digest.split(":", 1)[1].lower():
+            raise UpdateError("받은 파일의 SHA-256 이 깃허브에 올라간 값과 달라요 — 다시 받으세요")
+    with open(path, "rb") as f:
+        if f.read(2) != b"MZ":
+            raise UpdateError("받은 파일이 윈도우 실행 파일이 아니에요")
+
+
+# ---------- 바꾸기 ----------
+HELPER = r"""@echo off
+rem RedmineNotes2 updater: wait for the app to exit, replace it with the new version, start it again. Paths come in RN_* env vars.
+set LOG=%RN_LOG%
+echo [%date% %time%] start mode=%RN_MODE% >> "%LOG%"
+for %%P in (%RN_PIDS%) do call :waitpid %%P
+if /i "%RN_MODE%"=="installer" goto installer
+set N=0
+:moveold
+move /y "%RN_TARGET%" "%RN_TARGET%.old" >> "%LOG%" 2>&1 && goto movenew
+set /a N+=1
+if %N% geq 30 goto failed
+ping -n 2 127.0.0.1 >nul
+goto moveold
+:movenew
+move /y "%RN_NEW%" "%RN_TARGET%" >> "%LOG%" 2>&1 && goto started
+echo [%date% %time%] new exe move failed, restoring >> "%LOG%"
+move /y "%RN_TARGET%.old" "%RN_TARGET%" >> "%LOG%" 2>&1
+:failed
+echo [%date% %time%] replace failed >> "%LOG%"
+:started
+start "" "%RN_TARGET%"
+goto end
+:installer
+"%RN_NEW%" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /CLOSEAPPLICATIONS /RELAUNCH=1 >> "%LOG%" 2>&1
+echo [%date% %time%] setup exit %errorlevel% >> "%LOG%"
+if errorlevel 1 start "" "%RN_TARGET%"
+del /q "%RN_NEW%" >nul 2>&1
+:end
+echo [%date% %time%] done >> "%LOG%"
+exit /b 0
+:waitpid
+set W=0
+:waitloop
+tasklist /FI "PID eq %1" 2>nul | find " %1 " >nul || exit /b 0
+set /a W+=1
+if %W% geq 60 exit /b 0
+ping -n 2 127.0.0.1 >nul
+goto waitloop
+"""
+
+
+def helper_env(new_file, mode=None):
+    """도우미에게 넘길 값. 지금 프로세스(와 onefile exe 의 바깥 프로세스)가 끝나길 기다린다."""
+    mode = mode or install_mode()
+    pids = [os.getpid()]
+    meipass = getattr(sys, "_MEIPASS", None)
+    if FROZEN and meipass and Path(meipass).resolve() != Path(sys.executable).parent.resolve():   # onefile: exe 를 붙잡고 있는 바깥 프로세스도
+        pids.append(os.getppid())
+    return {"RN_MODE": mode, "RN_NEW": str(new_file), "RN_TARGET": str(Path(sys.executable)), "RN_PIDS": " ".join(map(str, pids)),
+            "RN_LOG": str(WORK_DIR / "update.log")}
+
+
+def apply():
+    """받아 둔 새 버전으로 바꾼다: 도우미를 띄우고 앱을 끈다. 화면에 응답할 틈을 주려고 끄는 것은 잠깐 뒤에."""
+    st = status()
+    if st["mode"] == "source":
+        raise UpdateError("소스(python main.py)로 실행 중이라 앱 안에서 바꿀 수 없어요 — git pull 로 받으세요")
+    if _DL["state"] != "ready" or not Path(_DL["file"]).exists():
+        raise UpdateError("받아 둔 새 버전이 없어요 — 먼저 받으세요")
+    if st["mode"] == "exe" and not os.access(Path(sys.executable).parent, os.W_OK):
+        raise UpdateError("이 exe 가 있는 폴더에 쓸 수 없어요 — 설치 파일(RedmineNotes2-Setup.exe)로 설치하면 앱 안에서 업데이트할 수 있어요")
+    WORK_DIR.mkdir(parents=True, exist_ok=True)
+    script = WORK_DIR / "apply-update.cmd"
+    script.write_bytes(HELPER.replace("\n", "\r\n").encode("ascii"))   # cmd 는 CRLF · ASCII 로 (경로는 환경 변수로 넘겨 한글도 안전)
+    env = {**os.environ, **helper_env(_DL["file"], st["mode"])}
+    _DL["state"] = "applying"
+    if DRY_RUN:
+        return {"ok": True, "dry_run": True, "script": str(script), "env": {k: v for k, v in env.items() if k.startswith("RN_")}}
+    flags = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0) | getattr(subprocess, "CREATE_NO_WINDOW", 0)
+    subprocess.Popen(["cmd.exe", "/d", "/c", str(script)], env=env, creationflags=flags, close_fds=True,
+                     stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+    def bye():
+        time.sleep(1.0)
+        from .lifecycle import shutdown
+        shutdown()
+    threading.Thread(target=bye, daemon=True).start()
+    return {"ok": True}
+
+
+def cleanup_old():
+    """exe 방식으로 바꾼 뒤 남은 예전 exe(.old)와 받은 파일을 지운다 (새 버전이 켜졌을 때)."""
+    if not FROZEN:
+        return
+    for p in (Path(sys.executable).with_name(Path(sys.executable).name + ".old"),):
+        try:
+            p.unlink()
+        except OSError:
+            pass
+    try:
+        for p in WORK_DIR.glob("*.exe"):
+            if not is_newer(p.stem.rsplit("-", 1)[-1]):   # 지금 버전보다 새것이 아니면(= 이미 깔린 것) 지운다
+                p.unlink()
+    except OSError:
+        pass
+
+
+def loop():
+    """자동 확인: 켠 뒤 30초, 그 뒤 한 시간마다 '하루가 지났는지' 본다."""
+    try:
+        cleanup_old()
+    except Exception:
+        pass
+    time.sleep(30)
+    while True:
+        try:
+            maybe_check()
+        except Exception:
+            pass
+        time.sleep(3600)

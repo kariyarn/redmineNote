@@ -378,3 +378,14 @@ build-exe.bat
     - 목록 · 보기 · 변수 넣기 버튼은 함수를 `#{after(days)}` 처럼 인자와 함께 보여 주고, 넣기는 기본값을 채워 `#{after(1)}` 로 넣는다. 보기에는 인자 표, 편집에는 `문구에서 #{이름(a, b)}` 미리 보기와 실행해 보기의 인수 칸 안내.
   - **기본 내장 함수 추가**(2판): 도움말 예제를 기본 변수로 넣는다 — `#{after(days)}` 며칠 뒤 · `#{now(format)}` 형식을 정한 지금 시각 · `#{next(day)}` 돌아오는 요일(한글) · `#{dday(target)}` 남은 날 · `#{issueTitle}` 지금 일감 번호와 제목 · `#{sign}` 상수 team 과 내 이름. 기본 변수는 판(`settings.cmd_vars_seeded`)마다 한 번만 넣어, 예전 DB 에는 2판만 더하고 지우거나 고친 것은 되살리지 않는다(같은 이름이 있으면 건너뜀).
   - **인수 · 날짜 형식 보완**: 인수 안에 괄호 한 겹(`yyyy-MM-dd(E)`)과 따옴표(`"MM/DD, HH시"`, 안의 쉼표는 나누지 않음)를 쓸 수 있다. 예전에는 `(E)` 의 `)` 에서 끊겨 자리가 통째로 바뀌지 않았고 알림도 없었다 — 이제 형식을 알아보지 못한 `#{…}` 도 이유를 알린다. `ctx.fmt` 형식에 Java 꼴 `yyyy · yy · M · dd · d · H · hh · h · m · s · E(금) · EEEE(금요일) · a(오전/오후)` 를 더했다(예전 `YYYY · DD` 도 그대로, 영문자에 붙은 글자는 바꾸지 않음).
+
+## 2.19.0 — 앱 안에서 업데이트
+- **새 버전 확인 · 받기 · 바꾸기**를 앱 안에서 한다(깃허브 Releases `kariyarn/redmineNote`, 공개 API · 토큰 없음). 서버 `rnotes/updater.py`, 화면 `web/js/update.js`, API `GET /api/update` · `POST /api/update/check` · `/download` · `/apply`.
+  - **확인**: 켠 뒤 30초, 그 뒤 하루 한 번(설정 `update_auto`, 기본 켬) `releases/latest` 를 보고 지금 버전과 비교한다. 새 버전이 있으면 켤 때 알림(`업데이트` · `나중에`)을 띄운다. **설정 → 일반 → 업데이트**(계정 바로 아래): 현재 버전(설치 방식) · 최신 버전(마지막 확인 시각) · **업데이트 확인**(깃허브 저장소의 최신 릴리스) · **설치**(새 버전이 있고 앱 안에서 바꿀 수 있을 때만 눌림, 받는 중에는 진행률, 다 받으면 `설치 (다시 시작)`) · 이 버전 알림 건너뛰기(`update_skip`) · 자동 확인 끄기 · 릴리스 페이지.
+  - **받기**: 설치 방식에 맞는 파일(설치 파일로 깐 경우 `RedmineNotes2-Setup.exe`, exe 만 쓰는 경우 `RedmineNotes2.exe`)을 임시 폴더(`%TEMP%\RedmineNotes2-update`)에 백그라운드로 받고 진행률을 보여 준다. 받은 뒤 **크기 · SHA-256(깃허브가 `digest` 를 줄 때) · 윈도우 실행 파일(MZ)** 을 확인하고, 틀리면 버린다.
+  - **바꾸기**: 한 번 더 묻고 앱을 정상 종료(깃허브 자동 올리기 · 창 · 트레이 정리)한 뒤, 따로 띄운 도우미(cmd)가 앱(onefile 바깥 프로세스 포함)이 끝나길 기다렸다가 바꾼다. 경로는 환경 변수로 넘겨 한글 경로도 안전하다. 로그 `update.log`.
+    - 설치 파일 방식(exe 옆 `unins000.exe`): 새 설치 파일을 `/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /CLOSEAPPLICATIONS /RELAUNCH=1` 로 실행 → 설치 파일([Code] `ShouldRelaunch`)이 끝나고 앱을 다시 켠다. 실패하면 예전 앱을 다시 켠다.
+    - exe 방식: 예전 exe 를 `.old` 로 옮기고 새 exe 를 그 자리에 놓은 뒤 켠다(실패하면 되돌려 예전 것을 켠다). `.old` 와 받은 파일은 새 버전이 켜질 때 지운다. exe 폴더에 쓸 수 없으면 바꾸지 않고 설치 파일을 권한다.
+    - 소스 실행(`python main.py`): 확인만 하고 바꾸지 않는다(git pull 안내).
+  - 노트 데이터는 그대로이고, 새 버전을 처음 켤 때 기존 '업데이트 직전 백업'이 그대로 동작한다.
+  - 시험 `tests/test_update.py`(가짜 Releases), 시험용 환경 변수 `REDMINE_NOTES_UPDATE_API` · `REDMINE_NOTES_UPDATE_DRYRUN` · `REDMINE_NOTES_UPDATE_MODE`.
