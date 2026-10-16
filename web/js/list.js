@@ -43,7 +43,7 @@ function openSimilar(n){
 function nrow(n,o={}){
   const s=stOf(n),c=catOf(n),tier=tierOf(n),sim=o.sim?simInfo(n):null;
   const tag=tier==="assigned"?`<span class="tg">내 앞으로</span>`:tier==="watch"?`<span class="tg ghost">관람</span>`:tier==="added"?`<span class="tg ghost">${rolesOf(n).includes("배포요청")?"배포요청":"추가됨"}</span>`:tier==="ref"?`<span class="tg ghost">참조</span>`:"";
-  return `<div class="nrow s-${s} ${n.issue_id===cur?"sel":""}" data-id="${n.issue_id}" role="button" tabindex="0"${o.drag?' draggable="true" title="끌어서 순서를 바꿀 수 있어요"':""}>
+  return `<div class="nrow s-${s} ${n.issue_id===cur?"sel":""}${isUnseen(n)?" unseen":""}" data-id="${n.issue_id}" role="button" tabindex="0"${o.drag?' draggable="true" title="끌어서 순서를 바꿀 수 있어요"':""}>
     <button type="button" class="rstar ${n.starred?"on":""}" data-star-id="${n.issue_id}" title="${n.starred?"고정 해제":"고정: 목록 맨 위에 둬요 (즐겨찾기)"}" aria-label="고정">${n.starred?"★":"☆"}</button><span class="dot"></span><div class="rb"><div class="rt">${title(n.subject)}</div>
     <div class="rm"><span>#${n.issue_id}</span>${c!=="기타"?`<span class="cat ${c} mini" title="${esc(n.project)}">${c}</span>`:""}<span>${o.age?esc(ageTxt(n)):n._d}</span>${tag}${todoBadge(n)}${o.hide?`<button type="button" class="rhide" data-whide="${n.issue_id}" title="${o.hide==="back"?"지켜보는 중 목록에 다시 넣어요":"지켜보는 중 목록에서 숨겨요 (새 활동이 생기면 다시 보여요)"}">${o.hide==="back"?"↩ 되돌리기":"✕ 숨기기"}</button>`:""}${sim&&sim.list.length?`<button type="button" class="sim" data-sim="${n.issue_id}" title="같은 주제를 가진 과거 일감 보기">비슷한 과거 ${sim.list.length}건</button>`:""}</div></div></div>`;
 }
@@ -124,6 +124,27 @@ async function watchHide(id,undo){
   try{await saveS("watch_hidden",JSON.stringify(map))}catch(e){toast("저장하지 못했어요: "+e.message,4000);return}
   renderList();
   if(!undo)toastUndo(`#${id} 을(를) 지켜보는 중에서 숨겼어요`,()=>watchHide(id,true),5000);
+}
+/* ---------- 안 본 일감 강조: 새로 왔거나 레드마인에서 바뀌었는데 아직 열어 보지 않은 일감은 줄 배경을 칠한다 ----------
+   일감별로 '마지막으로 열어 본 수정일'을 저장(rm_seen)하고, 지금 수정일과 다르면 안 본 것. 처음 켤 때는 그때까지의 일감을 모두 본 것으로 친다(_base).
+   노트를 열면(열어 둔 채 새로 읽거나 레드마인에 올려도) 본 것으로 바뀐다. */
+let seenMap=null,seenOpen=null,seenT;
+function seenGet(){
+  if(!seenMap){try{seenMap=JSON.parse(S.rm_seen||"null")}catch(e){}if(!seenMap||typeof seenMap!=="object")seenMap={};if(!seenMap.ids||typeof seenMap.ids!=="object")seenMap.ids={}}
+  if(!seenMap._base&&all.length){seenMap._base=all.reduce((m,n)=>n.updated_on>m?n.updated_on:m,"");seenSave()}      // 처음(또는 첫 가져오기 직후): 지금까지 받은 것은 본 것으로
+  return seenMap;
+}
+function seenSave(){clearTimeout(seenT);seenT=setTimeout(()=>saveS("rm_seen",JSON.stringify(seenMap)).catch(()=>{}),800)}
+function isUnseen(n){
+  const m=seenGet(),v=m.ids[n.issue_id];
+  return v?v!==n.updated_on:!!m._base&&n.updated_on>m._base;
+}
+function markSeen(n){
+  if(!n||!isUnseen(n))return;
+  const m=seenGet(),ids=new Set(all.map(x=>x.issue_id));
+  m.ids[n.issue_id]=n.updated_on;Object.keys(m.ids).forEach(k=>{if(!ids.has(+k))delete m.ids[k]});
+  seenSave();
+  document.querySelectorAll(`.nrow.unseen[data-id="${n.issue_id}"]`).forEach(r=>r.classList.remove("unseen"));     // 목록은 노트보다 먼저 그려지므로 그 줄만 바로 지운다
 }
 /* 오늘 화면의 구역은 모두 접고 펼 수 있고, 마지막 상태를 기억한다 (처음에는 지금 할 일 · 내 할 일만 펼침) */
 const TODAY_DEF={now:true,todo:true,recent:false,dev:false,watch:false,whid:false};
