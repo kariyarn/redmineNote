@@ -113,7 +113,7 @@ const isMy=n=>{const t=tierOf(n);return t==="work"||t==="assigned"||t==="dev"};
    현안: 지금 담당자가 나이고 상태가 대기 · 진행인 일감. 기간과 상관없이 (오래된 건도). */
 const scopeW=()=>!!ui.incWatch,scopeR=()=>!!ui.incRef;
 const inScope=n=>{const t=tierOf(n);return t==="watch"?scopeW():t==="ref"?scopeR():t!=="deploy"};
-const isNow=n=>{const t=tierOf(n);return (t==="work"||t==="assigned")&&isActive(n)};
+const isNow=n=>{const t=tierOf(n);return (t==="work"||t==="assigned")&&(isActive(n)||n.rm_status==="최종확인요청")};   // 최종확인요청인데 담당자가 나 = 요청자가 다시 돌려보낸 것이라 할 일로 본다 (#12)
 const scopeText=()=>"내 일"+(scopeW()?" + 관람":"")+(scopeR()?" + 참조":"");
 const scopeChecks=()=>`<span class="scpx" title="이력 · 용어 사전 · 그래프 · 요약이 같은 설정을 함께 씁니다"><span class="meta">포함</span><label><input type="checkbox" data-scp="incWatch" ${scopeW()?"checked":""}> 관람</label><label><input type="checkbox" data-scp="incRef" ${scopeR()?"checked":""}> 참조</label></span>`;
 document.addEventListener("change",e=>{const k=e.target&&e.target.dataset&&e.target.dataset.scp;if(!k)return;ui[k]=e.target.checked;saveUI();hist.more=60;renderAll()});
