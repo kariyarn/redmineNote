@@ -167,6 +167,15 @@ t("failure reason kept", "연결할 수 없어요" in st["error"] and not st["fe
 HA._http_get = fake_get; urls.clear()
 t("no retry within an hour", HA.maybe_fetch_week(D.datetime(2026, 10, 12, 9, 30)) is None and urls == [])
 t("retry after an hour", HA.maybe_fetch_week(D.datetime(2026, 10, 12, 10, 5)) == {} and len(urls) == 1 and HA.status(D.datetime(2026, 10, 12, 10, 5))["error"] == "")
+# 인증키를 바꾸면(재발급) 예전 키의 실패 기록 · 오류는 잊고 1시간을 기다리지 않고 바로 다시 받는다
+HA._http_get = down
+t("failure again", HA.maybe_fetch_week(D.datetime(2026, 11, 2, 9, 0)) is None and "연결할 수 없어요" in HA.status(D.datetime(2026, 11, 2, 9, 0))["error"])
+HA._http_get = fake_get; urls.clear()
+t("same key -> still waits an hour", HA.maybe_fetch_week(D.datetime(2026, 11, 2, 9, 10)) is None and urls == [])
+os.environ["REDMINE_NOTES_HOLIDAY_KEY"] = "test-holiday-key-reissued"
+t("new key -> old error hidden", HA.status(D.datetime(2026, 11, 2, 9, 10))["error"] == "")
+t("new key -> fetch right away", HA.maybe_fetch_week(D.datetime(2026, 11, 2, 9, 11)) == {} and len(urls) == 1 and "serviceKey=test-holiday-key-reissued" in urls[0])
+os.environ["REDMINE_NOTES_HOLIDAY_KEY"] = "test-holiday-key-0123456789"
 
 # 14. tick: 켜져 있고 업무 시간이면 공휴일을 먼저 받고(그 주에 처음) 가져올 때면 가져온다
 HA._http_get = fake_get; urls.clear(); A._STATE["try"] = 0; A.sync = fake_sync
