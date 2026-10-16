@@ -134,8 +134,8 @@ const rolesOf=n=>n.roles.split(",");
 function pool(useTerm=true,useDate=true){
   const q=$("#q").value.trim().toLowerCase(),[f0,t0]=rangeOf("note"),f=q?"":f0,t=q?"":t0;   // 검색 중에는 기간을 적용하지 않는다 (기간 때문에 결과가 비는 것을 막는다)
   // 최근 변경 / 즐겨찾기 / 오래 대기 칩이 켜져 있으면 기간과 무관하게 그 조건만 본다 (여러 개면 모두 만족)
-  if(onlyFresh||starOnly||staleOnly||needOnly)return all.filter(n=>(!onlyFresh||fresh[n.issue_id])&&(!starOnly||n.starred)&&(!staleOnly||isStale(n))&&(!needOnly||needsRec(n))&&qmatch(n,q));
-  return all.filter(n=>(!(useTerm&&sel.length)||hasSel(n))&&(!useDate||((!f||n._d>=f)&&(!t||n._d<=t)))&&qmatch(n,q));
+  if(onlyFresh||starOnly||staleOnly||needOnly)return all.filter(n=>notDeploy(n)&&(!onlyFresh||fresh[n.issue_id])&&(!starOnly||n.starred)&&(!staleOnly||isStale(n))&&(!needOnly||needsRec(n))&&qmatch(n,q));
+  return all.filter(n=>notDeploy(n)&&(!(useTerm&&sel.length)||hasSel(n))&&(!useDate||((!f||n._d>=f)&&(!t||n._d<=t)))&&qmatch(n,q));
 }
 const byRole=(l,r)=>r==="전체"?l:l.filter(n=>rolesOf(n).includes(r));
 const byStat=(l,s)=>s==="전체"?l:s==="현안"?l.filter(n=>{const x=stOf(n);return x==="대기"||x==="진행"}):l.filter(n=>stOf(n)===s);
@@ -148,6 +148,7 @@ const isMine=n=>!!(reqEdited(n)||n.action.trim()||n.code_change.trim()||n.reason
 /* 기록 모드: 기본은 '기록 불필요'. 뭔가 써서 저장하면 '기록'으로 바뀌고, '기록' 모드인데 내용이 비어 있을 때만 '기록 필요'로 보인다. */
 const needsRec=n=>n.rec_mode==="record"&&!isMine(n);
 const myComments=n=>n.journals.filter(j=>j.user&&cfg.meId&&j.user.id===cfg.meId);
+const authoredByMe=n=>n.author_id?!!cfg.meId&&n.author_id===cfg.meId:(me=>!!me&&(n.author||"").includes(me))((cfg.meName||"").trim());   // 작성자가 나인가: ID 로. ID 를 아직 못 받은(2.16.1 전) 일감만 이름으로 (다음 가져오기에서 채워진다)
 
 /* ---------- 기간: 화면마다 따로 (수정일 기준) ----------
    - 노트 목록 : 현안 모드는 '전체 기간', 전체 모드는 '최근 7일'이 기본 (전체는 목록이 너무 길어지므로)

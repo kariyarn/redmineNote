@@ -2,6 +2,7 @@
 매주 첫 영업일에 그 주(월 ~ 일) 것만 받는다. 받은 공휴일은 자동 가져오기가 쉬는 날을 판단할 때 쓴다 (내장 공휴일 표 · 설정의 추가 휴일과 함께).
 인증키는 아래 SERVICE_KEY 로 고정한다 (사용자가 넣지 않는다). 화면 · 응답 · 백업에는 나오지 않는다."""
 import datetime
+import hashlib
 import json
 import os
 import re
@@ -16,9 +17,9 @@ from .storage import db, get_settings
 
 
 API_BASE = os.environ.get("REDMINE_NOTES_HOLIDAY_API") or "https://apis.data.go.kr/B090041/openapi/service/SpcdeInfoService"   # 시험 때만 가짜 서버로 바꾼다
-# 공공데이터포털 '한국천문연구원_특일 정보' 일반 인증키 (개발계정, 활용기간 ~ 2028-05-08). 사용자 입력 없이 이 키로 고정한다 (2026-10-14 요청).
+# 공공데이터포털 '한국천문연구원_특일 정보' 일반 인증키 (개발계정). 사용자 입력 없이 이 키로 고정한다 (2026-10-15 재발급: 이전 키가 SERVICE_KEY_IS_NOT_REGISTERED_ERROR 로 거절됨).
 # 저장소가 공개되거나 키가 새면 포털에서 재발급하고 여기만 바꾼다. 시험에서는 REDMINE_NOTES_HOLIDAY_KEY 로 바꿔 쓴다 (실제 키가 가짜 서버로 가지 않게).
-SERVICE_KEY = "14532088ff5ab00e5f555dd746e6de6a798ab6053e009e1b372462d7e537555f"
+SERVICE_KEY = "d870fd4650bcd1b2e15c131f2fdc366b25dc7c46f80a5d9fbcb90a26c4e2c40e"
 CACHE_KEY = "holiday_api"                   # settings: 받은 주별 공휴일 · 마지막 오류 (화면이 바꿀 수 없는 서버 전용 키)
 RETRY_SEC = 3600                           # 받지 못했으면 1시간 뒤에 다시 (그 주 안에서)
 KEEP_WEEKS = 60                            # 받은 주를 이만큼만 남긴다
@@ -37,6 +38,11 @@ def _read_key():
 
 def has_key():
     return bool(_read_key())
+
+
+def _key_fp():
+    """인증키를 알아보는 짧은 지문 (키 자체는 남기지 않는다). 키가 바뀌었는지 볼 때 쓴다."""
+    return hashlib.sha256(_read_key().encode()).hexdigest()[:12]
 
 
 # ---------- API 호출 ----------
@@ -140,6 +146,9 @@ def _cache(s=None):
     if not isinstance(c, dict):
         c = {}
     c.setdefault("weeks", {})
+    if c.get("key_fp") != _key_fp():   # 인증키가 바뀌었으면(재발급) 예전 키의 실패 · 오류는 잊고 바로 다시 받는다
+        for k in ("try_at", "error", "error_at"):
+            c.pop(k, None)
     return c
 
 
@@ -171,6 +180,7 @@ def fetch_and_store(monday, now=None):
     with _LOCK:
         c = _cache()
         c["try_at"] = now.timestamp()
+        c["key_fp"] = _key_fp()
         try:
             days = fetch_week(monday)
         except HolidayApiError as e:

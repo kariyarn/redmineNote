@@ -201,6 +201,8 @@ def init_db():
             c.execute("ALTER TABLE notes ADD COLUMN desc_raw TEXT DEFAULT ''")
         if "changes" not in cols:  # 2.4: 상태·담당자 등 변경 이력 (이름으로 풀어서 저장)
             c.execute("ALTER TABLE notes ADD COLUMN changes TEXT DEFAULT '[]'")
+        if "author_id" not in cols:  # 2.16.1: 작성자 레드마인 ID (0 = 아직 모름 → 다음 가져오기에서 다시 받아 채운다)
+            c.execute("ALTER TABLE notes ADD COLUMN author_id INTEGER DEFAULT 0")
         if "starred" not in cols:  # 즐겨찾기(상단 고정)
             c.execute("ALTER TABLE notes ADD COLUMN starred INTEGER DEFAULT 0")
         if "rec_mode" not in cols:
@@ -235,7 +237,7 @@ def init_db():
         if "until" not in scols:  # 2.7.0: 노출 기간의 종료일 (비어 있으면 그 날 하루만)
             c.execute("ALTER TABLE sticky ADD COLUMN until TEXT DEFAULT ''")
         cmd_cols = {r["name"] for r in c.execute("PRAGMA table_info(commands)")}
-        if "pinned" not in cmd_cols:  # 2.17.0: 버튼으로 꺼내 두기 (명령어가 많아 선택칸으로 접혀도 버튼으로 남긴다)
+        if "pinned" not in cmd_cols:  # 2.18.0: 버튼으로 꺼내 두기 (명령어가 많아 선택칸으로 접혀도 버튼으로 남긴다)
             c.execute("ALTER TABLE commands ADD COLUMN pinned INTEGER DEFAULT 0")
         seed_cmd_vars(c)
         repair_truncated_requirements(c)

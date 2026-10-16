@@ -220,6 +220,32 @@ def build_changes(full):
     return out
 
 
+DEPLOY_PROJECT = "request-2021"   # 배포요청 프로젝트 (식별자)
+DEPLOY_SUBJECT = re.compile(r"배포요청.*\d{4}-\d{2}-\d{2}")   # 제목: [운영서버 배포요청 / 2026-10-15]
+
+
+_DEPLOY_PID_FAIL = [0.0]
+
+
+def deploy_project_id():
+    """배포요청 프로젝트의 번호 (일감 응답에는 식별자가 없어서 번호로 비교한다). 못 읽으면 None (5분 동안은 다시 묻지 않는다)."""
+    if time.time() - _DEPLOY_PID_FAIL[0] < 300:
+        return None
+    try:
+        return cached("deploy_pid", 3600, lambda: rm_get(f"/projects/{DEPLOY_PROJECT}.json", {})["project"]["id"])
+    except Exception:
+        _DEPLOY_PID_FAIL[0] = time.time()
+        return None
+
+
+def is_deploy_issue(full):
+    """배포요청 일감인가: 배포요청 프로젝트이고 제목이 '배포요청 / 날짜'. 어느 경로로 받든 '배포요청' 구분을 붙이는 데 쓴다."""
+    if not DEPLOY_SUBJECT.search(full.get("subject") or ""):
+        return False
+    pid = deploy_project_id()
+    return pid is not None and (full.get("project") or {}).get("id") == pid
+
+
 def upsert_issue(c, iid, role_text, exists):
     """일감 상세를 받아 저장(신규) 또는 갱신하고, 연결 정보도 다시 만든다."""
     full = rm_get(f"/issues/{iid}.json", {"include": "journals,relations"})["issue"]
@@ -235,6 +261,8 @@ def upsert_issue(c, iid, role_text, exists):
         for j in full.get("journals", [])
         if plain(j.get("notes", ""))
     ]
+    if is_deploy_issue(full) and "배포요청" not in role_text.split(","):   # 배포요청 일감은 일반 가져오기로 들어와도 배포요청 화면에서만 보이게
+        role_text = ",".join([x for x in role_text.split(",") if x and x != "연관"] + ["배포요청"])
     if exists:   # 가져오기가 역할을 다시 계산해도, 내가 직접 붙인 구분(추가됨 · 배포요청)은 지우지 않는다
         old = c.execute("SELECT roles FROM notes WHERE issue_id=?", (iid,)).fetchone()
         keep = [r for r in ((old["roles"] if old else "") or "").split(",") if r in ("추가됨", "배포요청")]
@@ -251,12 +279,13 @@ def upsert_issue(c, iid, role_text, exists):
         description,
         json.dumps(journals, ensure_ascii=False),
         role_text,
+        int(full.get("author", {}).get("id") or 0),
     )
     if not exists:
         c.execute(
             "INSERT INTO notes (subject,project,tracker,rm_status,author,"
-            "assignee,updated_on,description,journals,roles,issue_id,"
-            "requirement,desc_raw,changes) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            "assignee,updated_on,description,journals,roles,author_id,issue_id,"
+            "requirement,desc_raw,changes) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             fields + (iid, make_draft(description), desc_raw, changes_json),
         )
     else:
@@ -270,7 +299,7 @@ def upsert_issue(c, iid, role_text, exists):
         c.execute(
             "UPDATE notes SET subject=?,project=?,tracker=?,rm_status=?,"
             "author=?,assignee=?,updated_on=?,description=?,journals=?,"
-            "roles=?,desc_raw=?,changes=? WHERE issue_id=?",
+            "roles=?,author_id=?,desc_raw=?,changes=? WHERE issue_id=?",
             fields + (desc_raw, changes_json, iid),
         )
     c.execute("DELETE FROM links WHERE src=?", (iid,))
@@ -363,21 +392,27 @@ def _sync(date_from, date_to):
     failed = []
     consec, aborted = 0, None  # 연결 문제(시간 초과·네트워크·서버 오류)가 연속으로 나면 계속해도 소용없으니 멈춘다
     with db() as c:
-        local = {
-            r["issue_id"]: r["updated_on"]
-            for r in c.execute("SELECT issue_id, updated_on FROM notes")
-        }
+        local, no_author = {}, set()
+        for r in c.execute("SELECT issue_id, updated_on, author_id FROM notes"):
+            local[r["issue_id"]] = r["updated_on"]
+            if not r["author_id"]:
+                no_author.add(r["issue_id"])
         for iid, brief in listed.items():
             role_text = ",".join(roles[iid])
             # 이미 받았고 레드마인 수정 시각이 같으면 상세를 다시 받지 않는다(부하 감소).
-            if local.get(iid) == brief["updated_on"]:
+            # 단, 작성자 ID 가 없는(2.16.1 전에 받은) 일감은 한 번 다시 받아 채운다. 레드마인에서 바뀐 것은 아니라서 '변경'으로 세지 않는다.
+            same = local.get(iid) == brief["updated_on"]
+            if same and iid not in no_author:
                 old = c.execute("SELECT roles FROM notes WHERE issue_id=?", (iid,)).fetchone()
                 keep = [r for r in ((old["roles"] if old else "") or "").split(",") if r in ("추가됨", "배포요청")]   # 직접 붙인 구분은 유지
                 c.execute("UPDATE notes SET roles=? WHERE issue_id=?", (",".join([x for x in role_text.split(",") if x not in keep] + keep), iid))
                 c.commit()
                 unchanged += 1
             elif try_upsert(c, iid, role_text, iid in local, failed, brief.get("subject")):
-                (changed_ids if iid in local else added_ids).append(iid)
+                if same:
+                    unchanged += 1
+                else:
+                    (changed_ids if iid in local else added_ids).append(iid)
                 consec = 0
             else:
                 consec = consec + 1 if failed[-1]["kind"] in ("timeout", "network", "server", "busy") else 0
@@ -432,11 +467,21 @@ def fetch_ids(ids, role="연관"):
     with db() as c:
         for iid in ids:
             c.execute("DELETE FROM skipped WHERE issue_id=?", (iid,))  # 직접 요청이면 다시 시도
-            row = c.execute("SELECT roles FROM notes WHERE issue_id=?", (iid,)).fetchone()
+            row = c.execute("SELECT roles, author_id FROM notes WHERE issue_id=?", (iid,)).fetchone()
             if row:
-                if role != "연관" and role not in row["roles"].split(","):   # 이미 있는 일감: 구분만 덧붙인다 (참조뿐이었다면 바꾼다)
-                    cur = row["roles"].strip()
-                    c.execute("UPDATE notes SET roles=? WHERE issue_id=?", (role if cur in ("", "연관") else cur + "," + role, iid))
+                roles = row["roles"].strip()
+                if role != "연관" and role not in roles.split(","):   # 이미 있는 일감: 구분만 덧붙인다 (참조뿐이었다면 바꾼다)
+                    roles = role if roles in ("", "연관") else roles + "," + role
+                # 작성자 ID 가 없는(2.16.1 전에 받은) 일감은 이참에 다시 받아 채운다 (구분은 위와 같이 유지).
+                # 못 받아도 이미 있는 일감이라 실패로 치지 않고 구분만 고친다 (다음에 다시 시도)
+                if not row["author_id"]:
+                    n_fail = len(failed)
+                    if try_upsert(c, iid, roles, True, failed):
+                        got.append(iid)
+                        continue
+                    del failed[n_fail:]
+                    c.execute("DELETE FROM skipped WHERE issue_id=?", (iid,))
+                c.execute("UPDATE notes SET roles=? WHERE issue_id=?", (roles, iid))
                 got.append(iid)
             elif try_upsert(c, iid, role, False, failed):
                 got.append(iid)

@@ -167,6 +167,15 @@ t("failure reason kept", "연결할 수 없어요" in st["error"] and not st["fe
 HA._http_get = fake_get; urls.clear()
 t("no retry within an hour", HA.maybe_fetch_week(D.datetime(2026, 10, 12, 9, 30)) is None and urls == [])
 t("retry after an hour", HA.maybe_fetch_week(D.datetime(2026, 10, 12, 10, 5)) == {} and len(urls) == 1 and HA.status(D.datetime(2026, 10, 12, 10, 5))["error"] == "")
+# 인증키를 바꾸면(재발급) 예전 키의 실패 기록 · 오류는 잊고 1시간을 기다리지 않고 바로 다시 받는다
+HA._http_get = down
+t("failure again", HA.maybe_fetch_week(D.datetime(2026, 11, 2, 9, 0)) is None and "연결할 수 없어요" in HA.status(D.datetime(2026, 11, 2, 9, 0))["error"])
+HA._http_get = fake_get; urls.clear()
+t("same key -> still waits an hour", HA.maybe_fetch_week(D.datetime(2026, 11, 2, 9, 10)) is None and urls == [])
+os.environ["REDMINE_NOTES_HOLIDAY_KEY"] = "test-holiday-key-reissued"
+t("new key -> old error hidden", HA.status(D.datetime(2026, 11, 2, 9, 10))["error"] == "")
+t("new key -> fetch right away", HA.maybe_fetch_week(D.datetime(2026, 11, 2, 9, 11)) == {} and len(urls) == 1 and "serviceKey=test-holiday-key-reissued" in urls[0])
+os.environ["REDMINE_NOTES_HOLIDAY_KEY"] = "test-holiday-key-0123456789"
 
 # 14. tick: 켜져 있고 업무 시간이면 공휴일을 먼저 받고(그 주에 처음) 가져올 때면 가져온다
 HA._http_get = fake_get; urls.clear(); A._STATE["try"] = 0; A.sync = fake_sync
@@ -198,6 +207,14 @@ r = run_at(32, 5, False)
 t("window visible -> no balloon (page shows dialog)", not r["tray"] and balloons == [] and r["new"])
 r = run_at(33, 600, False, notify="0")
 t("notify off -> no balloon, still listed", not r["tray"] and balloons == [] and len(r["new"]) == 2 and A.status()["notify"] is False)
+with storage.db() as c:
+    c.execute("INSERT OR REPLACE INTO notes (issue_id, subject, project, roles, journals, updated_on) VALUES (?,?,?,?,?,?)", (503, "[운영서버 배포요청 / 2026-10-21]", "[IT개발본부] DevOps", "담당자,배포요청", "[]", "2026-10-21T00:00:00Z"))
+A.sync = lambda f, to: {"added_ids": [501, 503], "changed_ids": [], "failed": [], "aborted": None}
+r = run_at(34, 600, False)
+t("deploy-request issue -> not in new list / balloon (deploy tab only)", [x["id"] for x in r["new"]] == [501] and balloons == [("🆕 새 레드마인 일감 1건", "#501 새 일감 하나")])
+A.sync = lambda f, to: {"added_ids": [503], "changed_ids": [], "failed": [], "aborted": None}
+r = run_at(35, 600, False)
+t("only deploy-request issue new -> no balloon", r["new"] == [] and not r["tray"] and balloons == [])
 config.RUN.tray = None
 r = run_at(34, 600, False)
 t("no tray (source run) -> no balloon, no error", not r["tray"] and r["error"] == "")

@@ -1,9 +1,13 @@
 /* ---------- 배포요청: 하루 한 건인 배포요청 일감을 바로 열고, 내가 쓴 배포요청 댓글을 따로 모아 본다 ----------
    배포요청 일감은 평소 노트와 똑같이 저장·표시되고(구분 '배포요청'), 댓글도 평소 댓글 쓰기로 쓴다. 일감을 새로 만들지는 않는다. */
 const deployDate=n=>((n.subject||"").match(/(\d{4}-\d{2}-\d{2})/)||[])[1]||"";
+const myDeployBody=n=>authoredByMe(n)&&!!(n.desc_raw||n.description||"").trim();   // 내가 쓴 배포요청서: 본문(revision · 커밋 메시지 등)도 모음에 넣는다
 function deployEntries(){
   const out=[];
-  all.filter(n=>rolesOf(n).includes("배포요청")).forEach(n=>myComments(n).forEach(j=>out.push({n,j,date:deployDate(n),t:j.created_on||""})));
+  all.filter(n=>rolesOf(n).includes("배포요청")).forEach(n=>{
+    if(myDeployBody(n))out.push({n,j:{raw:n.desc_raw||n.description,notes:n.description,created_on:""},body:true,date:deployDate(n),t:""});   // 같은 날 안에서는 댓글보다 먼저 쓴 것이라 맨 아래
+    myComments(n).forEach(j=>out.push({n,j,date:deployDate(n),t:j.created_on||""}));
+  });
   return out.sort((a,b)=>b.date.localeCompare(a.date)||b.t.localeCompare(a.t));
 }
 /* 오늘 배포요청 알림: 오늘 날짜의 배포요청 일감이 있으면 메뉴에 로켓. 설정에서 끔 / 켬 / 자동.
@@ -58,9 +62,9 @@ async function renderDeploy(){
    <div class="card dpcard"><div class="fhd"><span>배포요청 열기</span><small>[운영서버 배포요청 / 날짜]</small></div>
      <div class="row" style="margin:0"><button type="button" class="primary" id="dpToday">오늘 배포요청 열기</button><span class="meta">또는 날짜</span><input type="date" id="dpDate" value="${t}"><button type="button" id="dpGo">이 날 열기</button></div>
      <div class="meta" id="dpMsg" style="margin-top:8px">열면 내 노트로 저장되고, 평소 노트처럼 댓글을 쓸 수 있어요. 댓글에 적은 <b>#번호</b> 중 내 노트에 있는 일감에는 진행 기록이 자동으로 남아요 (설정에서 끌 수 있어요).</div></div>
-   <div class="card"><div class="fhd"><span>내 배포요청 댓글 모음</span><small>${ents.length}개 · 날짜순</small><span class="sp"></span><button type="button" class="mini" id="dpBack" title="최근 30일의 배포요청 일감을 한꺼번에 가져와서 내 댓글을 모읍니다">지난 30일 가져오기</button></div>
+   <div class="card"><div class="fhd"><span>내 배포요청 댓글 모음</span><small>${ents.length}개 · 날짜순 · 내가 쓴 배포요청서는 본문도</small><span class="sp"></span><button type="button" class="mini" id="dpBack" title="최근 30일의 배포요청 일감을 한꺼번에 가져와서 내 댓글을 모읍니다">지난 30일 가져오기</button></div>
      ${ents.map(e=>{const nums=[...new Set([...remoteText(e.j.raw!=null?e.j.raw:e.j.notes).matchAll(/#(\d{3,8})/g)].map(m=>+m[1]))];
-       return `<div class="dpent"><div class="dph"><b>${esc(e.date||"?")}</b><span class="meta">${dTime(e.j.created_on)} · ${title(e.n.subject).replace(/<[^>]+>/g,"")} (#${e.n.issue_id})</span><span class="sp"></span><button type="button" class="mini" data-dpopen="${e.n.issue_id}">배포요청 열기</button></div>
+       return `<div class="dpent"><div class="dph"><b>${esc(e.date||"?")}</b><span class="meta">${e.body?"<b>본문</b> · 내가 쓴 배포요청서":dTime(e.j.created_on)} · ${title(e.n.subject).replace(/<[^>]+>/g,"")} (#${e.n.issue_id})</span><span class="sp"></span><button type="button" class="mini" data-dpopen="${e.n.issue_id}">배포요청 열기</button></div>
          <div class="bubble dpb">${cmBody(e.j)}</div>
          ${nums.length?`<div class="chips">${nums.map(x=>have.has(x)?`<span class="chip" data-dpn="${x}" title="내 노트 열기">#${x}</span>`:`<span class="chip ghost" data-dpadd="${x}" title="가져오기">#${x} ＋</span>`).join("")}</div>`:""}</div>`}).join("")
        ||`<div class="meta" style="padding:8px 0">아직 내가 쓴 배포요청 댓글이 없어요. 위에서 배포요청을 열어 댓글을 쓰거나, <b>지난 30일 가져오기</b>를 눌러 보세요.</div>`}</div>`;

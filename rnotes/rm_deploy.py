@@ -5,12 +5,11 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-from .redmine import cached, rm_get, rm_statuses
+from .redmine import DEPLOY_PROJECT, cached, rm_get, rm_statuses
 from .storage import db
 from .textutil import plain
 
 
-DEPLOY_PROJECT = "request-2021"   # 배포요청 프로젝트 (식별자)
 
 
 def rm_peek(iid):
