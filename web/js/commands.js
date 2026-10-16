@@ -283,8 +283,8 @@ function varWireParams(){
 }
 function varSigPrev(){
   const f=varForm(),el=$("#varSigPrev");if(!el)return;
-  const names=f.params.map(p=>p.name||"?");
-  el.innerHTML=`문구에서 <code>${esc(`#{${f.name||"이름"}${names.length?"("+names.join(", ")+")":""}}`)}</code>`;
+  const names=f.params.map(p=>p.name||"변수명");   // 인자가 없으면 쓰는 꼴만 안내: #{이름(변수명, ...)}
+  el.innerHTML=`문구에서 <code>${esc(`#{${f.name||"이름"}(${names.length?names.join(", "):"변수명, ..."})}`)}</code>`;
   const a=$("#varArgs");if(a)a.placeholder=names.length?names.join(", "):"인수 (쉼표로)";
 }
 /* 변수 편집 화면 아래 도움말: 규칙 · 쓸 수 있는 값 · 예제(누르면 넣기) · 제한 */
