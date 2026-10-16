@@ -233,10 +233,48 @@ async function cmdPreview(text,box){
 
 /* 변수 편집 */
 function varForm(){return {name:$("#varName").value.trim(),kind:document.querySelector("input[name=varKind]:checked").value,value:$("#varValue").value,description:$("#varDesc").value}}
-const VAR_HELP=`<div class="meta cmd-help">함수는 <b>JavaScript 함수 본문</b>이에요. <code>return</code> 한 값이 들어가요 (<code>await</code> 도 쓸 수 있어요). 쓸 수 있는 것:
-  <br><code>ctx.now</code> 지금 시각(Date) · <code>ctx.fmt(날짜, "YYYY-MM-DD HH:mm")</code> 날짜 글자로 · <code>ctx.addDays(n, 날짜)</code> · <code>ctx.nextWeekday(0~6, 날짜)</code> 돌아오는 요일(0=일, 2=화)
-  <br><code>ctx.issue</code> 지금 일감 {id, subject, project, tracker, status, author, assignee, url} (일감 밖에서는 null) · <code>ctx.me</code> {id, name} · <code>ctx.vars</code> 상수들 · <code>args</code> <code>#{이름(a, b)}</code> 의 인수(글자 목록)
-  <br>따로 떨어진 곳(Worker)에서 ${CMD_FUNC_MS/1000}초 안에 실행돼요. 화면 · 노트 · 레드마인에는 손대지 못해요.</div>`;
+/* 변수 편집 화면 아래 도움말: 규칙 · 쓸 수 있는 값 · 예제(누르면 넣기) · 제한 */
+const VAR_CTX=[
+  ["ctx.now","지금 시각 (Date)","ctx.now.getDay() === 5"],
+  ["ctx.fmt(날짜, 형식)","날짜를 글자로. 형식 기본값 YYYY-MM-DD (YYYY · MM · DD · HH · mm · ss)",'ctx.fmt(ctx.now, "MM/DD HH:mm")'],
+  ["ctx.addDays(n, 날짜)","n일 뒤 날짜 (음수면 앞). 날짜 기본값 지금","ctx.addDays(-1)"],
+  ["ctx.nextWeekday(요일, 날짜)","돌아오는 그 요일 (0=일 … 6=토, 오늘이 그 요일이면 오늘)","ctx.nextWeekday(2)"],
+  ["ctx.issue","지금 일감 { id, subject, project, tracker, status, author, assignee, url }. 일감 밖(미리 보기 등)에서는 null","ctx.issue?.subject"],
+  ["ctx.me","나 { id, name }","ctx.me.name"],
+  ["ctx.vars","상수 변수들 { 이름: 값 }","ctx.vars.team"],
+  ["args","#{이름(a, b)} 로 넘긴 인수. 글자 목록 (앞뒤 공백 · 따옴표는 뗌)","Number(args[0] || 1)"],
+];
+const VAR_EXAMPLES=[
+  ["며칠 뒤 날짜","#{after(3)}","return ctx.fmt(ctx.addDays(Number(args[0] || 1)));"],
+  ["형식을 정한 지금 시각","#{now(MM/DD HH:mm)}",'return ctx.fmt(ctx.now, args[0] || "YYYY-MM-DD HH:mm");'],
+  ["돌아오는 요일 (한글로)","#{next(목)}","const w = { 일: 0, 월: 1, 화: 2, 수: 3, 목: 4, 금: 5, 토: 6 }[args[0]];\nreturn ctx.fmt(ctx.nextWeekday(w ?? 2));"],
+  ["지금 일감 번호와 제목","#{issueTitle}","if (!ctx.issue) return \"\";\nreturn `#${ctx.issue.id} ${ctx.issue.subject}`;"],
+  ["상수와 내 이름 묶기","#{sign}","return `${ctx.vars.team ?? \"\"} ${ctx.me.name}`.trim();"],
+  ["요일에 따라 다른 말","#{nextDay}",'return ctx.now.getDay() === 5 ? "다음 주 월요일" : "내일";'],
+];
+function varHelp(kind){
+  if(kind!=="func")return `<div class="cmd-help"><div class="meta">상수는 적은 값을 <b>그대로</b> 넣어요. 여러 줄도 돼요. 함수에서는 <code>ctx.vars.이름</code> 으로 읽을 수 있어요. 값 안의 <code>#{…}</code> 는 다시 바뀌지 않아요.</div></div>`;
+  return `<details class="cmd-help" open><summary>함수 작성 도움말</summary>
+    <h5>1. 규칙</h5>
+    <ul><li>여기에는 <b>JavaScript 함수 본문</b>만 써요. <code>return</code> 한 값이 글자로 바뀌어 <code>#{이름}</code> 자리에 들어가요 (<code>undefined</code> · <code>null</code> 은 빈 글자).</li>
+      <li><code>await</code> 를 쓸 수 있어요. 문구에서는 <code>#{이름}</code> 또는 인수를 넘겨 <code>#{이름(3, 화)}</code> 로 써요.</li></ul>
+    <h5>2. 쓸 수 있는 값</h5>
+    <table><thead><tr><th>이름</th><th>설명</th><th>예</th></tr></thead><tbody>${VAR_CTX.map(([n,d,e])=>`<tr><td><code>${esc(n)}</code></td><td>${esc(d)}</td><td><code>${esc(e)}</code></td></tr>`).join("")}</tbody></table>
+    <h5>3. 예제 <span class="meta">— 누르면 함수 본문에 넣어요</span></h5>
+    <table class="ex"><thead><tr><th>하는 일</th><th>문구에서</th><th>함수 본문</th><th></th></tr></thead><tbody>${VAR_EXAMPLES.map(([t,u,c],i)=>`<tr><td>${esc(t)}</td><td><code>${esc(u)}</code></td><td><pre class="code">${esc(c)}</pre></td><td><button type="button" class="mini" data-var-ex="${i}">넣기</button></td></tr>`).join("")}</tbody></table>
+    <h5>4. 제한</h5>
+    <ul><li>함수마다 따로 떨어진 곳(Worker)에서 <b>${CMD_FUNC_MS/1000}초</b> 안에 실행돼요. 넘으면 끊어요.</li>
+      <li>앱 화면 · 노트 · 레드마인에는 손대지 못해요 (<code>document</code> · 저장된 데이터 없음).</li>
+      <li>오류가 나거나 시간을 넘기면 그 자리는 <code>#{이름}</code> 그대로 남고, 이유를 알려 줘요. 저장하기 전에 <b>실행해 보기</b>로 확인하세요.</li></ul>
+  </details>`;
+}
+function varWireHelp(){
+  document.querySelectorAll("#varHelp [data-var-ex]").forEach(b=>b.onclick=async()=>{
+    const ta=$("#varValue"),code=VAR_EXAMPLES[+b.dataset.varEx][2];
+    if(ta.value.trim()&&ta.value.trim()!==code&&!await askC("지금 쓴 함수 본문을 지우고 이 예제로 바꿀까요?"))return;
+    ta.value=code;ta.focus();
+  });
+}
 function varDrawMain(){
   const el=$("#cmdMain");if(!el)return;
   if(varDraft){
@@ -248,14 +286,15 @@ function varDrawMain(){
       <div class="row" style="margin:0;gap:14px"><label class="chk"><input type="radio" name="varKind" value="const" ${k==="const"?"checked":""}> 상수 <span class="meta">값을 그대로</span></label><label class="chk"><input type="radio" name="varKind" value="func" ${k==="func"?"checked":""}> 함수 <span class="meta">JavaScript 를 실행한 결과</span></label></div>
       <label class="tr-lab" for="varValue" id="varValueLab">${k==="func"?"함수 본문":"값"}</label>
       <textarea id="varValue" rows="${k==="func"?10:4}" maxlength="20000" spellcheck="false" class="${k==="func"?"code":""}" placeholder="${k==="func"?"예) return ctx.fmt(ctx.addDays(Number(args[0] || 1)));":"예) IT개발본부 웹개발팀"}">${esc(varDraft.value)}</textarea>
-      <div id="varHelp">${k==="func"?VAR_HELP:""}</div>
+      <div id="varHelp">${varHelp(k)}</div>
       <label class="tr-lab" for="varDesc">설명 <span class="meta">(선택)</span></label>
       <input type="text" id="varDesc" maxlength="200" placeholder="예) 며칠 뒤 날짜: #{after(3)}" value="${esc(varDraft.description)}">
       <div class="row" style="margin-top:14px"><button type="button" class="primary" id="varSave">저장</button><button type="button" id="varCancel">취소</button>
         <span class="sp"></span><input type="text" id="varArgs" placeholder="인수 (쉼표로)" style="max-width:12rem" title="실행해 볼 때 넘길 인수"><button type="button" id="varTry">실행해 보기</button></div>
       <div id="varOut"></div></div>`;
     document.querySelectorAll("input[name=varKind]").forEach(r=>r.onchange=()=>{const f=r.value==="func",ta=$("#varValue");
-      ta.classList.toggle("code",f);ta.rows=f?10:4;$("#varValueLab").textContent=f?"함수 본문":"값";$("#varHelp").innerHTML=f?VAR_HELP:""});
+      ta.classList.toggle("code",f);ta.rows=f?10:4;$("#varValueLab").textContent=f?"함수 본문":"값";$("#varHelp").innerHTML=varHelp(r.value);varWireHelp()});
+    varWireHelp();
     $("#varTry").onclick=async()=>{
       const f=varForm(),args=$("#varArgs").value,others=cmdVars.filter(v=>v.id!==varDraft.id),probe={...f,id:-1,name:"__probe"};
       const r=await cmdExpand(`#{${probe.name}${args.trim()?"("+args+")":""}}`,curNote()||null,[...others,probe]);
