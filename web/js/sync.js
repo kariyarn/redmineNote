@@ -60,9 +60,10 @@ async function autoSyncApply(){
   const p=autoSync.pend;autoSync.pend=null;
   p.added.forEach(id=>fresh[id]="신규");p.changed.forEach(id=>{if(!p.added.has(id))fresh[id]="변경"});
   try{await loadSettings()}catch(e){}      // 마지막 가져오기 시각
-  const nA=p.added.size,nC=[...p.changed].filter(id=>!p.added.has(id)).length;
-  if(nA||nC){const c=$("#center"),top=c.scrollTop;await loadAll();c.scrollTop=top;if(cmOpen)cmPanelRender();
-    if(nA&&autoSyncNotify())autoSyncNewDlg([...p.added],nC);else toast(`자동 가져오기: 신규 ${nA} · 변경 ${nC}건`,4000)}
+  if(p.added.size||p.changed.size){const c=$("#center"),top=c.scrollTop;await loadAll();c.scrollTop=top;if(cmOpen)cmPanelRender();
+    const vis=id=>{const n=all.find(x=>x.issue_id===id);return !n||notDeploy(n)};      // 배포요청 일감은 배포요청 화면에서만 (알림 · 개수에서 뺀다)
+    const added=[...p.added].filter(vis),nA=added.length,nC=[...p.changed].filter(id=>!p.added.has(id)&&vis(id)).length;
+    if(nA&&autoSyncNotify())autoSyncNewDlg(added,nC);else if(nA||nC)toast(`자동 가져오기: 신규 ${nA} · 변경 ${nC}건`,4000)}
   renderLastSync();
 }
 const autoSyncNotify=()=>S.auto_sync_notify!=="0";      // 새 일감 알림 (기본 켬)

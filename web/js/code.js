@@ -54,7 +54,7 @@ const relRep=e=>REL_ORDER.find(k=>e.rel[k]>0)||"ref";
 const relPill=(k,extra="")=>`<span class="rl rl-${k}" title="${esc(CREL[k].label)} — ${esc(CREL[k].tip)}">${CREL[k].short}${extra}</span>`;
 function buildTokens(){
   tokIdx=new Map();
-  all.forEach(n=>{
+  all.filter(notDeploy).forEach(n=>{   // 배포요청 일감의 글은 코드 이력에 넣지 않는다 (배포요청 화면에서만)
     const mine=[n.action,n.code_change,n.reason,...(n._pg||[]).map(p=>p.text)].join("\n");   // 진행 기록도 내가 쓴 글
     const tm=extractTokens([n.subject,n.description,n.requirement,mine,n.journals.map(j=>j.notes).join("\n")].join("\n"));
     n._tok=tm;n._tokMine=new Set(extractTokens(mine).keys());

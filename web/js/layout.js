@@ -102,16 +102,18 @@ function wireStars(root){root.querySelectorAll("[data-star-id]").forEach(b=>b.on
    내 앞으로    = 담당자만 나인 것 (내 앞으로 온 것)
    개발 담당    = 개발담당자만 나인 것 (내가 했거나 할 수도 있는 것: 이력·참고)
    관람         = 관람자만 나인 것 (중요도 낮음)
-   참조         = 연결돼서 따로 받은 것 (기본으로 숨김) */
-const tierOf=n=>{const r=rolesOf(n),a=r.includes("담당자"),d=r.includes("개발담당자"),w=r.includes("관람자");return a&&d?"work":a?"assigned":d?"dev":w?"watch":(r.includes("추가됨")||r.includes("배포요청"))?"added":"ref"};   // added: 검색·배포요청 화면에서 내가 직접 추가한 일감 (이력에 보이고, 현안에는 안 들어감)
+   참조         = 연결돼서 따로 받은 것 (기본으로 숨김)
+   배포요청     = 배포요청 화면에서 연 일감. 담당자 등 다른 역할이 붙어도 배포요청 화면에서만 보인다 */
+const tierOf=n=>{const r=rolesOf(n),a=r.includes("담당자"),d=r.includes("개발담당자"),w=r.includes("관람자");return r.includes("배포요청")?"deploy":a&&d?"work":a?"assigned":d?"dev":w?"watch":r.includes("추가됨")?"added":"ref"};   // added: 검색에서 내가 직접 추가한 일감 (이력에 보이고, 현안에는 안 들어감)
+const notDeploy=n=>tierOf(n)!=="deploy";      // 배포요청 일감은 배포요청 화면에서만 (오늘 · 이력 · 검색 · 요약 · 그래프 · 용어 사전 · 코드 이력 · 내 기록에서는 뺀다)
 const isActive=n=>{const s=stOf(n);return s==="대기"||s==="진행"};
 const isMy=n=>{const t=tierOf(n);return t==="work"||t==="assigned"||t==="dev"};
 /* ---- 화면 전체가 함께 쓰는 두 가지 규칙 (이력 · 용어 사전 · 그래프 · 요약) ----
    범위: 기본은 내 일(담당자 · 개발담당자). '관람 / 참조 포함' 스위치는 한 곳에 저장되고, 어느 화면에서 바꿔도 모든 화면에 같이 적용된다.
    현안: 지금 담당자가 나이고 상태가 대기 · 진행인 일감. 기간과 상관없이 (오래된 건도). */
 const scopeW=()=>!!ui.incWatch,scopeR=()=>!!ui.incRef;
-const inScope=n=>{const t=tierOf(n);return t==="watch"?scopeW():t==="ref"?scopeR():true};
-const isNow=n=>{const t=tierOf(n);return (t==="work"||t==="assigned")&&isActive(n)};
+const inScope=n=>{const t=tierOf(n);return t==="watch"?scopeW():t==="ref"?scopeR():t!=="deploy"};
+const isNow=n=>{const t=tierOf(n);return (t==="work"||t==="assigned")&&(isActive(n)||n.rm_status==="최종확인요청")};   // 최종확인요청인데 담당자가 나 = 요청자가 다시 돌려보낸 것이라 할 일로 본다 (#12)
 const scopeText=()=>"내 일"+(scopeW()?" + 관람":"")+(scopeR()?" + 참조":"");
 const scopeChecks=()=>`<span class="scpx" title="이력 · 용어 사전 · 그래프 · 요약이 같은 설정을 함께 씁니다"><span class="meta">포함</span><label><input type="checkbox" data-scp="incWatch" ${scopeW()?"checked":""}> 관람</label><label><input type="checkbox" data-scp="incRef" ${scopeR()?"checked":""}> 참조</label></span>`;
 document.addEventListener("change",e=>{const k=e.target&&e.target.dataset&&e.target.dataset.scp;if(!k)return;ui[k]=e.target.checked;saveUI();hist.more=60;renderAll()});

@@ -35,7 +35,7 @@ function wireCpNo(n){   // 노트 위쪽: #번호 복사 (기본) + ▾ 다른 �
 }
 let todayWide=true;
 const todayFull=()=>V2()&&nav==="today"&&todayWide;
-function openNote(id){cur=id;todayWide=false;if(!NAVLABEL[nav]&&nav!=="today"&&nav!=="history")nav="history";view="note";renderAll()}
+function openNote(id){cur=id;seenOpen=id;todayWide=false;if(!NAVLABEL[nav]&&nav!=="today"&&nav!=="history")nav="history";view="note";renderAll()}
 
 /* 용어 누르기: 한 번 누르면 선택, 다시 누르면 취소. 여러 개 선택하면 모두 포함한 노트만 남는다. */
 function toggleTerm(t){   // 용어를 고르면 그래프는 '선택한 용어 보기'로, 모두 해제하면 고르기 전에 보던 모드로 돌아간다

@@ -72,6 +72,7 @@ main>#listpane{overflow:hidden}
 .nrow{display:flex;gap:11px;align-items:flex-start;padding:10px 12px;border-radius:12px;cursor:pointer;margin:2px 0;border:0}
 .nrow:hover{background:color-mix(in srgb,var(--text) 5%,transparent)}
 .nrow:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.nrow.unseen{background:color-mix(in srgb,var(--warn) 16%,transparent)}.nrow.unseen:not(.sel):hover{background:color-mix(in srgb,var(--warn) 24%,transparent)}   /* 안 본 일감 (새로 왔거나 바뀜) */
 .nrow.sel{background:var(--accent-soft)}
 .nrow .dot{width:9px;height:9px;border-radius:50%;margin-top:.5em;flex:none;background:var(--c,var(--ext))}
 .nrow.s-대기{--c:var(--warn)}.nrow.s-진행{--c:var(--accent)}.nrow.s-완료{--c:var(--ok)}.nrow.s-중단{--c:var(--ext)}

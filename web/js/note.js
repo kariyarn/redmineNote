@@ -5,9 +5,9 @@ async function refreshOne(n,manual){
   const id=n.issue_id;lastRef.set(id,Date.now());
   try{
     const r=await post("/api/rm/refresh",{issue_id:id}),tgt=all.find(x=>x.issue_id===id);if(!tgt||!r.note)return;
-    const f=x=>JSON.stringify([x.rm_status,x.assignee,x.updated_on,(x.journals||[]).map(j=>[j.id,j.notes]),(x.changes||[]).length,x.desc_raw||""]);
+    const f=x=>JSON.stringify([x.rm_status,x.assignee,x.updated_on,(x.journals||[]).map(j=>[j.id,j.notes]),(x.changes||[]).length,x.desc_raw||"",x.author_id||0]);
     const changed=f(tgt)!==f(r.note);
-    if(changed){["subject","project","tracker","rm_status","author","assignee","updated_on","description","journals","roles","desc_raw","changes"].forEach(k=>{tgt[k]=r.note[k]});prep(tgt);buildTokens()}
+    if(changed){["subject","project","tracker","rm_status","author","assignee","updated_on","description","journals","roles","desc_raw","changes","author_id"].forEach(k=>{tgt[k]=r.note[k]});prep(tgt);buildTokens()}
     if(manual)toast(changed?"레드마인의 최신 내용으로 갱신했어요 ✓":"이미 최신이에요 ✓",2500);
     if(changed&&view==="note"&&cur===id){if(isTyping()&&!manual){toast("레드마인에서 바뀐 내용이 있어요. 입력을 마친 뒤 '↻ 새로 읽기'를 눌러 주세요",5000);return}
       const c=$("#center"),y=c.scrollTop;renderAll();c.scrollTop=y;if(cmOpen)cmPanelRender()}

@@ -17,7 +17,7 @@ APP_DIR = Path(getattr(sys, "_MEIPASS", None) or ROOT_DIR)  # web/ · icon.ico �
 WEB_DIR = APP_DIR / "web"   # 화면(HTML · CSS · JS)
 EXE_DIR = Path(sys.executable).parent if FROZEN else ROOT_DIR  # 예전 방식(프로그램 폴더)의 데이터 위치
 DEFAULT_URL = ""  # 레드마인 주소는 첫 실행 설정 화면에서 입력
-APP_VERSION = "2.16.2"  # 기능을 고칠 때 올린다. DB 에 기록되어 업데이트 직전 백업 · 낮은 버전 경고에 쓴다.
+APP_VERSION = "2.17.0"  # 기능을 고칠 때 올린다. DB 에 기록되어 업데이트 직전 백업 · 낮은 버전 경고에 쓴다.
 UPGRADE_BACKUP_KEEP = 5
 ALIVE_SEC = int(os.environ.get("REDMINE_NOTES_ALIVE_SEC") or 90)  # 화면 신호가 이 안에 있었으면 "창이 열려 있다"고 본다
 IDLE_QUIT_SEC = int(os.environ.get("REDMINE_NOTES_IDLE_SEC") or 600)  # 화면 신호가 이만큼 끊기면 스스로 종료 (0 = 끄지 않음)
@@ -34,6 +34,7 @@ SETTING_KEYS = {
     "st_dev", "st_confirm", "st_done",                               # 상태 버튼이 보내는 레드마인 상태 번호 (개발중 / 최종확인요청 / 완료)
     "write_ack_first", "write_ack_status", "patchnote_seen",                           # 쓰기 안내 창을 '다시 보지 않기' 했는지
     "ui_prefs2",                                                     # 화면 설정(테마·정렬·패널 너비 등): 어느 창으로 열어도 같게
+    "rm_seen",                                                       # 안 본 일감 강조: 일감별로 마지막으로 열어 본 레드마인 수정일
 }
 
 # 저장 위치: 사용자별 폴더에 자동으로 만든다 (바꾸고 싶으면 설정 화면에서 지정).

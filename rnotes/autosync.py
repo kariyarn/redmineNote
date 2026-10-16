@@ -65,7 +65,8 @@ def _new_issues(ids):
     with db() as c:
         rows = {r["issue_id"]: r for r in c.execute(
             f"SELECT issue_id, subject, project, roles FROM notes WHERE issue_id IN ({','.join('?' * len(ids))})", list(ids))}
-    return [{"id": i, "subject": rows[i]["subject"] or "", "project": rows[i]["project"] or "", "roles": rows[i]["roles"] or ""} for i in ids if i in rows]
+    return [{"id": i, "subject": rows[i]["subject"] or "", "project": rows[i]["project"] or "", "roles": rows[i]["roles"] or ""} for i in ids
+            if i in rows and "배포요청" not in (rows[i]["roles"] or "").split(",")]   # 배포요청 일감은 배포요청 화면에서만 (알림도 하지 않는다)
 
 
 def _tray_notice(new):

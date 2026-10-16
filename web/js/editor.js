@@ -268,6 +268,7 @@ function simBlock(n,sim){
 function renderCenter(){
   flushEdits();                       // 다른 노트/보기로 가기 전에, 저장하지 않은 변경이 있으면 먼저 자동 저장한다
   if(view!=="note")edNote=null;
+  else if(cur!=null&&cur===seenOpen)markSeen(all.find(x=>x.issue_id===cur));     // 내가 연 노트는 본 것으로 (자동으로 오른쪽에 열린 것은 빼고)
   $("#center").classList.remove("todo-on");
   updFab();
   $("#center").dataset.ns=ui.noteStyle==="card"?"card":"doc";   // 노트 모양: 설정에서 고른 문서 스타일 / 기존(카드) 스타일
