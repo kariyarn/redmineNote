@@ -2,7 +2,6 @@
 const rangeKeyOf=()=>view==="graph"?"graph":view==="summary"?"summary":"note";
 const searching=()=>!!$("#q").value.trim();     // 검색 중이면 기간·필터와 상관없이 전체 데이터를 본다
 function dictPool(){const [f,t]=searching()&&rangeKeyOf()!=="graph"?["",""]:rangeOf(rangeKeyOf());return all.filter(n=>(!f||n._d>=f)&&(!t||n._d<=t)&&inScope(n))}     // 용어 사전 숫자: 이 기간 기준, 관람·참조 일감은 뺀다
-const notDeploy=n=>!rolesOf(n).includes("배포요청");      // 배포요청 일감은 내 업무가 아니라서 요약(숫자·완료 목록 등)에서는 뺀다 (이력에는 그대로 있다)
 function summaryNotes(){
   const q=$("#q").value.trim().toLowerCase(),[f,t]=q?["",""]:rangeOf("summary");
   return scoped(all.filter(n=>notDeploy(n)&&(!f||n._d>=f)&&(!t||n._d<=t)&&qmatch(n,q)));       // 요약에 포함되는 일감 (범위 스위치를 따름)
@@ -42,7 +41,7 @@ function openSimilar(n){
 }
 function nrow(n,o={}){
   const s=stOf(n),c=catOf(n),tier=tierOf(n),sim=o.sim?simInfo(n):null;
-  const tag=tier==="assigned"?`<span class="tg">내 앞으로</span>`:tier==="watch"?`<span class="tg ghost">관람</span>`:tier==="added"?`<span class="tg ghost">${rolesOf(n).includes("배포요청")?"배포요청":"추가됨"}</span>`:tier==="ref"?`<span class="tg ghost">참조</span>`:"";
+  const tag=tier==="assigned"?`<span class="tg">내 앞으로</span>`:tier==="watch"?`<span class="tg ghost">관람</span>`:tier==="added"?`<span class="tg ghost">추가됨</span>`:tier==="ref"?`<span class="tg ghost">참조</span>`:"";
   return `<div class="nrow s-${s} ${n.issue_id===cur?"sel":""}${isUnseen(n)?" unseen":""}" data-id="${n.issue_id}" role="button" tabindex="0"${o.drag?' draggable="true" title="끌어서 순서를 바꿀 수 있어요"':""}>
     <button type="button" class="rstar ${n.starred?"on":""}" data-star-id="${n.issue_id}" title="${n.starred?"고정 해제":"고정: 목록 맨 위에 둬요 (즐겨찾기)"}" aria-label="고정">${n.starred?"★":"☆"}</button><span class="dot"></span><div class="rb"><div class="rt">${title(n.subject)}</div>
     <div class="rm"><span>#${n.issue_id}</span>${c!=="기타"?`<span class="cat ${c} mini" title="${esc(n.project)}">${c}</span>`:""}<span>${o.age?esc(ageTxt(n)):n._d}</span>${tag}${todoBadge(n)}${o.hide?`<button type="button" class="rhide" data-whide="${n.issue_id}" title="${o.hide==="back"?"지켜보는 중 목록에 다시 넣어요":"지켜보는 중 목록에서 숨겨요 (새 활동이 생기면 다시 보여요)"}">${o.hide==="back"?"↩ 되돌리기":"✕ 숨기기"}</button>`:""}${sim&&sim.list.length?`<button type="button" class="sim" data-sim="${n.issue_id}" title="같은 주제를 가진 과거 일감 보기">비슷한 과거 ${sim.list.length}건</button>`:""}</div></div></div>`;
@@ -196,7 +195,7 @@ function renderToday(){
 const HFLAG={"":"전체 이력",active:"현안만",star:"즐겨찾기",stale:"오래 대기",need:"기록 필요"};
 const HPER={all:"전체 기간","365d":"최근 1년","90d":"최근 3개월","30d":"최근 30일"};
 function histBase(q){
-  if(q)return all.filter(n=>qmatch(n,q));       // 검색: 관람·참조·전체 기간·모든 필터를 무시하고 전체에서 찾는다
+  if(q)return all.filter(n=>notDeploy(n)&&qmatch(n,q));       // 검색: 관람·참조·전체 기간·모든 필터를 무시하고 전체에서 찾는다 (배포요청 일감만은 빼고)
   let l=all.filter(inScope);
   if(hist.cat!=="전체")l=l.filter(n=>catOf(n)===hist.cat);
   if(hist.per!=="all"){const f=presetDates(hist.per)[0];l=l.filter(n=>n._d>=f)}

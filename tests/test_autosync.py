@@ -198,6 +198,14 @@ r = run_at(32, 5, False)
 t("window visible -> no balloon (page shows dialog)", not r["tray"] and balloons == [] and r["new"])
 r = run_at(33, 600, False, notify="0")
 t("notify off -> no balloon, still listed", not r["tray"] and balloons == [] and len(r["new"]) == 2 and A.status()["notify"] is False)
+with storage.db() as c:
+    c.execute("INSERT OR REPLACE INTO notes (issue_id, subject, project, roles, journals, updated_on) VALUES (?,?,?,?,?,?)", (503, "[운영서버 배포요청 / 2026-10-21]", "[IT개발본부] DevOps", "담당자,배포요청", "[]", "2026-10-21T00:00:00Z"))
+A.sync = lambda f, to: {"added_ids": [501, 503], "changed_ids": [], "failed": [], "aborted": None}
+r = run_at(34, 600, False)
+t("deploy-request issue -> not in new list / balloon (deploy tab only)", [x["id"] for x in r["new"]] == [501] and balloons == [("🆕 새 레드마인 일감 1건", "#501 새 일감 하나")])
+A.sync = lambda f, to: {"added_ids": [503], "changed_ids": [], "failed": [], "aborted": None}
+r = run_at(35, 600, False)
+t("only deploy-request issue new -> no balloon", r["new"] == [] and not r["tray"] and balloons == [])
 config.RUN.tray = None
 r = run_at(34, 600, False)
 t("no tray (source run) -> no balloon, no error", not r["tray"] and r["error"] == "")

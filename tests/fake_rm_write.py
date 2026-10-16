@@ -48,6 +48,8 @@ def mkdeploy(i, date, note, mine=True):
 
 DB[300] = mkdeploy(300, TODAY, "<p>- 요청 사유: #93599 시험 일감 수정<br />- 반영대상: B/O</p>")
 DB[301] = mkdeploy(301, YEST, "<p>- 요청 사유: #200 시험 일감</p>")
+DB[304] = mkdeploy(304, "2001-01-02", "<p>- 요청 사유: 내가 담당자인 배포요청</p>"); DB[304]["assigned_to"] = {"id": 7, "name": "나"}   # 일반 가져오기로 들어오는 배포요청
+DB[305] = mk(305); DB[305]["subject"] = "[운영서버 배포요청 / 2001-01-03] 다른 프로젝트"   # 제목만 같고 배포요청 프로젝트가 아님
 DB[302] = mk(302); DB[302]["subject"] = "[기획전] 시험 제목 검색"; DB[302]["project"] = {"id": 19, "name": "[DR] Daily Request"}
 DB[303] = mk(303); DB[303]["subject"] = "또 다른 기획전 페이지"; DB[303]["project"] = {"id": 19, "name": "[DR] Daily Request"}; DB[303]["status"] = {"id": 5, "name": "완료"}
 DB[200]["attachments"] += [
@@ -140,6 +142,8 @@ class H(BaseHTTPRequestHandler):
             return self.send(200, {"issue_priorities": [{"id": 2, "name": "보통"}]})
         if u.path == "/projects.json":
             return self.send(200, {"projects": [{"id": 19, "name": "[DR] Daily Request", "identifier": "dr"}, {"id": 30, "name": "[IT개발본부] DevOps", "identifier": "request-2021"}], "total_count": 2})
+        if u.path == "/projects/request-2021.json":
+            return self.send(200, {"project": {"id": 30, "name": "[IT개발본부] DevOps", "identifier": "request-2021"}})
         if u.path in ("/issues.json", "/projects/request-2021/issues.json"):
             kw = (q.get("subject") or [""])[0].lstrip("~")
             items = []

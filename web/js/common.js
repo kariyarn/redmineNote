@@ -65,7 +65,7 @@ async function doWrite(n,o){
       }else throw err;
     }
     const tgt=all.find(x=>x.issue_id===id)||n;
-    if(r.note)["subject","project","tracker","rm_status","author","assignee","updated_on","description","journals","roles","desc_raw","changes"].forEach(k=>{tgt[k]=r.note[k]});
+    if(r.note)["subject","project","tracker","rm_status","author","assignee","updated_on","description","journals","roles","desc_raw","changes","author_id"].forEach(k=>{tgt[k]=r.note[k]});
     prep(tgt);buildTokens();markSeen(tgt);                             // 내가 올려서 바뀐 것은 안 본 것으로 치지 않는다
     setDraft(id,"");cmStage.delete(id);
     toast(r.verified?"레드마인이 오류를 줬지만 확인해 보니 올라가 있어요 ✓":"레드마인에 올렸어요 ✓",3500);
