@@ -370,12 +370,12 @@ function varDrawMain(){
       <div class="row" style="margin:0;gap:14px"><label class="chk"><input type="radio" name="varKind" value="const" ${k==="const"?"checked":""}> 상수 <span class="meta">값을 그대로</span></label><label class="chk"><input type="radio" name="varKind" value="func" ${k==="func"?"checked":""}> 함수 <span class="meta">JavaScript 를 실행한 결과</span></label></div>
       <label class="tr-lab" for="varValue" id="varValueLab">${k==="func"?"함수 본문":"값"}</label>
       <textarea id="varValue" rows="${k==="func"?10:4}" maxlength="20000" spellcheck="false" class="${k==="func"?"code":""}" placeholder="${k==="func"?"예) return ctx.fmt(ctx.addDays(days));":"예) IT개발본부 웹개발팀"}">${esc(varDraft.value)}</textarea>
-      <div id="varHelp">${varHelp(k)}</div>
       <label class="tr-lab" for="varDesc">설명 <span class="meta">(선택)</span></label>
       <input type="text" id="varDesc" maxlength="200" placeholder="예) 며칠 뒤 날짜: #{after(3)}" value="${esc(varDraft.description)}">
       <div class="row" style="margin-top:14px"><button type="button" class="primary" id="varSave">저장</button><button type="button" id="varCancel">취소</button>
         <span class="sp"></span><input type="text" id="varArgs" placeholder="인수 (쉼표로)" style="max-width:14rem" title="실행해 볼 때 넘길 인수 (쉼표로, 비우면 기본값)"><button type="button" id="varTry">실행해 보기</button></div>
-      <div id="varOut"></div></div>`;
+      <div id="varOut"></div>
+      <div id="varHelp" style="margin-top:14px">${varHelp(k)}</div></div>`;
     document.querySelectorAll("input[name=varKind]").forEach(r=>r.onchange=()=>{const f=r.value==="func",ta=$("#varValue");
       ta.classList.toggle("code",f);ta.rows=f?10:4;$("#varValueLab").textContent=f?"함수 본문":"값";$("#varParamsBox").hidden=!f;
       $("#varHelp").innerHTML=varHelp(r.value);varWireHelp();varSigPrev()});
