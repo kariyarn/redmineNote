@@ -96,4 +96,41 @@ try:
 except ValueError:
     t("missing var delete rejected", True)
 
+# 함수 인자 (2.18.0): 이름 · 타입 · 기본값, 최대 10개
+pf = C.var_save({"name": "plus", "kind": "func", "value": "return a + b;",
+                 "params": [{"name": "a", "type": "number", "default": "1"}, {"name": " b ", "type": "number"}]})
+t("func params saved (trimmed)", pf["params"] == [{"name": "a", "type": "number", "default": "1"}, {"name": "b", "type": "number", "default": ""}])
+t("const ignores params", C.var_save({"name": "cst", "kind": "const", "value": "x", "params": [{"name": "a"}]})["params"] == [])
+t("params max 10", bad({"name": "p11", "kind": "func", "value": "x", "params": [{"name": f"a{i}"} for i in range(11)]}))
+t("10 params ok", len(C.var_save({"name": "p10", "kind": "func", "value": "x", "params": [{"name": f"a{i}"} for i in range(10)]})["params"]) == 10)
+t("param name rules", all(bad({"name": "pn", "kind": "func", "value": "x", "params": [{"name": n}]}) for n in ("1a", "a-b", "", "ctx", "args", "return", "class")))
+t("korean param name ok", C.var_save({"name": "pk", "kind": "func", "value": "x", "params": [{"name": "날짜"}]})["params"][0]["name"] == "날짜")
+t("duplicate param rejected", bad({"name": "pd", "kind": "func", "value": "x", "params": [{"name": "a"}, {"name": "a"}]}))
+t("bad type rejected", bad({"name": "pt", "kind": "func", "value": "x", "params": [{"name": "a", "type": "list"}]}))
+t("typed default checked", bad({"name": "pq", "kind": "func", "value": "x", "params": [{"name": "a", "type": "number", "default": "abc"}]})
+  and bad({"name": "pq", "kind": "func", "value": "x", "params": [{"name": "a", "type": "boolean", "default": "maybe"}]})
+  and bad({"name": "pq", "kind": "func", "value": "x", "params": [{"name": "a", "type": "date", "default": "내일"}]}))
+t("valid typed defaults", C.var_save({"name": "pv", "kind": "func", "value": "x", "params": [
+  {"name": "n", "type": "number", "default": "-2.5"}, {"name": "f", "type": "boolean", "default": "예"},
+  {"name": "d1", "type": "date", "default": "2026-12-31"}, {"name": "d2", "type": "date", "default": "+3"}, {"name": "d3", "type": "date", "default": "오늘"}]})["id"] > 0)
+
+# 기본 변수 2판 (함수 예제): 새로 받으면 9개, 예전(1판까지 넣은) DB 에는 2판만 한 번 더
+os.environ["REDMINE_NOTES_HOME"] = tempfile.mkdtemp()
+import importlib
+from rnotes import config
+importlib.reload(config); importlib.reload(storage); importlib.reload(C)
+storage.init_db()
+got = {v["name"]: v for v in C.var_list()}
+t("all defaults seeded", set(got) == {"today", "nextTue", "nextThu", "after", "now", "next", "dday", "issueTitle", "sign"})
+t("default with params", got["after"]["params"] == [{"name": "days", "type": "number", "default": "1"}] and got["dday"]["params"][0]["type"] == "date")
+with storage.db() as c:
+    c.execute("DELETE FROM cmd_vars WHERE name IN ('after','now','next','dday','issueTitle','sign')")
+    c.execute("UPDATE settings SET value='1' WHERE key='cmd_vars_seeded'")
+    c.execute("UPDATE cmd_vars SET value='return 1;' WHERE name='today'")
+storage.init_db()
+got = {v["name"]: v for v in C.var_list()}
+t("old DB gets v2 defaults once, v1 untouched", "after" in got and "sign" in got and got["today"]["value"] == "return 1;")
+C.var_delete(got["after"]["id"]); storage.init_db()
+t("deleted v2 default not re-seeded", "after" not in {v["name"] for v in C.var_list()})
+
 print("OK", ok, "FAIL", fail)

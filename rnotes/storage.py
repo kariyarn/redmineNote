@@ -1,6 +1,7 @@
 """SQLite(db) · 스키마(init_db) · 설정값 · 백업/복원"""
 import datetime
 import io
+import json
 import shutil
 import sqlite3
 import sys
@@ -74,22 +75,38 @@ def pre_upgrade_check():
             pass  # 백업이 안 돼도 구조 변경은 '추가만' 하므로 계속 진행
 
 
-# 명령어 변수 기본값 (처음 한 번만 넣는다. 지우거나 고쳐도 다시 넣지 않는다). 예전 날짜 자동 입력 #{nextTue} · #{nextThu} 를 그대로 잇는다
+# 명령어 변수 기본값. (판, 이름, 유형, 값, 인자, 설명) — 판마다 한 번만 넣는다 (지우거나 고쳐도 다시 넣지 않고, 같은 이름이 있으면 건너뛴다).
+# 1판: 예전 날짜 자동 입력 #{nextTue} · #{nextThu} 를 잇는다. 2판: 함수 도움말의 예제들 (인자 사용)
 DEFAULT_CMD_VARS = (
-    ("today", "func", "return ctx.fmt(ctx.now);", "오늘 날짜 (YYYY-MM-DD)"),
-    ("nextTue", "func", "return ctx.fmt(ctx.nextWeekday(2));", "돌아오는 화요일 (오늘이 화요일이면 오늘)"),
-    ("nextThu", "func", "return ctx.fmt(ctx.nextWeekday(4));", "돌아오는 목요일 (오늘이 목요일이면 오늘)"),
+    (1, "today", "func", "return ctx.fmt(ctx.now);", [], "오늘 날짜 (YYYY-MM-DD)"),
+    (1, "nextTue", "func", "return ctx.fmt(ctx.nextWeekday(2));", [], "돌아오는 화요일 (오늘이 화요일이면 오늘)"),
+    (1, "nextThu", "func", "return ctx.fmt(ctx.nextWeekday(4));", [], "돌아오는 목요일 (오늘이 목요일이면 오늘)"),
+    (2, "after", "func", "return ctx.fmt(ctx.addDays(days));",
+     [{"name": "days", "type": "number", "default": "1"}], "며칠 뒤 날짜: #{after(3)}"),
+    (2, "now", "func", "return ctx.fmt(ctx.now, format);",
+     [{"name": "format", "type": "string", "default": "YYYY-MM-DD HH:mm"}], "형식을 정한 지금 시각: #{now(MM/DD HH:mm)}"),
+    (2, "next", "func", "const w = { 일: 0, 월: 1, 화: 2, 수: 3, 목: 4, 금: 5, 토: 6 }[day];\nreturn ctx.fmt(ctx.nextWeekday(w ?? 2));",
+     [{"name": "day", "type": "string", "default": "화"}], "돌아오는 요일(한글): #{next(목)}"),
+    (2, "dday", "func", "const today = new Date(ctx.now);\ntoday.setHours(0, 0, 0, 0);\nconst d = Math.round((target - today) / 86400000);\n"
+     "return d > 0 ? `D-${d}` : d === 0 ? \"D-Day\" : `D+${-d}`;",
+     [{"name": "target", "type": "date", "default": "오늘"}], "남은 날: #{dday(2026-12-31)}"),
+    (2, "issueTitle", "func", "if (!ctx.issue) return \"\";\nreturn `#${ctx.issue.id} ${ctx.issue.subject}`;", [], "지금 일감 번호와 제목"),
+    (2, "sign", "func", "return `${ctx.vars.team ?? \"\"} ${ctx.me.name}`.trim();", [], "상수 team 과 내 이름 (team 이 없으면 이름만)"),
 )
 
 
 def seed_cmd_vars(c):
-    if c.execute("SELECT 1 FROM settings WHERE key='cmd_vars_seeded'").fetchone():
+    row = c.execute("SELECT value FROM settings WHERE key='cmd_vars_seeded'").fetchone()
+    done = int(row[0]) if row and str(row[0]).isdigit() else 0
+    todo = [v for v in DEFAULT_CMD_VARS if v[0] > done]
+    if not todo:
         return
     now = datetime.datetime.now().isoformat(timespec="seconds")
-    for name, kind, value, desc in DEFAULT_CMD_VARS:
-        c.execute("INSERT OR IGNORE INTO cmd_vars (name, kind, value, description, created_at, updated_at) VALUES (?,?,?,?,?,?)",
-                  (name, kind, value, desc, now, now))
-    c.execute("INSERT INTO settings (key,value) VALUES ('cmd_vars_seeded','1') ON CONFLICT(key) DO NOTHING")
+    for _, name, kind, value, params, desc in todo:
+        c.execute("INSERT OR IGNORE INTO cmd_vars (name, kind, value, params, description, created_at, updated_at) VALUES (?,?,?,?,?,?,?)",
+                  (name, kind, value, json.dumps(params, ensure_ascii=False), desc, now, now))
+    c.execute("INSERT INTO settings (key,value) VALUES ('cmd_vars_seeded',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+              (str(max(v[0] for v in DEFAULT_CMD_VARS)),))
 
 
 def init_db():
@@ -178,7 +195,7 @@ def init_db():
             CREATE TABLE IF NOT EXISTS cmd_vars (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL, kind TEXT NOT NULL DEFAULT 'const', value TEXT NOT NULL DEFAULT '',
-                description TEXT DEFAULT '', created_at TEXT, updated_at TEXT
+                params TEXT DEFAULT '[]', description TEXT DEFAULT '', created_at TEXT, updated_at TEXT
             );
             CREATE UNIQUE INDEX IF NOT EXISTS idx_cmd_vars_name ON cmd_vars(name COLLATE NOCASE);
             -- 메모 알림: 날짜(또는 기간)마다 '확인했는지 / 다시 알림 시각'을 기록 (없으면 아직 확인 안 한 것)
@@ -239,6 +256,8 @@ def init_db():
         cmd_cols = {r["name"] for r in c.execute("PRAGMA table_info(commands)")}
         if "pinned" not in cmd_cols:  # 2.18.0: 버튼으로 꺼내 두기 (명령어가 많아 선택칸으로 접혀도 버튼으로 남긴다)
             c.execute("ALTER TABLE commands ADD COLUMN pinned INTEGER DEFAULT 0")
+        if "params" not in {r["name"] for r in c.execute("PRAGMA table_info(cmd_vars)")}:  # 2.18.0: 함수 인자 [{name, type, default}]
+            c.execute("ALTER TABLE cmd_vars ADD COLUMN params TEXT DEFAULT '[]'")
         seed_cmd_vars(c)
         repair_truncated_requirements(c)
         if not STATE["newer_db"]:  # 더 새 버전의 DB 는 버전 기록을 낮추지 않는다
