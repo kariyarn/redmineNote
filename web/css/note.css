@@ -22,7 +22,30 @@
 .cmp textarea.cmta{width:100%;min-height:92px;resize:vertical;font:inherit;line-height:1.5;padding:9px 12px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--text);box-sizing:border-box}
 .cmp textarea.cmta:focus{outline:2px solid var(--accent);outline-offset:0}
 .cmp .cmcmd{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:8px}
-.cmp .cmd-shortcut{font-weight:600}
+.cmp .cmd-shortcut{font-weight:600}.cmp .cmd-shortcut.pin{border-color:var(--accent)}
+.cmp .cmdsel{max-width:16rem}
+textarea.code,pre.code{font-family:var(--mono,ui-monospace,SFMono-Regular,Consolas,monospace);font-size:.92em;tab-size:2}
+pre.cmd-description{margin:0;background:var(--surface2);border:1px solid var(--line);border-radius:8px;padding:8px 10px;white-space:pre-wrap}
+.cmd-prev{background:var(--surface2);border:1px dashed var(--line);border-radius:8px;padding:8px 10px}
+.cmd-err{color:#c0392b;margin-top:6px}
+.cmd-help{margin-top:8px;font-size:.92em;line-height:1.6;color:var(--sub)}
+details.cmd-help{border:1px solid var(--line);border-radius:10px;padding:6px 12px 10px;background:var(--surface2)}
+.cmd-help summary{cursor:pointer;font-weight:600;color:var(--text);padding:2px 0}
+.cmd-help h5{margin:12px 0 4px;font-size:.95em;color:var(--text)}
+.cmd-help ul{margin:0;padding-left:18px}
+.cmd-help table{width:100%;border-collapse:collapse;margin-top:2px}
+.cmd-help th,.cmd-help td{text-align:left;vertical-align:top;padding:4px 6px;border-bottom:1px solid var(--line)}
+.cmd-help th{font-weight:600;color:var(--text);white-space:nowrap}
+.cmd-help td:first-child code{white-space:nowrap}
+.cmd-help pre.code{margin:0;white-space:pre-wrap;overflow-wrap:anywhere}
+.cmd-help button{white-space:nowrap}.cmd-help td:last-child:has(button){width:1%}
+.cmd-help table.ex td:first-child{min-width:8em}
+.vparam{display:grid;grid-template-columns:minmax(8rem,1.2fr) 7.5rem minmax(8rem,1.4fr) auto;gap:6px;align-items:center;margin-top:6px}
+.vparam-hd{font-size:.85em;color:var(--sub);margin-top:2px}
+button#varParamAdd{border:1.5px solid var(--accent);background:var(--accent-soft);color:var(--accent);font-weight:600;padding:4px 12px}
+button#varParamAdd:hover:not(:disabled){background:var(--accent);color:var(--accent-ink)}
+button#varParamAdd:disabled{border:1.5px dashed var(--line);background:transparent;color:var(--sub);font-weight:500;cursor:not-allowed}.vparam .vp-name{font-family:var(--mono)}
+table.vptab{border-collapse:collapse}table.vptab th,table.vptab td{text-align:left;padding:3px 10px 3px 0;border-bottom:1px solid var(--line)}.cmd-help table.ex td:nth-child(2){white-space:nowrap}
 .cmd-description{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.6}
 .cmp .cmrow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:8px}
 .cmp .cmrow .sp{flex:1}
