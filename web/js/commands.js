@@ -20,10 +20,22 @@ function cmdPut(row){const i=cmdItems.findIndex(x=>x.id===row.id);if(i<0)cmdItem
 function varPut(row){const i=cmdVars.findIndex(x=>x.id===row.id);if(i<0)cmdVars.push(row);else cmdVars[i]=row;varSort()}
 
 /* ---- 변수 바꿔 넣기 ---- */
-const CMD_VAR_RE=/(\\?)#\{\s*([\p{L}_][\p{L}\p{N}_]*)\s*(?:\(([^)]*)\))?\s*\}/gu;
+/* #{이름} · #{이름(인수, …)}. 인수 안에는 괄호 한 겹((E) 등)과 따옴표("a, b" · 'a, b')를 쓸 수 있다 */
+const CMD_VAR_RE=/(\\?)#\{\s*([\p{L}_][\p{L}\p{N}_]*)\s*(?:\(((?:[^()"']|"[^"]*"|'[^']*'|\([^()]*\))*)\))?\s*\}/gu;
+const CMD_VAR_LOOSE=/(\\?)#\{[^}\n]*\}/g;   // 형식을 알아보지 못한 자리를 찾아 알려 주려고
+/* 인수 나누기: 쉼표로 나누되 따옴표 · 괄호 안의 쉼표는 나누지 않는다. 앞뒤 공백과 감싼 따옴표는 뗀다 */
 function cmdArgs(s){
   if(s==null||!s.trim())return [];
-  return s.split(",").map(a=>a.trim().replace(/^(["'])(.*)\1$/,"$2"));
+  const out=[];let cur="",q="",depth=0;
+  for(const ch of s){
+    if(q){cur+=ch;if(ch===q)q="";continue}
+    if(ch==='"'||ch==="'"){q=ch;cur+=ch;continue}
+    if(ch==="(")depth++;else if(ch===")")depth=Math.max(0,depth-1);
+    if(ch===","&&!depth){out.push(cur);cur="";continue}
+    cur+=ch;
+  }
+  out.push(cur);
+  return out.map(a=>a.trim().replace(/^(["'])([\s\S]*)\1$/,"$2"));
 }
 /* 함수 실행기: Worker 안에서 new AsyncFunction("ctx","args", 인자 이름들…, 본문). await 를 써도 된다.
    인자는 타입대로 바꿔 넘긴다: 빈칸이면 기본값, 기본값도 없으면 undefined. 바꿀 수 없으면 오류 */
@@ -45,7 +57,12 @@ function conv(p,raw,now){
 }
 function mkCtx(b){
   const now=new Date(b.now),z=n=>String(n).padStart(2,"0");
-  const fmt=(d=now,p="YYYY-MM-DD")=>{const x=new Date(d);return p.replace(/YYYY|MM|DD|HH|mm|ss/g,t=>({YYYY:x.getFullYear(),MM:z(x.getMonth()+1),DD:z(x.getDate()),HH:z(x.getHours()),mm:z(x.getMinutes()),ss:z(x.getSeconds())})[t])};
+  const WD=["일","월","화","수","목","금","토"];
+  const fmt=(d=now,p="YYYY-MM-DD")=>{const x=new Date(d),H=x.getHours(),h=H%12||12;
+    const T={yyyy:x.getFullYear(),YYYY:x.getFullYear(),yy:z(x.getFullYear()%100),YY:z(x.getFullYear()%100),MM:z(x.getMonth()+1),M:x.getMonth()+1,
+      dd:z(x.getDate()),DD:z(x.getDate()),d:x.getDate(),HH:z(H),H:H,hh:z(h),h:h,mm:z(x.getMinutes()),m:x.getMinutes(),ss:z(x.getSeconds()),s:x.getSeconds(),
+      EEEE:WD[x.getDay()]+"요일",E:WD[x.getDay()],a:H<12?"오전":"오후"};
+    return String(p).replace(/(?<![A-Za-z])(yyyy|YYYY|yy|YY|MM|M|dd|DD|d|HH|H|hh|h|mm|m|ss|s|EEEE|E|a)(?![A-Za-z])/g,t=>T[t])};
   const addDays=(n,d=now)=>{const x=new Date(d);x.setDate(x.getDate()+Number(n));return x};
   const nextWeekday=(w,d=now)=>addDays((Number(w)-new Date(d).getDay()+7)%7,d);
   return Object.freeze({now,fmt,addDays,nextWeekday,issue:b.issue,me:b.me,vars:b.consts});
@@ -103,6 +120,8 @@ async function cmdExpand(text,n,vars=cmdVars){
     if(r&&r.ok)return r.v;
     errors.push(`#{${name}}: ${r?r.e:"실행하지 못했어요"}`);return all;
   });
+  const ok=new Set(ms.map(m=>m.index));
+  for(const m of text.matchAll(CMD_VAR_LOOSE))if(!m[1]&&!ok.has(m.index))errors.push(`${m[0]}: 형식을 알아보지 못했어요 (괄호 · 따옴표 짝 확인)`);
   return {text:out,errors:[...new Set(errors)]};
 }
 
@@ -291,7 +310,7 @@ function varSigPrev(){
 const VAR_CTX=[
   ["인자 이름","위 '인자'에서 정한 이름 그대로. 타입대로 바뀌어 들어오고, 빈칸이면 기본값 (기본값도 없으면 undefined)","days + 1"],
   ["ctx.now","지금 시각 (Date)","ctx.now.getDay() === 5"],
-  ["ctx.fmt(날짜, 형식)","날짜를 글자로. 형식 기본값 YYYY-MM-DD (YYYY · MM · DD · HH · mm · ss)",'ctx.fmt(ctx.now, "MM/DD HH:mm")'],
+  ["ctx.fmt(날짜, 형식)","날짜를 글자로. 형식 기본값 YYYY-MM-DD. yyyy(YYYY) · yy · MM · M · dd(DD) · d · HH · H(24시) · hh · h(12시) · mm · m · ss · s · E(금) · EEEE(금요일) · a(오전/오후)",'ctx.fmt(ctx.now, "yyyy-MM-dd(E) hh:mm")'],
   ["ctx.addDays(n, 날짜)","n일 뒤 날짜 (음수면 앞). 날짜 기본값 지금","ctx.addDays(-1)"],
   ["ctx.nextWeekday(요일, 날짜)","돌아오는 그 요일 (0=일 … 6=토, 오늘이 그 요일이면 오늘)","ctx.nextWeekday(2)"],
   ["ctx.issue","지금 일감 { id, subject, project, tracker, status, author, assignee, url }. 일감 밖(미리 보기 등)에서는 null","ctx.issue?.subject"],
@@ -314,6 +333,7 @@ function varHelp(kind){
     <h5>1. 규칙</h5>
     <ul><li>여기에는 <b>JavaScript 함수 본문</b>만 써요. <code>return</code> 한 값이 글자로 바뀌어 <code>#{이름}</code> 자리에 들어가요 (<code>undefined</code> · <code>null</code> 은 빈 글자). <code>await</code> 도 쓸 수 있어요.</li>
       <li>위 <b>인자</b>에 이름 · 타입 · 기본값을 정하면(최대 ${PARAM_MAX}개), 문구의 <code>#{이름(값1, 값2)}</code> 값이 <b>순서대로</b> 그 이름으로 들어와요. 값을 비우거나 덜 넘기면 기본값을 써요.</li>
+      <li>인수 안에 쉼표를 넣으려면 따옴표로 감싸요: <code>#{now("MM/DD, HH시")}</code>. 괄호 한 겹은 그대로 써도 돼요: <code>#{now(yyyy-MM-dd(E))}</code>.</li>
       <li>인자 타입: ${VAR_TYPES_HELP.map(([t,d])=>`<b>${t}</b> ${esc(d)}`).join(" · ")}</li></ul>
     <h5>2. 쓸 수 있는 값</h5>
     <table><thead><tr><th>이름</th><th>설명</th><th>예</th></tr></thead><tbody>${VAR_CTX.map(([n,d,e])=>`<tr><td><code>${esc(n)}</code></td><td>${esc(d)}</td><td><code>${esc(e)}</code></td></tr>`).join("")}</tbody></table>
