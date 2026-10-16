@@ -44,7 +44,7 @@ async function presetFill(n,k){   // 버튼을 누르면 아래 상태·담당�
   const sid={dev:sts.dev,confirm:sts.confirm,done:sts.done}[k];
   if(sid){st.status_id=sid;const o=rmStatuses&&rmStatuses.find(x=>x.id===sid);st.lbl.status=o?o.name:{dev:"개발중",confirm:"최종확인요청",done:"완료"}[k]}
   let asg=me;
-  if(k==="confirm"){const mem=await loadMembers(n),a=mem.find(m=>m.name===n.author);asg=a?{id:a.id,name:a.name}:{id:0,name:n.author}}   // 작성자를 못 찾으면 서버가 다시 풀어 준다
+  if(k==="confirm")asg={id:n.author_id||0,name:n.author};   // 담당자 = 일감 작성자. ID 를 아직 모르면(0) 서버가 일감을 다시 읽어 작성자로 정한다
   st.assigned_to_id=asg.id;st.lbl.assigned=asg.name;st.dev_id=me.id;st.lbl.dev=me.name;
 }
 const dropPreset=st=>{if(!(st.preset&&st.assigned_to_id===0))delete st.preset};   // 직접 고치면 버튼 선택은 풀고 그 값만 남긴다
