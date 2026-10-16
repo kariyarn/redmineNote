@@ -363,3 +363,14 @@ build-exe.bat
 ## 2.17.0 — 돌아온 최종확인요청 · 안 본 일감 강조
 - **돌아온 최종확인요청을 지금 할 일에**(#12): 상태가 `최종확인요청`이어도 담당자가 나(내 작업 · 내 앞으로)면 오늘의 `지금 할 일`에 넣는다. `최종확인요청` 버튼은 담당자를 요청자에게 넘기므로, 담당자가 나라는 건 요청자가 다시 돌려보냈다는 뜻이다. 상태 묶음(`stOf`)은 그대로 완료라서 이력 · 요약 · 통계 숫자는 바뀌지 않는다. `web/js/layout.js` `isNow`.
 - **안 본 일감 강조**: 새로 왔거나 레드마인에서 바뀌었는데 아직 열어 보지 않은 일감은 목록 줄(`.nrow.unseen`) 배경을 칠한다(테마의 `--warn` 색을 옅게, 선택된 줄 강조가 우선). 일감별로 마지막으로 열어 본 수정일을 설정값 `rm_seen`(`{_base, ids:{번호: updated_on}}`)에 저장하고, 기록이 없으면 `_base`(처음 켰을 때 · 첫 가져오기 직후의 가장 최근 수정일)보다 나중에 바뀐 것만 안 본 것으로 친다. 노트를 직접 열면(열어 둔 채 새로 읽기 · 자동 가져오기로 바뀌어도) 본 것으로 바뀌고, 오늘 화면이 자동으로 오른쪽에 연 노트는 열어 본 것으로 치지 않는다. 이 앱에서 레드마인에 올린 뒤에도 본 것으로 기록한다. 목록에 없는 일감 기록은 저장할 때 지운다.
+
+## 2.19.0 — 앱 안에서 업데이트
+- **새 버전 확인 · 받기 · 바꾸기**를 앱 안에서 한다(깃허브 Releases `kariyarn/redmineNote`, 공개 API · 토큰 없음). 서버 `rnotes/updater.py`, 화면 `web/js/update.js`, API `GET /api/update` · `POST /api/update/check` · `/download` · `/apply`.
+  - **확인**: 켠 뒤 30초, 그 뒤 하루 한 번(설정 `update_auto`, 기본 켬) `releases/latest` 를 보고 지금 버전과 비교한다. 새 버전이 있으면 켤 때 알림(`업데이트` · `나중에`)을 띄운다. **설정 → 일반 → 업데이트**: 지금 확인 · 받고 업데이트 · 이 버전 알림 건너뛰기(`update_skip`) · 자동 확인 끄기 · 마지막 확인 시각 · 릴리스 페이지.
+  - **받기**: 설치 방식에 맞는 파일(설치 파일로 깐 경우 `RedmineNotes2-Setup.exe`, exe 만 쓰는 경우 `RedmineNotes2.exe`)을 임시 폴더(`%TEMP%\RedmineNotes2-update`)에 백그라운드로 받고 진행률을 보여 준다. 받은 뒤 **크기 · SHA-256(깃허브가 `digest` 를 줄 때) · 윈도우 실행 파일(MZ)** 을 확인하고, 틀리면 버린다.
+  - **바꾸기**: 한 번 더 묻고 앱을 정상 종료(깃허브 자동 올리기 · 창 · 트레이 정리)한 뒤, 따로 띄운 도우미(cmd)가 앱(onefile 바깥 프로세스 포함)이 끝나길 기다렸다가 바꾼다. 경로는 환경 변수로 넘겨 한글 경로도 안전하다. 로그 `update.log`.
+    - 설치 파일 방식(exe 옆 `unins000.exe`): 새 설치 파일을 `/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /CLOSEAPPLICATIONS /RELAUNCH=1` 로 실행 → 설치 파일([Code] `ShouldRelaunch`)이 끝나고 앱을 다시 켠다. 실패하면 예전 앱을 다시 켠다.
+    - exe 방식: 예전 exe 를 `.old` 로 옮기고 새 exe 를 그 자리에 놓은 뒤 켠다(실패하면 되돌려 예전 것을 켠다). `.old` 와 받은 파일은 새 버전이 켜질 때 지운다. exe 폴더에 쓸 수 없으면 바꾸지 않고 설치 파일을 권한다.
+    - 소스 실행(`python main.py`): 확인만 하고 바꾸지 않는다(git pull 안내).
+  - 노트 데이터는 그대로이고, 새 버전을 처음 켤 때 기존 '업데이트 직전 백업'이 그대로 동작한다.
+  - 시험 `tests/test_update.py`(가짜 Releases), 시험용 환경 변수 `REDMINE_NOTES_UPDATE_API` · `REDMINE_NOTES_UPDATE_DRYRUN` · `REDMINE_NOTES_UPDATE_MODE`.

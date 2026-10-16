@@ -2,6 +2,7 @@
 ;   build.bat 으로 dist\RedmineNotes2.exe 를 만든 뒤  iscc /DAppVer=2.14.5 installer\RedmineNotes2.iss
 ; 관리자 권한 없이 내 계정에만 설치하고(%LOCALAPPDATA%\Programs\RedmineNotes2), 데이터(%APPDATA%\RedmineNotes2)는 건드리지 않는다.
 ; 새 버전 설치 = 같은 자리에 덮어쓰기. 켜져 있는 앱은 설치 전에 닫는다.
+; 앱 안의 '업데이트'는 이 설치 파일을 /VERYSILENT /RELAUNCH=1 로 실행한다 (rnotes/updater.py) — 끝나면 앱을 다시 켠다.
 #ifndef AppVer
   #define AppVer "0.0.0"
 #endif
@@ -46,3 +47,11 @@ Name: "{autodesktop}\레드마인 노트"; Filename: "{app}\RedmineNotes2.exe"; 
 
 [Run]
 Filename: "{app}\RedmineNotes2.exe"; Description: "{cm:LaunchProgram,레드마인 노트}"; Flags: nowait postinstall skipifsilent
+; 앱 안에서 업데이트할 때(/VERYSILENT /RELAUNCH=1): 조용히 설치한 뒤 새 버전을 다시 켠다
+Filename: "{app}\RedmineNotes2.exe"; Flags: nowait; Check: ShouldRelaunch
+
+[Code]
+function ShouldRelaunch: Boolean;
+begin
+  Result := WizardSilent and (ExpandConstant('{param:RELAUNCH|0}') = '1');
+end;

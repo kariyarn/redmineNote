@@ -38,6 +38,7 @@ async function renderSettings(){
 
    ${sec("gen","패치 노트","",`
      <div class="srow"><span class="sl">변경 내용</span><div class="sc"><button id="pnOpen">이번 변경 보기</button><button id="pnLegacy">이전 패치 노트 (레거시)</button></div></div>`)}
+   ${updSection(sec)}
 
    ${sec("sync","자동 가져오기",`정한 간격마다 바뀐 일감을 가져와요. <b>영업일 ${aw[0]} ~ ${aw[1]}</b>에만, 트레이에 있어도 동작해요.`,`
      <div class="srow"><span class="sl">간격</span><div class="sc"><input type="number" id="sAutoSync" min="0" max="1440" step="5" value="${autoSyncMin()}" class="num"> 분마다<span class="hint">0 = 끔 · 최소 ${AUTO_SYNC_MIN}분</span></div></div>
@@ -189,6 +190,7 @@ async function renderSettings(){
     if(!await askC(`백업 '${b.dataset.delbk}' 를 삭제할까요?`))return;
     await api("/api/backups/"+encodeURIComponent(b.dataset.delbk),{method:"DELETE"});renderSettings()});
   if(gst)gbWire(q,afterRestore);
+  updWire();
 }
 
 /* ---------- 깃허브 백업: 올리기는 자동(고른 때), 내려받기(복원)는 백업 시점을 골라 직접 ---------- */

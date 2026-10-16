@@ -30,6 +30,7 @@ from .holiday_api import HolidayApiError, fetch_and_store, week_start
 from .holiday_api import status as holiday_status
 from .holidays import extra_days, holiday_dates
 from .queries import query_delete, query_import, query_list, query_pin, query_restore, query_save, query_use, query_versions
+from . import updater
 from .commands import command_delete, command_list, command_save
 from .trouble import trouble_row, trouble_save
 from . import gitbackup
@@ -163,6 +164,8 @@ class Handler(BaseHTTPRequestHandler):
             STATE["alarm_poll"] = time.time()
             STATE["alarm_hidden"] = q.get("hidden") == "1"
             self.send_json({"alarms": alarms_due(), "notice": future_notice(), "server_started": STATE["started"], "now": datetime.datetime.now().isoformat(timespec="seconds")})
+        elif u.path == "/api/update":           # 앱 업데이트: 현재 · 최신 버전 · 받기 진행 상태 (확인은 하지 않는다)
+            self.send_json(updater.status())
         elif u.path == "/api/autosync":         # 자동 가져오기 상태 + since 뒤의 결과들 (화면이 30초마다 가져간다)
             since = q.get("since")
             self.send_json(autosync_status(int(since) if since and since.lstrip("-").isdigit() else None))
@@ -504,6 +507,12 @@ class Handler(BaseHTTPRequestHandler):
                 try:
                     self.send_json(trouble_save(d))
                 except ValueError as e:
+                    self.send_json({"error": str(e)}, 400)
+            elif u.path in ("/api/update/check", "/api/update/download", "/api/update/apply"):   # 앱 업데이트: 확인 · 받기(백그라운드) · 바꾸고 다시 켜기
+                try:
+                    fn = {"check": updater.check, "download": updater.start_download, "apply": updater.apply}[u.path.rsplit("/", 1)[1]]
+                    self.send_json(fn())
+                except updater.UpdateError as e:
                     self.send_json({"error": str(e)}, 400)
             elif u.path == "/api/holiday/fetch":   # 이번 주 공휴일을 지금 받기
                 try:
