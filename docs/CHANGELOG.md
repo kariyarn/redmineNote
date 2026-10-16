@@ -381,7 +381,7 @@ build-exe.bat
 
 ## 2.19.0 — 앱 안에서 업데이트
 - **새 버전 확인 · 받기 · 바꾸기**를 앱 안에서 한다(깃허브 Releases `kariyarn/redmineNote`, 공개 API · 토큰 없음). 서버 `rnotes/updater.py`, 화면 `web/js/update.js`, API `GET /api/update` · `POST /api/update/check` · `/download` · `/apply`.
-  - **확인**: 켠 뒤 30초, 그 뒤 하루 한 번(설정 `update_auto`, 기본 켬) `releases/latest` 를 보고 지금 버전과 비교한다. 새 버전이 있으면 켤 때 알림(`업데이트` · `나중에`)을 띄운다. **설정 → 일반 → 업데이트**: 지금 확인 · 받고 업데이트 · 이 버전 알림 건너뛰기(`update_skip`) · 자동 확인 끄기 · 마지막 확인 시각 · 릴리스 페이지.
+  - **확인**: 켠 뒤 30초, 그 뒤 하루 한 번(설정 `update_auto`, 기본 켬) `releases/latest` 를 보고 지금 버전과 비교한다. 새 버전이 있으면 켤 때 알림(`업데이트` · `나중에`)을 띄운다. **설정 → 일반 → 업데이트**(계정 바로 아래): 현재 버전(설치 방식) · 최신 버전(마지막 확인 시각) · **업데이트 확인**(깃허브 저장소의 최신 릴리스) · **설치**(새 버전이 있고 앱 안에서 바꿀 수 있을 때만 눌림, 받는 중에는 진행률, 다 받으면 `설치 (다시 시작)`) · 이 버전 알림 건너뛰기(`update_skip`) · 자동 확인 끄기 · 릴리스 페이지.
   - **받기**: 설치 방식에 맞는 파일(설치 파일로 깐 경우 `RedmineNotes2-Setup.exe`, exe 만 쓰는 경우 `RedmineNotes2.exe`)을 임시 폴더(`%TEMP%\RedmineNotes2-update`)에 백그라운드로 받고 진행률을 보여 준다. 받은 뒤 **크기 · SHA-256(깃허브가 `digest` 를 줄 때) · 윈도우 실행 파일(MZ)** 을 확인하고, 틀리면 버린다.
   - **바꾸기**: 한 번 더 묻고 앱을 정상 종료(깃허브 자동 올리기 · 창 · 트레이 정리)한 뒤, 따로 띄운 도우미(cmd)가 앱(onefile 바깥 프로세스 포함)이 끝나길 기다렸다가 바꾼다. 경로는 환경 변수로 넘겨 한글 경로도 안전하다. 로그 `update.log`.
     - 설치 파일 방식(exe 옆 `unins000.exe`): 새 설치 파일을 `/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /CLOSEAPPLICATIONS /RELAUNCH=1` 로 실행 → 설치 파일([Code] `ShouldRelaunch`)이 끝나고 앱을 다시 켠다. 실패하면 예전 앱을 다시 켠다.

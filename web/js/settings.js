@@ -32,13 +32,14 @@ async function renderSettings(){
      ${sMore(`노트 DB(<code class="ic">notes.db</code>) · 백업 · 폰트가 저장되는 폴더예요. 바꾸면 현재 데이터를 새 폴더로 <b>복사</b>하고, <b>프로그램을 다시 시작해야</b> 적용돼요. 네트워크 폴더는 파일이 깨질 수 있어 권하지 않아요. API 키 설정 파일은 항상 기본 위치에 남아요.`)}
      <div class="srow"><span class="sl">프로그램</span><div class="sc"><button class="danger" id="cQuit" title="서버를 끕니다. 다시 쓰려면 프로그램을 실행하세요">프로그램 종료</button></div></div>`)}
 
+   ${updSection(sec)}
+
    ${sec("gen","시작 설정","",`
      <label class="chk"><input type="checkbox" id="sAuto" ${S.auto_check==="1"?"checked":""}> 처음 열 때 최근 7일 동안 바뀐 일감을 자동으로 확인</label>
      <p class="hint">서버를 켠 뒤 처음 화면을 열 때 한 번만 해요. 바뀐 것만 갱신해요.</p>`)}
 
    ${sec("gen","패치 노트","",`
      <div class="srow"><span class="sl">변경 내용</span><div class="sc"><button id="pnOpen">이번 변경 보기</button><button id="pnLegacy">이전 패치 노트 (레거시)</button></div></div>`)}
-   ${updSection(sec)}
 
    ${sec("sync","자동 가져오기",`정한 간격마다 바뀐 일감을 가져와요. <b>영업일 ${aw[0]} ~ ${aw[1]}</b>에만, 트레이에 있어도 동작해요.`,`
      <div class="srow"><span class="sl">간격</span><div class="sc"><input type="number" id="sAutoSync" min="0" max="1440" step="5" value="${autoSyncMin()}" class="num"> 분마다<span class="hint">0 = 끔 · 최소 ${AUTO_SYNC_MIN}분</span></div></div>
