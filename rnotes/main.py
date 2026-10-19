@@ -1,4 +1,5 @@
 """프로그램 시작점"""
+import json
 import os
 import sys
 import threading
@@ -11,10 +12,39 @@ import webbrowser
 from .autosync import autosync_loop
 from .gitbackup import loop as gitbackup_loop
 from .updater import loop as update_loop
-from .config import DATA_DIR, FROZEN, IDLE_QUIT_SEC, PORT, STATE
+from .config import CHANNEL_PORTS, DATA_DIR, FROZEN, IDLE_QUIT_SEC, OTHER_CHANNEL, PORT, STATE
 from .http_handler import Handler, Server
 from .lifecycle import alarm_loop, idle_watchdog, open_browser, start_tray
 from .storage import ensure_daily_backup, init_db
+
+
+CHANNEL_NAME = {"stable": "정식", "beta": "베타"}
+
+
+def other_channel_running():
+    """같은 노트 데이터를 쓰는 다른 채널(정식 ↔ 베타)이 켜져 있는가. 포트를 따로 정해 실행(시험 등)하면 보지 않는다."""
+    if os.environ.get("REDMINE_NOTES_PORT"):
+        return False
+    try:
+        with urllib.request.urlopen(f"http://127.0.0.1:{CHANNEL_PORTS[OTHER_CHANNEL]}/api/config", timeout=1.5) as r:
+            return r.status == 200 and "appVersion" in json.loads(r.read(65536).decode("utf-8"))   # 레드마인 노트가 맞는지 (다른 프로그램이 그 포트를 쓸 수도)
+    except Exception:
+        return False
+
+
+def refuse_other_channel():
+    """다른 채널이 켜져 있으면 알리고 끝낸다 (같은 DB 를 둘이 함께 쓰지 않게: 자동 가져오기 · 알림 · 백업이 두 번 돌거나 DB 형식이 엇갈리는 것을 막는다)."""
+    other, me = CHANNEL_NAME[OTHER_CHANNEL], CHANNEL_NAME["beta" if OTHER_CHANNEL == "stable" else "stable"]
+    msg = (f"레드마인 노트 {other} 버전이 이미 켜져 있어요.\n\n정식과 베타는 같은 노트 데이터를 쓰기 때문에 한 번에 하나만 켤 수 있어요.\n"
+           f"{other} 버전을 끈 뒤(트레이 아이콘 우클릭 → 서버 닫기) {me} 버전을 다시 실행하세요.")
+    print(msg)
+    if sys.platform == "win32" and "nobrowser" not in sys.argv:
+        try:
+            import ctypes
+            ctypes.windll.user32.MessageBoxW(None, msg, f"레드마인 노트 ({me})", 0x30 | 0x40000)   # 경고 아이콘 · 맨 위
+        except Exception:
+            pass
+    os._exit(0)
 
 
 def run():
@@ -25,6 +55,8 @@ def run():
             s.reconfigure(errors="backslashreplace")
         except Exception:
             pass
+    if other_channel_running():
+        refuse_other_channel()
     init_db()
     try:
         httpd = Server(("127.0.0.1", PORT), Handler)

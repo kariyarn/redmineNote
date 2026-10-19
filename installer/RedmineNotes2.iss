@@ -6,24 +6,41 @@
 #ifndef AppVer
   #define AppVer "0.0.0"
 #endif
+; 베타: iscc /DChannel=beta ... — 정식과 따로 설치된다 (AppId · 설치 폴더 · 이름 · exe 가 다름). 노트 데이터(%APPDATA%\RedmineNotes2)는 같이 쓴다.
+#ifndef Channel
+  #define Channel "stable"
+#endif
+#if Channel == "beta"
+  #define AppIdGuid "{{3E7B1C94-5A2D-4F6E-8C31-9D4B7A2E6F58}"
+  #define AppTitle "레드마인 노트 (베타)"
+  #define AppExe "RedmineNotes2-Beta.exe"
+  #define AppDirName "RedmineNotes2-Beta"
+  #define SetupBase "RedmineNotes2-Beta-Setup-"
+#else
+  #define AppIdGuid "{{8C1F5A52-6E2B-4C1E-9B53-2D7A1E4F9A10}"
+  #define AppTitle "레드마인 노트"
+  #define AppExe "RedmineNotes2.exe"
+  #define AppDirName "RedmineNotes2"
+  #define SetupBase "RedmineNotes2-Setup-"
+#endif
 
 [Setup]
-AppId={{8C1F5A52-6E2B-4C1E-9B53-2D7A1E4F9A10}
-AppName=레드마인 노트
+AppId={#AppIdGuid}
+AppName={#AppTitle}
 AppVersion={#AppVer}
-AppVerName=레드마인 노트 {#AppVer}
+AppVerName={#AppTitle} {#AppVer}
 AppPublisher=kariyarn
-DefaultDirName={localappdata}\Programs\RedmineNotes2
-DefaultGroupName=레드마인 노트
+DefaultDirName={localappdata}\Programs\{#AppDirName}
+DefaultGroupName={#AppTitle}
 DisableProgramGroupPage=yes
 DisableDirPage=yes
 UsePreviousAppDir=yes
 PrivilegesRequired=lowest
 OutputDir=..\dist
-OutputBaseFilename=RedmineNotes2-Setup-{#AppVer}
+OutputBaseFilename={#SetupBase}{#AppVer}
 SetupIconFile=..\icon.ico
-UninstallDisplayIcon={app}\RedmineNotes2.exe
-UninstallDisplayName=레드마인 노트
+UninstallDisplayIcon={app}\{#AppExe}
+UninstallDisplayName={#AppTitle}
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
@@ -39,16 +56,16 @@ Name: "ko"; MessagesFile: "compiler:Languages\Korean.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"
 
 [Files]
-Source: "..\dist\RedmineNotes2.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\dist\{#AppExe}"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
-Name: "{autoprograms}\레드마인 노트"; Filename: "{app}\RedmineNotes2.exe"
-Name: "{autodesktop}\레드마인 노트"; Filename: "{app}\RedmineNotes2.exe"; Tasks: desktopicon
+Name: "{autoprograms}\{#AppTitle}"; Filename: "{app}\{#AppExe}"
+Name: "{autodesktop}\{#AppTitle}"; Filename: "{app}\{#AppExe}"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\RedmineNotes2.exe"; Description: "{cm:LaunchProgram,레드마인 노트}"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\{#AppExe}"; Description: "{cm:LaunchProgram,{#AppTitle}}"; Flags: nowait postinstall skipifsilent
 ; 앱 안에서 업데이트할 때(/VERYSILENT /RELAUNCH=1): 조용히 설치한 뒤 새 버전을 다시 켠다
-Filename: "{app}\RedmineNotes2.exe"; Flags: nowait; Check: ShouldRelaunch
+Filename: "{app}\{#AppExe}"; Flags: nowait; Check: ShouldRelaunch
 
 [Code]
 function ShouldRelaunch: Boolean;

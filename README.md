@@ -15,7 +15,10 @@
 
 > 새 버전 올리기: **Actions → build → Run workflow** 를 `main` 에서 돌리면 정식 릴리스(`v<버전>`, Latest)가 되고 위 링크가 그 파일로 바뀝니다.
 >
-> 베타: PR 이 `main` 에 머지될 때마다 자동으로 **베타 릴리스**(`v<버전>-beta.<번호>`, Pre-release)를 쌓아요. 파일 이름에 버전 · 베타 번호가 붙어서(`RedmineNotes2-Setup-2.19.2-beta.3.exe`) 정식 파일과 구분돼요. [모든 버전](https://github.com/kariyarn/redmineNote/releases)에서 받을 수 있고, Latest 가 아니라서 위 링크와 앱 안 업데이트에는 잡히지 않아요.
+> 베타: PR 이 `main` 에 머지될 때마다 자동으로 **베타 릴리스**(`v<버전>-beta.<번호>`, Pre-release)를 쌓아요. 파일은 `RedmineNotes2-Beta-Setup-2.19.2-beta.3.exe` · `RedmineNotes2-Beta-2.19.2-beta.3.exe` 처럼 정식 파일과 이름이 달라요. [모든 버전](https://github.com/kariyarn/redmineNote/releases)에서 받을 수 있고, Latest 가 아니라서 위 링크와 정식 버전의 앱 안 업데이트에는 잡히지 않아요.
+> - 베타는 **정식과 따로 설치 · 실행**돼요: 설치 위치(`%LOCALAPPDATA%\Programs\RedmineNotes2-Beta`) · exe 이름 · 포트(8792, 정식 8791) · 창 제목 `레드마인 노트 2 (베타)` · 작업 표시줄 묶음 · 트레이 · 앱 창 프로필 · 시작 메뉴/제거 항목이 모두 따로예요.
+> - **노트 데이터(일감 · 메모 · 설정 · 백업)는 같이 써요**(`%APPDATA%\RedmineNotes2`). 그래서 정식과 베타는 **한 번에 하나만** 켤 수 있고, 다른 쪽이 켜져 있으면 알리고 끝나요.
+> - 베타의 앱 안 업데이트는 가장 새 **베타**를 확인해요(빌드한 커밋으로 같은 빌드인지 봐요).
 >
 > 2.19 부터는 **앱 안에서 업데이트**할 수 있어요: 켤 때(하루 한 번) 새 버전을 확인해 알려 주고, **설정 → 일반 → 업데이트**에서 `받고 업데이트` → `바꾸고 다시 시작` 하면 앱이 잠깐 꺼졌다가 새 버전으로 켜져요. 설치 파일로 깐 경우는 새 설치 파일을 조용히 실행하고, exe 만 쓰는 경우는 exe 를 바꿔 끼워요. 처음 2.19 로 올라갈 때만 위 링크로 직접 받으면 돼요.
 
@@ -86,6 +89,7 @@ python tests/test_autosync.py .
 python tests/test_gitbackup.py .
 python tests/test_update.py .
 python tests/test_attention.py .
+python tests/test_beta.py .
 python tests/test_queries.py .
 python tests/test_commands.py .
 python tests/test_release.py main.py
@@ -98,6 +102,7 @@ python tests/test_write.py main.py
 | `test_autosync.py` | 자동 가져오기 로직 (간격 · 기간 · 업무 시간) |
 | `test_gitbackup.py` | 깃허브 백업 (가짜 깃허브: 올리기 · 변경 없음 · 충돌 · 복원 · 올리는 때) |
 | `test_update.py` | 앱 업데이트 (가짜 Releases: 확인 · 받기 · 크기/SHA-256/실행 파일 검증 · 바꾸기 준비 · 자동 확인) |
+| `test_beta.py` | 베타 채널 (포트 · 제목 · 데이터 폴더 공유 · 가장 새 베타 확인 · 같은 빌드/낮은 버전 무시 · 다른 채널이 켜져 있으면 끝내기) |
 | `test_attention.py` | 안 보고 있을 때 알림 (보고 있는지 판단 · 작업 표시줄 반짝임 · 윈도우 알림 · 설정 끄기 · 메모 알림) |
 | `test_queries.py` | 보관함의 코드/쿼리 로직 |
 | `test_commands.py` | 보관함의 명령어 로직 |

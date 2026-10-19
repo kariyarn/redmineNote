@@ -77,7 +77,7 @@ function updPaint(st){
   // 설치 버튼: 새 버전이 있고 · 앱 안에서 바꿀 수 있을 때만 눌린다. 받는 중에는 진행률, 다 받았으면 바로 바꾸기
   const why=!st.newer?"새 버전이 없어요 (먼저 업데이트 확인)":!st.can_apply?(UPD_MODE[st.mode]||"이 버전에는 받을 파일이 없어요"):"";
   const instLabel=dl?`받는 중 ${d.total?Math.floor(d.done*100/d.total)+"%":"…"}`:ready?"설치 (다시 시작)":"설치";
-  box.innerHTML=`<div class="srow"><span class="sl">현재 버전</span><div class="sc"><b>${esc(st.current)}</b><span class="hint">${esc(UPD_KIND[st.mode]||"")}</span></div></div>
+  box.innerHTML=`<div class="srow"><span class="sl">현재 버전</span><div class="sc"><b>${esc(st.channel==="beta"?(cfg.versionLabel||st.current):st.current)}</b><span class="hint">${esc(UPD_KIND[st.mode]||"")}${st.channel==="beta"?" · 베타 채널 — 새 베타(pre-release)를 확인해요":""}</span></div></div>
     <div class="srow"><span class="sl">최신 버전</span><div class="sc">${latest}<span class="hint">${st.checked_at?"마지막 확인 "+esc(updWhen(st.checked_at)):""}</span></div></div>
     <div class="srow"><span class="sl">업데이트</span><div class="sc"><button type="button" id="updCheck">업데이트 확인</button>
       <button type="button" class="primary" id="updGo" ${why||dl?"disabled":""} title="${esc(why||(ready?"앱을 끄고 새 버전으로 바꾼 뒤 다시 켜요":"새 버전을 받은 뒤, 바꿀지 한 번 더 물어봐요"))}">${instLabel}</button>
@@ -85,7 +85,7 @@ function updPaint(st){
       <a href="${esc(st.page)}" target="_blank" rel="noopener">릴리스 페이지</a></div></div>
     ${st.newer&&!st.can_apply?`<p class="hint">${esc(UPD_MODE[st.mode]||"")}. 릴리스 페이지에서 직접 받으세요.</p>`:""}
     <label class="chk"><input type="checkbox" id="updAuto" ${st.auto?"checked":""}> 켤 때 · 하루에 한 번 새 버전을 확인하고, 있으면 알려 줘요</label>
-    ${sMore(`업데이트 확인은 깃허브 저장소(<code class="ic">kariyarn/redmineNote</code>)의 최신 릴리스를 봐요. ${esc(UPD_MODE[st.mode]||"")}.<br>받은 파일은 크기 · SHA-256(깃허브가 알려 줄 때) · 윈도우 실행 파일인지 확인한 뒤에만 써요. 바꿀 때는 앱을 끄고, 새 버전으로 바꾼 다음 다시 켜요. 문제가 생기면 예전 버전을 그대로 다시 켜요.<br>회사 네트워크에서 깃허브가 막혀 있으면 확인 · 받기가 되지 않아요 — 그때는 릴리스 페이지에서 설치 파일을 직접 받으세요.`)}`;
+    ${sMore(`업데이트 확인은 깃허브 저장소(<code class="ic">kariyarn/redmineNote</code>)의 ${st.channel==="beta"?"가장 새 베타 릴리스(pre-release)":"최신 릴리스"}를 봐요. ${esc(UPD_MODE[st.mode]||"")}.<br>받은 파일은 크기 · SHA-256(깃허브가 알려 줄 때) · 윈도우 실행 파일인지 확인한 뒤에만 써요. 바꿀 때는 앱을 끄고, 새 버전으로 바꾼 다음 다시 켜요. 문제가 생기면 예전 버전을 그대로 다시 켜요.<br>회사 네트워크에서 깃허브가 막혀 있으면 확인 · 받기가 되지 않아요 — 그때는 릴리스 페이지에서 설치 파일을 직접 받으세요.`)}`;
   const q=s=>box.querySelector(s);
   q("#updCheck").onclick=async()=>{const b=q("#updCheck");b.disabled=true;b.textContent="확인 중…";
     try{const r=await post("/api/update/check",{});updPaint(r);toast(r.newer?`새 버전 ${r.latest} 이 있어요 — 설치를 누르면 받아요`:"지금이 최신 버전이에요",3000)}catch(e){toast(e.message,6000);updWire()}};

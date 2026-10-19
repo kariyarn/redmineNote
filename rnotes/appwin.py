@@ -12,7 +12,9 @@ import threading
 import time
 from ctypes import wintypes
 
-TITLE = "레드마인 노트 2"   # 화면 <title> 과 같아야 앱 창을 찾을 수 있다. 1.x("레드마인 노트")와 구분된다
+from .config import APP_TITLE, BETA
+
+TITLE = APP_TITLE   # 화면 <title> 과 같아야 앱 창을 찾을 수 있다. 1.x("레드마인 노트") · 베타("레드마인 노트 2 (베타)")와 구분된다
 CHROME_CLASS = "Chrome_WidgetWin_1"  # 크롬과 엣지 창의 공통 클래스 이름
 WM_CLOSE, SW_RESTORE, SW_MAXIMIZE = 0x0010, 9, 3
 DETACHED_PROCESS, CREATE_NEW_PROCESS_GROUP = 0x00000008, 0x00000200
@@ -173,7 +175,7 @@ def close_all():
 # ---------- 작업 표시줄 묶기: 앱 창에 "이 창은 레드마인 노트 exe 의 창" 표식을 붙인다 ----------
 # 크롬이 만든 창은 기본으로 크롬 소속이라, 작업 표시줄에 고정한 exe 버튼과 따로 두 개로 보인다.
 # 창에 같은 앱 ID(AppUserModelID)와 '다시 실행할 exe'를 붙이면 윈도우가 한 버튼으로 묶는다.
-AUMID = "RedmineNotes2.App"
+AUMID = "RedmineNotes2.App.Beta" if BETA else "RedmineNotes2.App"   # 베타는 작업 표시줄에서 정식과 따로 묶는다
 ole32 = ctypes.WinDLL("ole32")
 shell32 = ctypes.WinDLL("shell32")
 

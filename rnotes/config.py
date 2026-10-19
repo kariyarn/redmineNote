@@ -9,6 +9,8 @@ import time
 from pathlib import Path
 from types import SimpleNamespace
 
+from . import channel as _channel
+
 
 
 FROZEN = getattr(sys, "frozen", False)  # exe 로 묶여 실행 중인지
@@ -21,7 +23,17 @@ APP_VERSION = "2.19.2"  # 기능을 고칠 때 올린다. DB 에 기록되어 �
 UPGRADE_BACKUP_KEEP = 5
 ALIVE_SEC = int(os.environ.get("REDMINE_NOTES_ALIVE_SEC") or 90)  # 화면 신호가 이 안에 있었으면 "창이 열려 있다"고 본다
 IDLE_QUIT_SEC = int(os.environ.get("REDMINE_NOTES_IDLE_SEC") or 600)  # 화면 신호가 이만큼 끊기면 스스로 종료 (0 = 끄지 않음)
-PORT = int(os.environ.get("REDMINE_NOTES_PORT") or 8791)   # 2.0 은 1.x(8790)와 따로 쓴다 — 둘을 동시에 켜 둘 수 있다
+# 정식(stable) / 베타(beta): 실행 환경(포트 · 창 제목 · 앱 창 프로필 · 작업 표시줄 묶음 · 설치 위치 · exe 이름)은 따로,
+# 노트 데이터(HOME_DIR · DATA_DIR)는 같이 쓴다. 같은 데이터를 쓰므로 한 번에 하나만 켠다 (main.run 이 다른 채널이 켜져 있으면 알리고 끝낸다).
+CHANNEL = os.environ.get("REDMINE_NOTES_CHANNEL") or _channel.CHANNEL
+CHANNEL = CHANNEL if CHANNEL in ("stable", "beta") else "stable"
+BETA = CHANNEL == "beta"
+BUILD = (os.environ.get("REDMINE_NOTES_BUILD") or _channel.BUILD or "").strip()
+APP_TITLE = "레드마인 노트 2 (베타)" if BETA else "레드마인 노트 2"   # 화면 <title> · 앱 창 찾기 · 작업 표시줄 이름
+VERSION_LABEL = (f"{APP_VERSION} 베타" + (f" ({BUILD[:7]})" if BUILD else "")) if BETA else APP_VERSION   # 보여 줄 때만 (DB 에 남기는 버전은 APP_VERSION)
+CHANNEL_PORTS = {"stable": 8791, "beta": 8792}
+PORT = int(os.environ.get("REDMINE_NOTES_PORT") or CHANNEL_PORTS[CHANNEL])   # 2.0 은 1.x(8790)와 따로 쓴다
+OTHER_CHANNEL = "stable" if BETA else "beta"
 LINKED_LIMIT = 300  # 한 번에 받아올 연관 일감 최대 수 (레드마인 부하 방지)
 AUTO_BACKUP_KEEP = 14  # 자동 백업 보관 개수
 MAX_UPLOAD = 80 * 1024 * 1024

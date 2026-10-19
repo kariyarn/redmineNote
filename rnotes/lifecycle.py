@@ -7,7 +7,7 @@ import webbrowser
 
 from .alarms import ALARM_TICK, alarm_pending, alarms_due
 from .autosync import enabled as autosync_enabled
-from .config import ALIVE_SEC, APP_DIR, APP_VERSION, FROZEN, HOME_DIR, IDLE_QUIT_SEC, PORT, RUN, STATE
+from .config import ALIVE_SEC, APP_DIR, APP_TITLE, APP_VERSION, BETA, FROZEN, HOME_DIR, IDLE_QUIT_SEC, PORT, RUN, STATE, VERSION_LABEL
 
 
 def idle_watchdog():
@@ -63,7 +63,7 @@ def open_new():
         try:
             from . import appwin
             tag_exe = sys.executable if (FROZEN or os.environ.get("REDMINE_NOTES_TAG") == "1") else None   # 작업 표시줄에서 exe 버튼과 한 묶음으로
-            if appwin.launch(url, str(HOME_DIR / "app-profile"), tag_exe):
+            if appwin.launch(url, str(HOME_DIR / ("app-profile-beta" if BETA else "app-profile")), tag_exe):   # 베타는 앱 창 프로필을 따로 (데이터는 같이)
                 return
         except Exception:
             pass
@@ -95,7 +95,7 @@ def start_tray():
         return
     try:
         from . import tray
-        tray.start(f"레드마인 노트 2 · {APP_VERSION} (실행 중) · 우클릭: 새 창 / 서버 닫기", str(APP_DIR / "icon.ico"),
+        tray.start(f"{APP_TITLE} · {VERSION_LABEL} (실행 중) · 우클릭: 새 창 / 서버 닫기", str(APP_DIR / "icon.ico"),
                    open_or_notify, shutdown, on_new=open_new)
         RUN.tray = tray
         hint = HOME_DIR / ".tray-hint"

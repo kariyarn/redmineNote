@@ -4,6 +4,8 @@
 # - 베타 릴리스: PR 이 main 에 머지되면 자동으로 v<버전>-beta.<번호> 를 Pre-release 로 쌓는다 (Latest 가 아니라서 위 링크 · 앱 업데이트에는 안 잡힌다)
 #   머지 결과가 PR 마지막 커밋과 같은 내용이면 다시 빌드하지 않고 그 커밋의 'PR 확인' 빌드 결과물을 그대로 올린다 (다르면 다시 빌드)
 # - PR 을 열거나 고칠 때: 빌드가 되는지만 확인한다 (받는 방법은 같음, Artifacts)
+# 채널: PR 확인 · 베타 릴리스는 '베타' 로, Run workflow 는 '정식' 으로 빌드한다 (rnotes/channel.py 를 바꿔 쓴다).
+#   베타는 exe(RedmineNotes2-Beta.exe) · 설치 위치 · 포트 · 창 · 작업 표시줄이 정식과 따로이고, 노트 데이터는 같이 쓴다
 name: build
 # 실행 목록에서 무엇을 하는 실행인지 보이게
 run-name: >-
@@ -42,7 +44,14 @@ jobs:
         run: |
           $m = Select-String -Path rnotes/config.py -Pattern 'APP_VERSION = "([^"]+)"'
           if (-not $m) { throw "APP_VERSION 을 찾지 못했어요" }
-          "version=$($m.Matches[0].Groups[1].Value)" >> $env:GITHUB_OUTPUT
+          $v = $m.Matches[0].Groups[1].Value
+          "version=$v" >> $env:GITHUB_OUTPUT
+          # PR(확인 · 머지) 은 베타, 그 밖(Run workflow)은 정식
+          if ("${{ github.event_name }}" -eq "pull_request") {
+            "channel=beta", "exe=RedmineNotes2-Beta", "setup=RedmineNotes2-Beta-Setup-$v.exe", "art=RedmineNotes2-Beta-$v" | Add-Content $env:GITHUB_OUTPUT
+          } else {
+            "channel=stable", "exe=RedmineNotes2", "setup=RedmineNotes2-Setup-$v.exe", "art=RedmineNotes2-$v" | Add-Content $env:GITHUB_OUTPUT
+          }
 
       - name: (머지됐을 때) PR 확인 빌드 결과물 다시 쓰기
         id: reuse
@@ -53,7 +62,9 @@ jobs:
           MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           VER: ${{ steps.ver.outputs.version }}
-          ART: RedmineNotes2-${{ steps.ver.outputs.version }}
+          ART: ${{ steps.ver.outputs.art }}
+          EXE: ${{ steps.ver.outputs.exe }}
+          SETUP: ${{ steps.ver.outputs.setup }}
         run: |
           # 머지 결과와 PR 마지막 커밋의 파일 내용(git tree)이 같을 때만 다시 쓴다. 다르면(그사이 main 이 바뀜) 아래에서 다시 빌드
           function Done($why) { "다시 빌드해요: $why"; Remove-Item dist -Recurse -Force -ErrorAction SilentlyContinue; "reused=false" >> $env:GITHUB_OUTPUT; exit 0 }
@@ -72,7 +83,7 @@ jobs:
           if ($run.conclusion -ne 'success') { Done "PR 확인 빌드가 성공하지 못했어요 ($($run.conclusion))" }
           gh run download $run.databaseId --name $env:ART --dir dist
           if ($LASTEXITCODE -ne 0) { Done "결과물($env:ART)을 받지 못했어요 (30일이 지나 지워졌을 수 있어요)" }
-          if (-not (Test-Path dist\RedmineNotes2.exe) -or -not (Test-Path "dist\RedmineNotes2-Setup-$env:VER.exe")) { Done "받은 결과물에 exe · 설치 파일이 없어요" }
+          if (-not (Test-Path "dist\$env:EXE.exe") -or -not (Test-Path "dist\$env:SETUP")) { Done "받은 결과물에 exe · 설치 파일이 없어요 (예전 정식 빌드일 수 있어요)" }
           "PR 확인 빌드($($run.databaseId))의 결과물을 그대로 써요 — 다시 빌드하지 않아요"
           "reused=true" >> $env:GITHUB_OUTPUT
 
@@ -81,16 +92,31 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: 채널 정하기 (베타면 rnotes/channel.py 를 바꿔 쓴다)
+        if: steps.reuse.outputs.reused != 'true' && steps.ver.outputs.channel == 'beta'
+        shell: pwsh
+        env:
+          BUILD_SHA: ${{ github.event.action == 'closed' && github.event.pull_request.merge_commit_sha || github.event.pull_request.head.sha }}
+        run: |
+          @(
+            '"""실행 채널 (CI 가 베타 빌드 때 바꿔 썼다)."""',
+            'CHANNEL = "beta"',
+            "BUILD = `"$env:BUILD_SHA`""
+          ) | Set-Content -Encoding utf8 rnotes/channel.py
+          Get-Content rnotes/channel.py
+
       - name: exe 만들기 (build.bat)
         if: steps.reuse.outputs.reused != 'true'
         shell: cmd
+        env:
+          RN_EXE_NAME: ${{ steps.ver.outputs.exe }}
         run: |
           python -m pip install pyinstaller
           call build.bat
 
       - name: exe 점검 (임시 데이터 · 임시 포트)
         if: steps.reuse.outputs.reused != 'true'
-        run: python tests/test_exe.py dist/RedmineNotes2.exe
+        run: python tests/test_exe.py dist/${{ steps.ver.outputs.exe }}.exe
 
       - name: (실패했을 때만) 멈춘 곳 · 오류 내용 보기
         if: failure() && steps.reuse.outputs.reused != 'true'
@@ -101,7 +127,7 @@ jobs:
         run: |
           python -m pip install py-spy
           "== 시험하던 exe 가 아직 떠 있으면: 지금 멈춘 곳 =="
-          Get-Process RedmineNotes2 -ErrorAction SilentlyContinue | ForEach-Object { py-spy dump --pid $_.Id; Stop-Process -Id $_.Id -Force }
+          Get-Process ${{ steps.ver.outputs.exe }} -ErrorAction SilentlyContinue | ForEach-Object { py-spy dump --pid $_.Id; Stop-Process -Id $_.Id -Force }
           "== 콘솔 exe 로 다시 켜서 오류 내용 보기 =="
           python -m PyInstaller --noconfirm --onefile --console --name RedmineNotes2-debug --paths . --add-data "web;web" --add-data "icon.ico;." main.py
           $env:REDMINE_NOTES_HOME = Join-Path $env:RUNNER_TEMP "rn-debug"
@@ -125,16 +151,16 @@ jobs:
             choco install innosetup -y --no-progress
             $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
           }
-          & $iscc "/DAppVer=${{ steps.ver.outputs.version }}" installer\RedmineNotes2.iss
+          & $iscc "/DAppVer=${{ steps.ver.outputs.version }}" "/DChannel=${{ steps.ver.outputs.channel }}" installer\RedmineNotes2.iss
           if ($LASTEXITCODE -ne 0) { throw "설치 파일을 만들지 못했어요" }
 
       - uses: actions/upload-artifact@v7
         if: steps.reuse.outputs.reused != 'true'
         with:
-          name: RedmineNotes2-${{ steps.ver.outputs.version }}
+          name: ${{ steps.ver.outputs.art }}
           path: |
-            dist/RedmineNotes2-Setup-*.exe
-            dist/RedmineNotes2.exe
+            dist/${{ steps.ver.outputs.setup }}
+            dist/${{ steps.ver.outputs.exe }}.exe
           if-no-files-found: error
           retention-days: 30
 
@@ -170,6 +196,8 @@ jobs:
           PR_NUM: ${{ github.event.pull_request.number }}
           PR_TITLE: ${{ github.event.pull_request.title }}
           PR_URL: ${{ github.event.pull_request.html_url }}
+          # 이 결과물을 빌드한 커밋: 다시 쓴 PR 확인 빌드면 PR 마지막 커밋, 다시 빌드했으면 머지 커밋 (베타 앱의 업데이트 확인이 '같은 빌드인지' 볼 때 쓴다)
+          BUILD_SHA: ${{ steps.reuse.outputs.reused == 'true' && github.event.pull_request.head.sha || github.event.pull_request.merge_commit_sha }}
         run: |
           # 같은 버전 안에서 번호를 하나씩 올린다: v2.19.2-beta.1, -beta.2 ... (이미 있으면 다음 번호)
           # 파일 이름에도 버전 · 베타 번호를 넣어 정식 릴리스(RedmineNotes2-Setup.exe · RedmineNotes2.exe, 이름 고정)와 구분한다
@@ -180,18 +208,20 @@ jobs:
           $official = [bool]($tags | Where-Object { $_ -eq "v$env:VER" })
           for ($try = 0; $try -lt 5; $try++) {
             $tag = "$prefix$n"
-            $setup = "RedmineNotes2-Setup-$env:VER-beta.$n.exe"; $exe = "RedmineNotes2-$env:VER-beta.$n.exe"
+            $setup = "RedmineNotes2-Beta-Setup-$env:VER-beta.$n.exe"; $exe = "RedmineNotes2-Beta-$env:VER-beta.$n.exe"
             Remove-Item rel -Recurse -Force -ErrorAction SilentlyContinue
             New-Item -ItemType Directory -Force rel | Out-Null
-            Copy-Item "dist\RedmineNotes2-Setup-$env:VER.exe" "rel\$setup"
-            Copy-Item dist\RedmineNotes2.exe "rel\$exe"
+            Copy-Item "dist\RedmineNotes2-Beta-Setup-$env:VER.exe" "rel\$setup"
+            Copy-Item dist\RedmineNotes2-Beta.exe "rel\$exe"
             $notes = @(
               "베타 (미리 보기) 빌드예요. 정식 릴리스는 main 에서 Actions → build → Run workflow 로 만들어요.",
               "",
               "- 머지된 PR: #$env:PR_NUM $env:PR_TITLE ($env:PR_URL)",
               "- 커밋: $env:SHA",
+              "- 빌드: $env:BUILD_SHA",
               "- 설치 파일: $setup (권장) · exe 만: $exe",
-              "- 앱 안 업데이트(정식 릴리스만 확인)에는 잡히지 않아요. 써 보려면 위 파일을 직접 받아 설치하세요."
+              "- 베타는 정식과 따로 설치돼요(레드마인 노트 (베타)) — 노트 데이터는 같이 쓰고, 정식과 동시에 켤 수는 없어요.",
+              "- 정식 버전의 앱 안 업데이트에는 잡히지 않아요. 베타를 설치하면 그다음부터는 베타의 앱 안 업데이트로 새 베타를 받아요."
             )
             if ($official) { $notes += "- 참고: v$env:VER 정식 릴리스가 이미 있어요 — 이 PR 은 버전(rnotes/config.py 의 APP_VERSION)을 올리지 않았어요." }
             $notes | Set-Content -Encoding utf8 notes.md

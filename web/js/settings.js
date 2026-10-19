@@ -26,7 +26,7 @@ async function renderSettings(){
    <nav class="stabs" role="tablist">${ST_TABS.map(([k,l,ic])=>`<button type="button" role="tab" data-stab="${k}" class="${k===tab?"on":""}"><span class="sti">${ic}</span>${l}</button>`).join("")}</nav>
    <div class="spane">
 
-   ${sec("gen","계정 · 저장 위치",`레드마인 <b>${esc(cfg.url)}</b> · 사용자 <b>${esc(cfg.meName||"확인 안 됨")}</b> · 버전 <b>${esc(cfg.appVersion||"")}</b>${cfg.newerDb?` · <span class="bad">데이터는 더 새 버전(${esc(cfg.newerDb)})</span>`:""}`,`
+   ${sec("gen","계정 · 저장 위치",`레드마인 <b>${esc(cfg.url)}</b> · 사용자 <b>${esc(cfg.meName||"확인 안 됨")}</b> · 버전 <b>${esc(cfg.versionLabel||cfg.appVersion||"")}</b>${cfg.newerDb?` · <span class="bad">데이터는 더 새 버전(${esc(cfg.newerDb)})</span>`:""}`,`
      <div class="srow"><span class="sl">API 키</span><div class="sc"><button id="cKey">API 키 변경</button><span class="hint">화면에는 표시하지 않아요</span></div></div>
      <div class="srow"><span class="sl">저장 위치</span><div class="sc"><input type="text" id="cDir" value="${esc(cfg.dataDir||"")}"><button id="cDirGo">변경</button></div></div>
      ${sMore(`노트 DB(<code class="ic">notes.db</code>) · 백업 · 폰트가 저장되는 폴더예요. 바꾸면 현재 데이터를 새 폴더로 <b>복사</b>하고, <b>프로그램을 다시 시작해야</b> 적용돼요. 네트워크 폴더는 파일이 깨질 수 있어 권하지 않아요. API 키 설정 파일은 항상 기본 위치에 남아요.`)}

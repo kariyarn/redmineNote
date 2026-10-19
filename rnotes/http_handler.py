@@ -18,6 +18,7 @@ from pathlib import Path
 
 from .alarms import alarm_ack, alarms_due, future_notice, sticky_calendar
 from .autosync import status as autosync_status
+from .config import APP_TITLE, BETA, BUILD, CHANNEL, VERSION_LABEL
 from .config import WEB_DIR, APP_VERSION, BACKUP_DIR, DATA_DIR, DB_PATH, DEFAULT_URL, FONT_DIR, FONT_EXT, FROZEN, HOME_DIR, MAX_UPLOAD, POINTER_PATH, PORT, SETTING_KEYS, STATE, conn
 from .fonts import font_files
 from .lifecycle import open_or_notify, shutdown
@@ -89,7 +90,10 @@ class Handler(BaseHTTPRequestHandler):
         u = urllib.parse.urlparse(self.path)
         q = {k: v[0] for k, v in urllib.parse.parse_qs(u.query).items()}
         if u.path == "/":
-            self.send_bytes((WEB_DIR / "index.html").read_bytes(), "text/html; charset=utf-8", headers={"Cache-Control": "no-cache"})
+            html = (WEB_DIR / "index.html").read_bytes()
+            if BETA:   # 베타: 앱 창 제목을 따로 (appwin 이 이 제목으로 창을 찾는다)
+                html = html.replace("<title>레드마인 노트 2</title>".encode(), f"<title>{APP_TITLE}</title>".encode(), 1)
+            self.send_bytes(html, "text/html; charset=utf-8", headers={"Cache-Control": "no-cache"})
         elif u.path.startswith("/static/"):      # web/ 안의 CSS · JS 만 (폴더 밖으로 나가는 경로는 거절)
             f = (WEB_DIR / urllib.parse.unquote(u.path[len("/static/"):])).resolve()
             if WEB_DIR.resolve() in f.parents and f.is_file() and f.suffix in STATIC_TYPES:
@@ -109,6 +113,7 @@ class Handler(BaseHTTPRequestHandler):
                     "imported": (HOME_DIR / ".imported-v1").exists(),
                     "keyUnreadable": conn.key_problem and not conn.key,
                     "appVersion": APP_VERSION,
+                    "channel": CHANNEL, "build": BUILD, "versionLabel": VERSION_LABEL,   # 정식 / 베타
                     "newerDb": STATE["newer_db"],
                     "defaultUrl": DEFAULT_URL,
                     "devFieldId": conn.dev_field,

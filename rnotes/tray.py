@@ -25,7 +25,9 @@ NIIF_INFO = 0x1
 IMAGE_ICON, LR_LOADFROMFILE, LR_DEFAULTSIZE = 1, 0x10, 0x40
 MF_SEPARATOR, TPM_RIGHTBUTTON = 0x800, 0x2
 ID_OPEN, ID_QUIT = 1001, 1002
-CLASS_NAME = "RedmineNotes2Tray"   # 1.x(RedmineNotesTray)와 겹치지 않게
+from .config import BETA
+
+CLASS_NAME = "RedmineNotes2BetaTray" if BETA else "RedmineNotes2Tray"   # 1.x(RedmineNotesTray) · 정식/베타끼리 겹치지 않게
 
 
 class WNDCLASSW(ctypes.Structure):
@@ -126,7 +128,7 @@ def _call(fn):
 
 def _menu(hwnd):
     m = user32.CreatePopupMenu()
-    user32.AppendMenuW(m, 0, ID_OPEN, "새 레드마인 노트 열기")
+    user32.AppendMenuW(m, 0, ID_OPEN, "새 레드마인 노트 (베타) 열기" if BETA else "새 레드마인 노트 열기")
     user32.AppendMenuW(m, MF_SEPARATOR, 0, None)
     user32.AppendMenuW(m, 0, ID_QUIT, "서버 닫기")
     pt = wintypes.POINT()
