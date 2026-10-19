@@ -110,8 +110,11 @@ jobs:
         shell: cmd
         env:
           RN_EXE_NAME: ${{ steps.ver.outputs.exe }}
+          # 부트로더를 이 러너에서 직접 컴파일한다: PyInstaller 가 함께 주는 미리 만든 부트로더는 백신(Windows Defender 등)이
+          # 악성 코드로 오진하는 일이 잦다 (설치 뒤 실행 시 'CreateProcess 실패; 코드 225' = 바이러스로 차단됨)
+          PYINSTALLER_COMPILE_BOOTLOADER: "1"
         run: |
-          python -m pip install pyinstaller
+          python -m pip install --no-cache-dir --no-binary pyinstaller pyinstaller
           call build.bat
 
       - name: exe 점검 (임시 데이터 · 임시 포트)

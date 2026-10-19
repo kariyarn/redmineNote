@@ -423,3 +423,4 @@ build-exe.bat
 - **트러블슈팅 상태 바로 바꾸기**: 편집 화면에 들어가지 않고 상세 화면의 `해결 · 진행 중 · 보류` 단추나 목록의 상태 표시(누르면 메뉴)로 바꾼다. 저장하면 수정 시각도 갱신된다(`trSetStatus`, `web/js/trouble.js`).
 - **☑ 할 일 · 💬 댓글 팝업 같이 띄우기**: 댓글 팝업을 열면 할 일 패널을 숨기던 것을, 겹치지 않으면 둘 다 띄워 두게 했다. 할 일 패널은 제자리(끌어서 옮기지 않은 경우)면 댓글 팝업 왼쪽에 나란히 놓고, 그래도 겹치면(자리가 모자람 · 끌어서 겹쳐 놓음) 먼저 연 쪽을 숨기거나 닫는다. 할 일 패널을 눌러도 댓글 팝업이 닫히지 않는다(`web/js/todo.js` · `common.js`).
 - **↑ 맨 위로 단추**: 노트를 400px 넘게 내리면 오른쪽 아래에 `↑` 단추가 나온다. 오른쪽 아래 단추(💬 댓글 · ☑ 할 일 · ↑)는 `placeFabRow` 가 한 줄로 나란히 놓아 서로 겹치지 않는다(`web/js/common.js` · `css/note.css`).
+- **빌드 — 백신 오진 줄이기**: 2.20.1 베타를 설치한 뒤 실행하면 `CreateProcess 실패; 코드 225`(바이러스로 차단됨)로 켜지지 않는 일이 있었다. PyInstaller 한 파일 exe 를 Windows Defender 가 악성 코드로 오진한 것(코드 225 = `ERROR_VIRUS_INFECTED`)이다. CI 가 PyInstaller **부트로더를 러너에서 직접 컴파일**(`PYINSTALLER_COMPILE_BOOTLOADER=1`, `--no-binary pyinstaller`)하고, exe 에 **윈도우 버전 정보**(파일 설명 · 제품 이름 · 버전, `tools/make_version_info.py` → `--version-file`)를 넣는다.
