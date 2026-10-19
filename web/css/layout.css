@@ -6,6 +6,8 @@ body{display:block;overflow:hidden;height:100vh}
 .nv-brand{display:flex;align-items:center;gap:9px;padding:2px 8px 16px;font-size:1.04rem;letter-spacing:-.01em}
 .nv-brand .logo{width:26px;height:26px;border-radius:8px}
 .nv-brand .ver{font-size:.7rem;font-weight:700;color:var(--accent);background:var(--accent-soft);border-radius:6px;padding:0 6px}
+.nv-brand .ver.beta{color:#fff;background:#d9822b;white-space:nowrap;flex-shrink:0;margin-left:-4px}
+.nv-brand b{white-space:nowrap}
 .nv-item{display:flex;align-items:center;gap:10px;width:100%;border:0;background:none;padding:8px 10px;border-radius:10px;color:var(--text);font-size:1rem;text-align:left;margin:1px 0}
 .nv-item:hover{background:color-mix(in srgb,var(--text) 6%,transparent);color:var(--text);border-color:transparent}
 .nv-item.on{background:var(--accent-soft);color:var(--accent);font-weight:600}

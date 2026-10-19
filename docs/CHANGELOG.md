@@ -402,3 +402,13 @@ build-exe.bat
   - 서버가 직접: 메모 알림(`lifecycle.alarm_tick`), 자동 가져오기 새 일감(`autosync._tray_notice`). 화면이 `POST /api/attention` 으로: 오늘 배포 요청(자동 모드에서 모양이 바뀔 때) · 새 버전 알림 · 오늘 볼 메모.
   - **설정 → 일반 → 알림 방식**: 작업 표시줄 아이콘 반짝이기(`notify_flash`) · 윈도우 알림 띄우기(`notify_toast`, 둘 다 기본 켬). 윈도우 알림이 안 보이면 방해 금지(집중 지원)를 확인하라는 안내만 둔다.
   - 시험 `tests/test_attention.py`, `tests/test_autosync.py` 에 '창은 보이지만 다른 앱이 포커스' 경우 추가.
+
+## (다음 버전) — 베타 채널: 정식과 따로 실행, 데이터는 같이
+- **채널**: `rnotes/channel.py`(`CHANNEL` · `BUILD`, 저장소에는 늘 `stable`)를 CI 가 PR 확인 · 베타 릴리스 빌드 때 `beta` 와 빌드한 커밋으로 바꿔 쓴다. 소스 실행 · 시험에서는 `REDMINE_NOTES_CHANNEL` · `REDMINE_NOTES_BUILD`.
+- **따로인 것**: exe 이름(`RedmineNotes2-Beta.exe`, `build.bat` 의 `RN_EXE_NAME`) · 설치 파일(Inno `/DChannel=beta`: 다른 AppId · 설치 폴더 `RedmineNotes2-Beta` · 시작 메뉴 · 제거 항목) · 포트(정식 8791 / 베타 8792) · 창 제목 `레드마인 노트 2 (베타)` · 작업 표시줄 AUMID · 트레이(클래스 이름 · 툴팁) · 앱 창 프로필(`app-profile-beta`) · 업데이트 임시 폴더 · 업데이트 확인 결과(`update_info_beta`).
+- **같이 쓰는 것**: 데이터 폴더(`%APPDATA%\RedmineNotes2`: `notes.db` · 설정 · 백업 · 글꼴).
+- **한 번에 하나만**: 켤 때 다른 채널의 포트에 레드마인 노트가 응답하면 알림 창을 띄우고 끝낸다(같은 DB 에서 자동 가져오기 · 알림 · 백업이 두 번 돌지 않게). 포트를 따로 정해 켜면(`REDMINE_NOTES_PORT`, 시험) 보지 않는다.
+- **베타 업데이트**: 베타는 `releases?per_page=40` 에서 가장 새 베타(Pre-release `v<버전>-beta.<번호>`, 버전 · 번호 순)를 고르고, 릴리스 설명의 `빌드: <커밋>` 이 지금 빌드와 다르면 새 버전으로 본다. 지금보다 낮은 버전의 베타로는 내려가지 않는다. 받는 파일은 `RedmineNotes2-Beta-Setup-<버전>-beta.<번호>.exe` / `RedmineNotes2-Beta-<버전>-beta.<번호>.exe`.
+- **화면**: 왼쪽 위 `베타` 표시, 설정의 버전 · 업데이트 현재 버전에 `2.19.2 베타 (abc1234)`. `/api/config` 에 `channel` · `build` · `versionLabel`.
+- **CI**: PR 확인 · 베타 릴리스는 베타로, Run workflow(정식 릴리스)는 정식으로 빌드한다. 결과물 이름 `RedmineNotes2-Beta-<버전>`. 베타 릴리스 설명에 `빌드:` 줄을 더했다.
+- 참고: 이 변경 전에 올라간 베타(`RedmineNotes2-Setup-2.19.x-beta.N.exe`)는 정식 이름이라 베타 업데이트가 건너뛴다. 시험 `tests/test_beta.py`.

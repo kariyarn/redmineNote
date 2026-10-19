@@ -19,15 +19,18 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-from .config import APP_VERSION, FROZEN
+from .config import APP_VERSION, BETA, BUILD, FROZEN
 from .storage import db, get_settings
 
 REPO = "kariyarn/redmineNote"
 API = (os.environ.get("REDMINE_NOTES_UPDATE_API") or "https://api.github.com").rstrip("/")   # 시험에서는 가짜 깃허브
-SETUP_NAME, EXE_NAME = "RedmineNotes2-Setup.exe", "RedmineNotes2.exe"   # Releases 에 늘 같은 이름으로 올린다 (build.yml)
+SETUP_NAME, EXE_NAME = "RedmineNotes2-Setup.exe", "RedmineNotes2.exe"   # 정식: Releases 에 늘 같은 이름으로 올린다 (build.yml)
+# 베타: Pre-release v<버전>-beta.<번호> 의 RedmineNotes2-Beta-Setup-<버전>-beta.<번호>.exe · RedmineNotes2-Beta-<버전>-beta.<번호>.exe
+BETA_TAG = re.compile(r"^v(\d+\.\d+\.\d+)-beta\.(\d+)$")
+BETA_BUILD = re.compile(r"빌드:\s*([0-9a-f]{7,40})")   # 베타 릴리스 설명의 '빌드: <커밋>' (같은 빌드인지 알아보려고)
 CHECK_EVERY = 24 * 3600          # 자동 확인 간격
-CACHE_KEY = "update_info"        # settings: 마지막 확인 결과 (화면이 바꿀 수 없는 서버 전용 키)
-WORK_DIR = Path(tempfile.gettempdir()) / "RedmineNotes2-update"
+CACHE_KEY = "update_info_beta" if BETA else "update_info"   # settings: 마지막 확인 결과 (정식 · 베타가 같은 DB 를 쓰므로 따로)
+WORK_DIR = Path(tempfile.gettempdir()) / ("RedmineNotes2-Beta-update" if BETA else "RedmineNotes2-update")
 DRY_RUN = os.environ.get("REDMINE_NOTES_UPDATE_DRYRUN") == "1"   # 시험: 도우미를 띄우지도, 앱을 끄지도 않는다
 _LOCK = threading.Lock()
 _DL = {"state": "idle", "done": 0, "total": 0, "error": "", "file": "", "version": ""}   # 받기 진행 상태 (메모리)
@@ -82,13 +85,26 @@ def _get(url, timeout=20):
 
 
 # ---------- 확인 ----------
+def _beta_latest(rels):
+    """Pre-release 중 가장 새 베타 (버전 · 베타 번호 순). 베타 이름의 파일이 있는 것만."""
+    best = None
+    for rel in rels if isinstance(rels, list) else []:
+        m = BETA_TAG.match(str(rel.get("tag_name") or ""))
+        if not m or rel.get("draft") or not rel.get("prerelease"):
+            continue
+        key = (parse_ver(m.group(1)), int(m.group(2)))
+        if best is None or key > best[0]:
+            best = (key, rel, m.group(1), int(m.group(2)))
+    return best
+
+
 def check():
-    """최신 릴리스를 확인해서 남기고 돌려준다. 실패하면 이유를 남기고 UpdateError."""
+    """최신 릴리스를 확인해서 남기고 돌려준다 (정식은 Latest, 베타는 가장 새 베타). 실패하면 이유를 남기고 UpdateError."""
     now = datetime.datetime.now().isoformat(timespec="seconds")
     c = _cache()
     c["checked_at"] = now
     try:
-        with _get(f"{API}/repos/{REPO}/releases/latest") as r:
+        with _get(f"{API}/repos/{REPO}/releases" + ("?per_page=40" if BETA else "/latest")) as r:
             rel = json.loads(r.read().decode("utf-8"))
     except urllib.error.HTTPError as e:
         msg = "아직 올라온 릴리스가 없어요" if e.code == 404 else (
@@ -101,9 +117,21 @@ def check():
         c.update(error=msg)
         _save_cache(c)
         raise UpdateError(msg) from None
-    latest = str(rel.get("tag_name") or "").lstrip("vV")
+    if BETA:
+        best = _beta_latest(rel)
+        if not best:
+            c.update(error="아직 올라온 베타 릴리스가 없어요")
+            _save_cache(c)
+            raise UpdateError(c["error"])
+        _, rel, ver, n = best
+        latest = f"{ver} beta.{n}"
+        pick = {"installer": f"RedmineNotes2-Beta-Setup-{ver}-beta.{n}.exe", "exe": f"RedmineNotes2-Beta-{ver}-beta.{n}.exe"}.get(install_mode())
+        bm = BETA_BUILD.search(str(rel.get("body") or ""))
+        c.update(ver=ver, build=bm.group(1) if bm else "")
+    else:
+        latest = str(rel.get("tag_name") or "").lstrip("vV")
+        pick = {"installer": SETUP_NAME, "exe": EXE_NAME}.get(install_mode())
     assets = {a.get("name"): a for a in rel.get("assets") or [] if isinstance(a, dict)}
-    pick = {"installer": SETUP_NAME, "exe": EXE_NAME}.get(install_mode())
     a = assets.get(pick) if pick else None
     c.update(error="", latest=latest, page=rel.get("html_url") or f"https://github.com/{REPO}/releases/latest",
              published_at=rel.get("published_at") or "", notes=str(rel.get("body") or "")[:2000],
@@ -130,13 +158,29 @@ def maybe_check(now=None):
         return None
 
 
+def _newer(c):
+    latest = c.get("latest") or ""
+    if not latest:
+        return False
+    if not BETA:
+        return is_newer(latest)
+    # 베타는 자기 베타 번호를 모른다 → 빌드한 커밋으로 '같은 빌드인지' 본다. 버전이 지금보다 낮은 베타로는 내려가지 않는다
+    rel_build, ver = c.get("build") or "", c.get("ver") or ""
+    if parse_ver(ver) < parse_ver(APP_VERSION):
+        return False
+    if rel_build and BUILD:
+        return not (rel_build.startswith(BUILD[:7]) or BUILD.startswith(rel_build[:7]))
+    return is_newer(ver)
+
+
 def status():
     c = _cache()
     latest = c.get("latest") or ""
     mode = install_mode()
     return {
-        "current": APP_VERSION, "mode": mode, "auto": auto_on(), "checked_at": c.get("checked_at") or "", "error": c.get("error") or "",
-        "latest": latest, "newer": bool(latest) and is_newer(latest), "page": c.get("page") or f"https://github.com/{REPO}/releases",
+        "current": APP_VERSION, "channel": "beta" if BETA else "stable", "build": BUILD, "mode": mode, "auto": auto_on(),
+        "checked_at": c.get("checked_at") or "", "error": c.get("error") or "",
+        "latest": latest, "newer": _newer(c), "page": c.get("page") or f"https://github.com/{REPO}/releases",
         "published_at": c.get("published_at") or "", "notes": c.get("notes") or "",
         "can_apply": mode != "source" and bool(c.get("asset")), "asset_size": (c.get("asset") or {}).get("size") or 0,
         "download": dict(_DL),
@@ -166,7 +210,7 @@ def start_download():
 
 def _download(asset, version):
     WORK_DIR.mkdir(parents=True, exist_ok=True)
-    final = WORK_DIR / f"{Path(asset['name']).stem}-{version}.exe"
+    final = WORK_DIR / (asset["name"] if BETA else f"{Path(asset['name']).stem}-{version}.exe")   # 베타 파일 이름에는 이미 버전 · 번호가 있다
     part = final.with_suffix(".part")
     try:
         h = hashlib.sha256()
@@ -304,7 +348,7 @@ def cleanup_old():
             pass
     try:
         for p in WORK_DIR.glob("*.exe"):
-            if not is_newer(p.stem.rsplit("-", 1)[-1]):   # 지금 버전보다 새것이 아니면(= 이미 깔린 것) 지운다
+            if BETA or not is_newer(p.stem.rsplit("-", 1)[-1]):   # 지금 버전보다 새것이 아니면(= 이미 깔린 것) 지운다. 베타는 번호를 몰라 늘 지운다 (필요하면 다시 받는다)
                 p.unlink()
     except OSError:
         pass

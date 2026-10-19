@@ -8,6 +8,7 @@ async function boot(){
 }
 (async()=>{
   cfg=await api("/api/config");
+  if(cfg.channel==="beta"){const b=document.querySelector(".nv-brand");if(b&&!b.querySelector(".beta")){const t=document.createElement("span");t.className="ver beta";t.textContent="베타";t.title=`베타 버전 ${cfg.versionLabel||""} — 정식 버전과 따로 설치 · 실행되고, 노트 데이터는 함께 써요`;b.append(t)}}
   if(!cfg.configured){await loadSettings().catch(()=>{});showSetup({first:true});return}
   await boot();
 })();
