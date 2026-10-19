@@ -2,8 +2,15 @@
 # - 정식 릴리스: main 에서 Run workflow 로 돌리면 Releases 에 v<버전> 으로 올리고 Latest 로 표시한다
 #   → README 맨 위 '최신 버전 내려받기' 링크와 앱 안 업데이트(releases/latest)가 늘 이 파일을 가리킨다
 # - 베타 릴리스: PR 이 main 에 머지되면 자동으로 v<버전>-beta.<번호> 를 Pre-release 로 쌓는다 (Latest 가 아니라서 위 링크 · 앱 업데이트에는 안 잡힌다)
+#   머지 결과가 PR 마지막 커밋과 같은 내용이면 다시 빌드하지 않고 그 커밋의 'PR 확인' 빌드 결과물을 그대로 올린다 (다르면 다시 빌드)
 # - PR 을 열거나 고칠 때: 빌드가 되는지만 확인한다 (받는 방법은 같음, Artifacts)
 name: build
+# 실행 목록에서 무엇을 하는 실행인지 보이게
+run-name: >-
+  ${{ github.event_name == 'pull_request' && github.event.action == 'closed' && format('베타 릴리스: {0}', github.event.pull_request.title)
+  || github.event_name == 'pull_request' && format('PR 확인: {0}', github.event.pull_request.title)
+  || github.ref == 'refs/heads/main' && '정식 릴리스 (main)'
+  || format('빌드: {0}', github.ref_name) }}
 
 on:
   workflow_dispatch:
@@ -12,6 +19,7 @@ on:
 
 permissions:
   contents: write   # Releases 에 올리기 (main 에서 직접 돌릴 때 · PR 이 main 에 머지됐을 때만 쓴다)
+  actions: read     # 머지 때 'PR 확인' 빌드의 결과물(Artifacts)을 받아 다시 쓰려고
 
 jobs:
   build:
@@ -28,10 +36,6 @@ jobs:
           # 머지된 PR: 머지 결과(main 에 들어간 커밋)를 빌드한다. 그 밖에는 기본값(이벤트의 커밋)
           ref: ${{ github.event.action == 'closed' && github.event.pull_request.merge_commit_sha || '' }}
 
-      - uses: actions/setup-python@v7
-        with:
-          python-version: "3.12"
-
       - name: 버전 읽기 (rnotes/config.py 의 APP_VERSION)
         id: ver
         shell: pwsh
@@ -40,17 +44,56 @@ jobs:
           if (-not $m) { throw "APP_VERSION 을 찾지 못했어요" }
           "version=$($m.Matches[0].Groups[1].Value)" >> $env:GITHUB_OUTPUT
 
+      - name: (머지됐을 때) PR 확인 빌드 결과물 다시 쓰기
+        id: reuse
+        if: github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          VER: ${{ steps.ver.outputs.version }}
+          ART: RedmineNotes2-${{ steps.ver.outputs.version }}
+        run: |
+          # 머지 결과와 PR 마지막 커밋의 파일 내용(git tree)이 같을 때만 다시 쓴다. 다르면(그사이 main 이 바뀜) 아래에서 다시 빌드
+          function Done($why) { "다시 빌드해요: $why"; Remove-Item dist -Recurse -Force -ErrorAction SilentlyContinue; "reused=false" >> $env:GITHUB_OUTPUT; exit 0 }
+          git fetch --no-tags --depth=1 origin $env:HEAD_SHA 2>&1 | Out-Null
+          $mt = git rev-parse "$env:MERGE_SHA^{tree}"; $ht = git rev-parse "$env:HEAD_SHA^{tree}"
+          if ($LASTEXITCODE -ne 0 -or -not $ht -or $mt -ne $ht) { Done "머지 결과가 PR 마지막 커밋과 내용이 달라요" }
+          $runs = gh run list --workflow build.yml --event pull_request --commit $env:HEAD_SHA --limit 20 --json databaseId,status,conclusion,displayTitle | ConvertFrom-Json
+          $runs = @($runs | Where-Object { "$($_.databaseId)" -ne $env:GITHUB_RUN_ID -and $_.displayTitle -notlike '베타 릴리스:*' })   # 지금 이 실행(머지)은 빼고
+          if (-not $runs.Count) { Done "이 커밋의 PR 확인 빌드가 없어요" }
+          $run = $runs[0]
+          if ($run.status -ne 'completed') {
+            "PR 확인 빌드($($run.databaseId))가 아직 도는 중이라 끝나길 기다려요"
+            gh run watch $run.databaseId --exit-status --interval 15 | Out-Null
+            $run = gh run view $run.databaseId --json databaseId,status,conclusion | ConvertFrom-Json
+          }
+          if ($run.conclusion -ne 'success') { Done "PR 확인 빌드가 성공하지 못했어요 ($($run.conclusion))" }
+          gh run download $run.databaseId --name $env:ART --dir dist
+          if ($LASTEXITCODE -ne 0) { Done "결과물($env:ART)을 받지 못했어요 (30일이 지나 지워졌을 수 있어요)" }
+          if (-not (Test-Path dist\RedmineNotes2.exe) -or -not (Test-Path "dist\RedmineNotes2-Setup-$env:VER.exe")) { Done "받은 결과물에 exe · 설치 파일이 없어요" }
+          "PR 확인 빌드($($run.databaseId))의 결과물을 그대로 써요 — 다시 빌드하지 않아요"
+          "reused=true" >> $env:GITHUB_OUTPUT
+
+      - uses: actions/setup-python@v7
+        if: steps.reuse.outputs.reused != 'true'
+        with:
+          python-version: "3.12"
+
       - name: exe 만들기 (build.bat)
+        if: steps.reuse.outputs.reused != 'true'
         shell: cmd
         run: |
           python -m pip install pyinstaller
           call build.bat
 
       - name: exe 점검 (임시 데이터 · 임시 포트)
+        if: steps.reuse.outputs.reused != 'true'
         run: python tests/test_exe.py dist/RedmineNotes2.exe
 
       - name: (실패했을 때만) 멈춘 곳 · 오류 내용 보기
-        if: failure()
+        if: failure() && steps.reuse.outputs.reused != 'true'
         shell: pwsh
         env:
           REDMINE_NOTES_NO_APPWIN: "1"
@@ -74,6 +117,7 @@ jobs:
           "-- stderr --"; Get-Content err.txt -ErrorAction SilentlyContinue
 
       - name: 설치 파일 만들기 (Inno Setup)
+        if: steps.reuse.outputs.reused != 'true'
         shell: pwsh
         run: |
           $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
@@ -85,6 +129,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "설치 파일을 만들지 못했어요" }
 
       - uses: actions/upload-artifact@v7
+        if: steps.reuse.outputs.reused != 'true'
         with:
           name: RedmineNotes2-${{ steps.ver.outputs.version }}
           path: |
