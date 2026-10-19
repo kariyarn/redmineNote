@@ -199,7 +199,7 @@ jobs:
           # 이 결과물을 빌드한 커밋: 다시 쓴 PR 확인 빌드면 PR 마지막 커밋, 다시 빌드했으면 머지 커밋 (베타 앱의 업데이트 확인이 '같은 빌드인지' 볼 때 쓴다)
           BUILD_SHA: ${{ steps.reuse.outputs.reused == 'true' && github.event.pull_request.head.sha || github.event.pull_request.merge_commit_sha }}
         run: |
-          # 같은 버전 안에서 번호를 하나씩 올린다: v2.19.2-beta.1, -beta.2 ... (이미 있으면 다음 번호)
+          # 같은 버전 안에서 번호를 하나씩 올린다: v2.20.0-beta.1, -beta.2 ... (이미 있으면 다음 번호)
           # 파일 이름에도 버전 · 베타 번호를 넣어 정식 릴리스(RedmineNotes2-Setup.exe · RedmineNotes2.exe, 이름 고정)와 구분한다
           $tags = gh release list --limit 200 --json tagName --jq '.[].tagName'
           $prefix = "v$env:VER-beta."
