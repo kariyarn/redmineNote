@@ -424,3 +424,9 @@ build-exe.bat
 - **☑ 할 일 · 💬 댓글 팝업 같이 띄우기**: 댓글 팝업을 열면 할 일 패널을 숨기던 것을, 겹치지 않으면 둘 다 띄워 두게 했다. 할 일 패널은 제자리(끌어서 옮기지 않은 경우)면 댓글 팝업 왼쪽에 나란히 놓고, 그래도 겹치면(자리가 모자람 · 끌어서 겹쳐 놓음) 먼저 연 쪽을 숨기거나 닫는다. 할 일 패널을 눌러도 댓글 팝업이 닫히지 않는다(`web/js/todo.js` · `common.js`).
 - **↑ 맨 위로 단추**: 노트를 400px 넘게 내리면 오른쪽 아래에 `↑` 단추가 나온다. 오른쪽 아래 단추(💬 댓글 · ☑ 할 일 · ↑)는 `placeFabRow` 가 한 줄로 나란히 놓아 서로 겹치지 않는다(`web/js/common.js` · `css/note.css`).
 - **빌드 — 백신 오진 줄이기**: 2.20.1 베타를 설치한 뒤 실행하면 `CreateProcess 실패; 코드 225`(바이러스로 차단됨)로 켜지지 않는 일이 있었다. PyInstaller 한 파일 exe 를 Windows Defender 가 악성 코드로 오진한 것(코드 225 = `ERROR_VIRUS_INFECTED`)이다. CI 가 PyInstaller **부트로더를 러너에서 직접 컴파일**(`PYINSTALLER_COMPILE_BOOTLOADER=1`, `--no-binary pyinstaller`)하고, exe 에 **윈도우 버전 정보**(파일 설명 · 제품 이름 · 버전, `tools/make_version_info.py` → `--version-file`)를 넣는다.
+
+## 2.21.1 — 업데이트 뒤 다시 켜질 때 'python dll' 오류 고침
+- **문제**: 앱 안 업데이트로 새 버전을 설치한 뒤 자동으로 다시 켜질 때 `python3xx.dll 을 찾을 수 없습니다` 오류가 났다(그 뒤 직접 실행하면 새 버전이 정상으로 켜짐).
+- **원인**: PyInstaller onefile exe 는 실행 중 환경 변수 `_PYI_ARCHIVE_FILE` · `_PYI_APPLICATION_HOME_DIR`(풀어 놓은 임시 폴더 `_MEIxxxx`) 등을 둔다. 업데이트 도우미(cmd) → 설치 파일 → 새 exe 가 이 환경을 그대로 물려받았는데, 새 exe 는 예전 exe 와 **같은 경로**라서 부트로더가 '같은 앱의 자식 프로세스'로 여기고 이미 지워진 예전 임시 폴더에서 python DLL 을 찾았다.
+- **고침**: 도우미를 띄울 때 `_PYI_*` · `_MEIPASS*` 를 빼고 `PYINSTALLER_RESET_ENVIRONMENT=1` 을 넘긴다(`updater.clean_env`). exe 만 쓰는 방식 · 바꾸기에 실패해 예전 exe 를 다시 켜는 경우도 같다. 시험 `tests/test_update.py` 에 추가.
+- 참고: 고친 코드는 **업데이트를 시작하는 쪽(지금 켜진 앱)** 에서 돈다 — 2.21.0 이하에서 2.21.1 로 올라올 때는 한 번 더 뜰 수 있고, 2.21.1 부터 다음 업데이트는 괜찮다.

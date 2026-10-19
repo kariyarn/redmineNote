@@ -84,6 +84,10 @@ script = Path(r["script"])
 t("apply (dry run): helper written as ascii CRLF", r["dry_run"] and script.exists() and b"\r\n" in script.read_bytes() and all(c < 128 for c in script.read_bytes()))
 t("apply (dry run): env", r["env"]["RN_MODE"] == "installer" and r["env"]["RN_NEW"] == d["file"] and r["env"]["RN_TARGET"] == str(fake_exe)
   and str(os.getpid()) in r["env"]["RN_PIDS"].split() and r["env"]["RN_LOG"].endswith("update.log"), r["env"])
+os.environ.update(_PYI_APPLICATION_HOME_DIR=r"C:\Temp\_MEI12345", _PYI_ARCHIVE_FILE=str(fake_exe), _PYI_PARENT_PROCESS_LEVEL="1", _MEIPASS2="x")
+U._DL.update(state="ready"); r = U.apply()
+t("apply: PyInstaller env not inherited (new exe must not load the old _MEI python dll)", r["inherit"] == ["PYINSTALLER_RESET_ENVIRONMENT"], r["inherit"])
+for k in ("_PYI_APPLICATION_HOME_DIR", "_PYI_ARCHIVE_FILE", "_PYI_PARENT_PROCESS_LEVEL", "_MEIPASS2"): os.environ.pop(k)
 t("helper relaunches installer silently", "/VERYSILENT" in U.HELPER and "/RELAUNCH=1" in U.HELPER and "%RN_" in U.HELPER)
 
 # 4. exe 방식: exe 를 고른다, 쓸 수 없는 폴더면 거절
