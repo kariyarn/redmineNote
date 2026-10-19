@@ -22,8 +22,9 @@ function updNotice(st){
 /* 받고 → 바꾸기. 어디서 누르든 같은 흐름 */
 async function updStart(){
   if(updBusy)return;
-  let st;try{st=await api("/api/update")}catch(e){toast("업데이트 상태를 읽지 못했어요: "+e.message,5000);return}
-  if(!st.newer){toast("이미 최신 버전이에요",2500);return}
+  let st;try{st=await post("/api/update/check",{});updPaint(st)}   // 누를 때마다 깃허브를 다시 본다 (하루 한 번 확인한 결과는 릴리스 전 것일 수 있다)
+  catch(e){try{st=await api("/api/update")}catch(e2){toast("업데이트 상태를 읽지 못했어요: "+e2.message,5000);return}if(!st.newer){toast(e.message,6000);return}}
+  if(!st.newer){toast(`이미 최신 버전이에요 (지금 ${st.current} · 깃허브 최신 ${st.latest||"없음"})`,4000);return}
   if(!st.can_apply){
     if(await wdlg({title:`새 버전 ${esc(st.latest)}`,ok:"릴리스 페이지 열기",cancel:"닫기",
       body:`${esc(UPD_MODE[st.mode]||"")}<br>릴리스 페이지에서 직접 받으세요.`}))window.open(st.page,"_blank");
@@ -73,13 +74,13 @@ function updPaint(st){
   const latest=st.error?`<span class="bad">${esc(st.error)}</span>`
     :st.newer?`<b>${esc(st.latest)}</b> <span class="tg">새 버전</span>${st.published_at?` <span class="meta">(${esc(updWhen(st.published_at))} 게시)</span>`:""}${S.update_skip===st.latest?` <span class="meta">· 켤 때 알림은 건너뛰는 중</span>`:""}`
     :st.latest?`<b>${esc(st.latest)}</b> <span class="meta">— 지금이 최신 버전이에요</span>`:`<span class="meta">아직 확인하지 않았어요 — 업데이트 확인을 눌러 보세요</span>`;
-  // 설치 버튼: 새 버전이 있고 · 앱 안에서 바꿀 수 있을 때만 눌린다. 받는 중에는 진행률, 다 받았으면 바로 바꾸기
-  const why=!st.newer?"새 버전이 없어요 (먼저 업데이트 확인)":!st.can_apply?(UPD_MODE[st.mode]||"이 버전에는 받을 파일이 없어요"):"";
+  // 설치 버튼: 소스 실행이 아니면 늘 눌린다(누르면 깃허브를 다시 확인하고 새 버전이 있으면 받는다). 받는 중에는 진행률, 다 받았으면 바로 바꾸기
+  const why=st.mode==="source"?UPD_MODE.source:st.newer&&!st.can_apply?"이 버전에는 받을 파일이 없어요":"";
   const instLabel=dl?`받는 중 ${d.total?Math.floor(d.done*100/d.total)+"%":"…"}`:ready?"설치 (다시 시작)":"설치";
   box.innerHTML=`<div class="srow"><span class="sl">현재 버전</span><div class="sc"><b>${esc(st.current)}</b><span class="hint">${esc(UPD_KIND[st.mode]||"")}</span></div></div>
     <div class="srow"><span class="sl">최신 버전</span><div class="sc">${latest}<span class="hint">${st.checked_at?"마지막 확인 "+esc(updWhen(st.checked_at)):""}</span></div></div>
     <div class="srow"><span class="sl">업데이트</span><div class="sc"><button type="button" id="updCheck">업데이트 확인</button>
-      <button type="button" class="primary" id="updGo" ${why||dl?"disabled":""} title="${esc(why||(ready?"앱을 끄고 새 버전으로 바꾼 뒤 다시 켜요":"새 버전을 받은 뒤, 바꿀지 한 번 더 물어봐요"))}">${instLabel}</button>
+      <button type="button" class="primary" id="updGo" ${why||dl?"disabled":""} title="${esc(why||(ready?"앱을 끄고 새 버전으로 바꾼 뒤 다시 켜요":"깃허브에서 새 버전을 확인해 받은 뒤, 바꿀지 한 번 더 물어봐요"))}">${instLabel}</button>
       ${st.newer?(S.update_skip===st.latest?`<button type="button" id="updUnskip">알림 다시 받기</button>`:`<button type="button" id="updSkip">이 버전 알림 건너뛰기</button>`):""}
       <a href="${esc(st.page)}" target="_blank" rel="noopener">릴리스 페이지</a></div></div>
     ${st.newer&&!st.can_apply?`<p class="hint">${esc(UPD_MODE[st.mode]||"")}. 릴리스 페이지에서 직접 받으세요.</p>`:""}
