@@ -23,12 +23,12 @@ jobs:
       group: ${{ (github.event.action == 'closed' || github.event_name == 'workflow_dispatch') && 'release' || format('pr-{0}', github.event.pull_request.number) }}
       cancel-in-progress: false
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # 머지된 PR: 머지 결과(main 에 들어간 커밋)를 빌드한다. 그 밖에는 기본값(이벤트의 커밋)
           ref: ${{ github.event.action == 'closed' && github.event.pull_request.merge_commit_sha || '' }}
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
@@ -84,7 +84,7 @@ jobs:
           & $iscc "/DAppVer=${{ steps.ver.outputs.version }}" installer\RedmineNotes2.iss
           if ($LASTEXITCODE -ne 0) { throw "설치 파일을 만들지 못했어요" }
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: RedmineNotes2-${{ steps.ver.outputs.version }}
           path: |
