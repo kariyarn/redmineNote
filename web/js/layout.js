@@ -52,18 +52,21 @@ const NAVICON={
 Object.assign(NAVICON,{vaultCode:NAVICON.code,vaultQuery:NAVICON.queries,vaultCommands:NAVICON.commands});
 const toTop=()=>{const c=$("#center"),l=$("#list");if(c)c.scrollTop=0;if(l)l.scrollTop=0;window.scrollTo(0,0)};
 /* 왼쪽 메뉴: 자주 쓰는 3개(오늘 · 이력 · 내 기록)만 앞에 두고, 나머지는 '더 보기'에 접어 둔다 */
+/* 메뉴에 보일 항목: 설정 → 화면에서 끈 것(ui.navHide)은 숨긴다. '오늘'과 지금 보는 화면은 늘 보인다 */
+const NAV_OPT=[["history","이력"],["mine","내 기록"],["memo","메모"],["deploy","배포요청"],["trouble","트러블슈팅"],["dict","주제 사전"],["summary","요약"],["graph","그래프"],["code","코드 이력"],["vaultCode","보관함 · 코드"],["vaultQuery","보관함 · 쿼리"],["vaultCommands","보관함 · 명령어"]];
+const navShown=id=>id==="today"||id===nav||!(ui.navHide||[]).includes(id);
 function renderNav(){
   const nowN=all.filter(isNow).length;
-  const mk=(id,label,cnt,ex)=>`<button class="nv-item ${nav===id?"on":""}" data-nav="${id}">${NAVICON[id]}<span>${label}</span>${ex||""}${cnt?`<span class="cnt">${cnt}</span>`:""}</button>`;
+  const mk=(id,label,cnt,ex)=>!navShown(id)?"":`<button class="nv-item ${nav===id?"on":""}" data-nav="${id}">${NAVICON[id]}<span>${label}</span>${ex||""}${cnt?`<span class="cnt">${cnt}</span>`:""}</button>`;
   const dpIc=dpIcon(false);
-  const vaultNav=()=>`<div class="nv-vault-hd">보관함</div>${mk("vaultCode","코드")}${mk("vaultQuery","쿼리")}${mk("vaultCommands","명령어")}`;
+  const vaultNav=()=>{const x=mk("vaultCode","코드")+mk("vaultQuery","쿼리")+mk("vaultCommands","명령어");return x?`<div class="nv-vault-hd">보관함</div>${x}`:""};
   const more=ui.navMore||["summary","graph","code","deploy","trouble","queries","commands","vaultCode","vaultQuery","vaultCommands"].includes(nav);
   const aN=alr.list.length,nN=ui.memoSeenDay!==todayStr()?alr.notice.length:0;
   const memoEx=(aN?`<span class="nvb bell" data-nvb="al" title="울린 메모 알림 ${aN}개 — 누르면 알림 창을 다시 열어요">🔔${aN}</span>`:"")+(nN?`<span class="nvb" data-nvb="nt" title="오늘 볼 메모 ${nN}개 (미리 적어 둔 것) — 누르면 오늘 보드로">📝${nN}</span>`:"");
-  const dictBtn=`<button class="nv-item ${dictVisible()&&!todayFull()?"on":""}" data-act="dict" title="용어(주제) 사전을 오른쪽에 열고 닫습니다">${NAVICON.dict}<span>주제 사전</span></button>`;
+  const dictBtn=!navShown("dict")?"":`<button class="nv-item ${dictVisible()&&!todayFull()?"on":""}" data-act="dict" title="용어(주제) 사전을 오른쪽에 열고 닫습니다">${NAVICON.dict}<span>주제 사전</span></button>`;
   if(V2()){   // 새 디자인: 하는 일 기준 4묶음. 묶음 제목을 누르면 접히고(저장), 지금 보는 화면이 든 묶음은 항상 펼친다. 접힌 묶음은 제목 옆에 숫자 · 🔔 · 🚀 만 보여 준다
     const fold=ui.navFold||{};
-    const g=(k,t,ids,items,ex)=>{const here=ids.includes(nav),open=!fold[k]||here;
+    const g=(k,t,ids,items,ex)=>{if(!items)return "";const here=ids.includes(nav),open=!fold[k]||here;
       return `<button type="button" class="nv-grp ${open?"":"shut"}" data-grp="${k}" ${here?"data-here":""} title="${open?"접기":"펼치기"}${here&&fold[k]?" (지금 보는 화면이 있어서 펼쳐 둠)":""}"><span>${t}</span>${open?"":`<span class="nv-gx">${ex||""}</span>`}${chev(open&&!fold[k])}</button>`+(open?items:"")};
     $("#navitems").innerHTML=g("work","일감",["today","history","mine","deploy"],mk("today","오늘",nowN)+mk("history","이력")+dictBtn+mk("mine","내 기록")+mk("deploy","배포요청",0,dpIc),(nowN?`<span class="cnt">${nowN}</span>`:"")+dpIc)
       +g("tools","내 도구",["memo","trouble"],mk("memo","메모",0,memoEx)+mk("trouble","트러블슈팅"),memoEx)
@@ -73,9 +76,9 @@ function renderNav(){
       const k=b.dataset.grp,shut=!(ui.navFold||{})[k];ui.navFold={...(ui.navFold||{}),[k]:shut};saveUI();renderNav();
       if(b.hasAttribute("data-here"))toast(shut?"지금 보는 화면이 이 묶음에 있어서 펼쳐 둬요. 다른 화면으로 가면 접혀요":"이 묶음을 늘 펼쳐 둬요",2600)});
   }else
+  {const moreItems=mk("summary","요약")+mk("graph","그래프")+mk("code","코드 이력")+mk("deploy","배포요청",0,dpIc)+mk("trouble","트러블슈팅")+vaultNav()+dictBtn;
   $("#navitems").innerHTML=mk("today","오늘",nowN)+mk("history","이력")+mk("mine","내 기록")+mk("memo","메모",0,memoEx)
-    +`<div class="nv-sec" id="navmore"><span>더 보기${!more&&dpIc?" "+dpIcon(true):""}</span>${chev(more)}</div>`
-    +(more?mk("summary","요약")+mk("graph","그래프")+mk("code","코드 이력")+mk("deploy","배포요청",0,dpIc)+mk("trouble","트러블슈팅")+vaultNav()+dictBtn:"");
+    +(moreItems?`<div class="nv-sec" id="navmore"><span>더 보기${!more&&dpIc&&navShown("deploy")?" "+dpIcon(true):""}</span>${chev(more)}</div>`+(more?moreItems:""):"")}
   document.querySelectorAll("#nav [data-nav]").forEach(b=>b.onclick=()=>{setNav(b.dataset.nav);toTop();setTimeout(toTop,60)});     // 이미 그 화면이어도 맨 위로
   document.querySelectorAll("#nav [data-nvb]").forEach(i=>i.onclick=e=>{e.stopPropagation();if(i.dataset.nvb==="al"){alr.hide.clear();alDraw()}else sbcGo(todayStr())});
   sbcDraw();

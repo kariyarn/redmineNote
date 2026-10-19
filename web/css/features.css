@@ -77,6 +77,8 @@
 .tr-list{display:flex;flex-direction:column;gap:7px}
 .tr-item{padding:9px 11px;border:1px solid var(--line);border-radius:10px;background:var(--surface);cursor:pointer}
 .tr-item:hover{border-color:var(--accent)}.tr-item.on{border-color:var(--accent);background:var(--accent-soft)}
+.tr-stq{cursor:pointer;border-radius:6px}.tr-stq:hover .badge{outline:2px solid var(--accent);outline-offset:1px}   /* 목록의 상태: 눌러서 바로 바꾸기 */
+.tr-qst button{padding:3px 10px;font-size:12px}
 .tr-item .tt{font-weight:600;line-height:1.35;overflow-wrap:anywhere}
 .tr-item .ts{font-size:.8rem;color:var(--sub);margin-top:4px;display:flex;gap:6px;flex-wrap:wrap;align-items:center}
 .tr-item .sn{font-size:.84rem;color:var(--sub);margin-top:5px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}

@@ -84,15 +84,34 @@ async function doWrite(n,o){
 /* 떠 있는 💬 버튼과 댓글 창: 노트를 보고 있을 때 어디에서든 */
 function ensureCm(){
   if($("#cmfab"))return;
-  document.body.insertAdjacentHTML("beforeend",`<button type="button" id="cmfab" title="이 일감에 바로 댓글 달기 (C)"></button><div id="cmpanel" role="dialog" aria-label="댓글"></div>`);
+  document.body.insertAdjacentHTML("beforeend",`<button type="button" id="cmfab" title="이 일감에 바로 댓글 달기 (C)"></button><div id="cmpanel" role="dialog" aria-label="댓글"></div><button type="button" id="topfab" title="맨 위로">↑</button>`);
   $("#cmfab").onclick=()=>toggleCm();
+  $("#topfab").onclick=()=>$("#center").scrollTo({top:0,behavior:"smooth"});
+  $("#center").addEventListener("scroll",updTopFab,{passive:true});
 }
 function placeCm(){
-  const r=$("#center").getBoundingClientRect(),right=Math.max(12,innerWidth-r.right+24)+"px";
-  $("#cmfab").style.right=right;$("#cmpanel").style.right=right;$("#cmpanel").style.width=Math.min(440,Math.max(300,r.width-48))+"px";
+  const r=$("#center").getBoundingClientRect(),base=Math.max(12,innerWidth-r.right+24);
+  $("#cmpanel").style.right=base+"px";$("#cmpanel").style.width=Math.min(440,Math.max(300,r.width-48))+"px";
+  placeFabRow(base);
+}
+/* 오른쪽 아래 단추 줄: 💬 댓글 → (댓글 팝업이 열려 있으면 ☑ 할 일) → ↑ 맨 위로 를 오른쪽부터 나란히 놓아 서로 겹치지 않게 한다.
+   댓글 팝업이 닫혀 있으면 ☑ 할 일은 예전처럼 💬 위에 둔다 */
+function placeFabRow(base){
+  let x=base;
+  const put=el=>{if(!el||el.style.display==="none")return;el.style.right=x+"px";x+=el.offsetWidth+10};
+  put($("#cmfab"));
+  const tf=$("#todofab");
+  if(tf){if(cmOpen){put(tf);tf.style.bottom="76px"}else{tf.style.right=base+"px";tf.style.bottom=""}}
+  put($("#topfab"));
+}
+function updTopFab(){   // 노트를 아래로 내렸을 때만 ↑ 맨 위로 단추를 보인다
+  const b=$("#topfab");if(!b)return;
+  const show=view==="note"&&!!cur&&!!curNote()&&$("#center").scrollTop>400;
+  if((b.style.display!=="none")===show&&b.style.display)return;
+  b.style.display=show?"block":"none";placeCm();
 }
 function updFab(){
-  ensureCm();updTodoFloat();
+  ensureCm();updTodoFloat();updTopFab();
   const n=view==="note"&&cur?curNote():null,fab=$("#cmfab");
   if(!n){fab.style.display="none";if(cmOpen)toggleCm(false);return}
   fab.style.display=composerVisible()&&!cmOpen?"none":"block";fab.textContent=`💬 댓글 ${n.journals.length}`;fab.classList.toggle("draft",!!draftOf(n.issue_id).trim());
@@ -121,7 +140,7 @@ function toggleCm(open){
 window.addEventListener("resize",()=>{if($("#cmfab"))placeCm()});
 document.addEventListener("pointerdown",e=>{   // 팝업 바깥(노트 원문 등)을 누르면 닫는다
   if(!cmOpen)return;
-  if(e.target.closest&&e.target.closest("#cmpanel,#cmfab,#wdlg,#modal,#toast,[data-cmnew]"))return;
+  if(e.target.closest&&e.target.closest("#cmpanel,#cmfab,#todopanel,#todofab,#topfab,.popmenu,#wdlg,#modal,#toast,[data-cmnew]"))return;     // 할 일 패널을 눌러도 댓글 팝업은 그대로 (둘 다 띄워 둘 수 있다)
   toggleCm(false);
 },true);
 document.addEventListener("keydown",e=>{

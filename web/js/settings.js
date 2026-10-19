@@ -1,6 +1,7 @@
 /* ---------- 설정 창 (글꼴 · 시작 설정 · 백업/복원) ---------- */
 function openSettings(){$("#modal").classList.add("show");renderSettings()}
-function closeSettings(){$("#modal").classList.remove("show");if(view==="graph")renderGraph()}
+function closeSettings(){$("#modal").classList.remove("show");$("#modal").innerHTML="";     // 토큰 칸이 숨은 채 남지 않게 내용째 지운다 (열 때 다시 그린다)
+  if(view==="graph")renderGraph()}
 $("#btnSet").onclick=openSettings;
 $("#modal").onclick=e=>{if(e.target.id==="modal")closeSettings()};
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&$("#modal").classList.contains("show"))closeSettings()});
@@ -65,6 +66,7 @@ async function renderSettings(){
      <div class="srow"><span class="sl">디자인</span><div class="sc"><div class="seg"><button type="button" id="dsOld" class="${V2()?"":"on"}">기존 디자인</button><button type="button" id="dsV2" class="${V2()?"on":""}">새 디자인</button></div></div></div>
      <div class="srow"><span class="sl">노트 모양</span><div class="sc"><div class="seg"><button type="button" id="nsDoc" class="${ui.noteStyle==="card"?"":"on"}">문서 스타일</button><button type="button" id="nsCard" class="${ui.noteStyle==="card"?"on":""}">카드</button></div></div></div>
      <div class="srow"><span class="sl">메뉴 줄 간격</span><div class="sc"><div class="seg"><button type="button" id="ndNorm" class="${ui.navDense?"":"on"}">보통</button><button type="button" id="ndDense" class="${ui.navDense?"on":""}">촘촘</button></div></div></div>
+     <div class="srow"><span class="sl">메뉴에 보일 항목</span><div class="sc navopt">${NAV_OPT.map(([k,l])=>`<label class="chk"><input type="checkbox" data-navopt="${k}" ${(ui.navHide||[]).includes(k)?"":"checked"}> ${l}</label>`).join("")}<span class="hint">끈 항목은 왼쪽 메뉴에서 숨겨요 · <b>오늘</b>과 지금 보는 화면은 늘 보여요</span></div></div>
      <div class="srow"><span class="sl">확대/축소</span><div class="sc"><label class="chk"><input type="checkbox" id="zAllow" ${ui.allowZoom?"checked":""}> 허용</label><span class="hint">기본은 막혀 있어요 · Ctrl+0 = 100%</span></div></div>
      ${sMore(`<b>새 디자인</b>: 선 아이콘 · 밑줄 탭 · 묶은 메뉴로 화면을 덜어 낸 모양이에요. 정리 기록 자동 저장, 댓글 상태 선택칸, 목록형 오늘 화면 같은 동작도 함께 바뀌어요. 저장된 데이터는 똑같아요.<br><b>노트 모양</b>: 한 장의 문서(굵은 구분선 + 큰 제목)처럼 보거나 예전처럼 카드로 나눠 봐요.<br><b>메뉴 줄 간격</b>: 메뉴가 길어 스크롤이 생기면 촘촘으로. 새 디자인에서는 메뉴 묶음 제목을 눌러 접고, 가져오기 단추 옆 ▸ 로 아래 안내를 접어요.<br><b>확대/축소</b>: 크롬 기반이라 확대하면 화면이 어긋날 수 있어 기본은 막아 둬요(Ctrl+휠 · Ctrl +/- · 두 손가락). 글자 크기는 <b>글꼴</b> 탭에서 바꾸세요.`)}`)}
 
@@ -127,6 +129,10 @@ async function renderSettings(){
   q("#dsOld").onclick=()=>setDs("classic");q("#dsV2").onclick=()=>setDs("v2");
   const setNd=v=>{ui.navDense=v;saveUI();applyTheme();renderSettings()};
   q("#ndNorm").onclick=()=>setNd(false);q("#ndDense").onclick=()=>setNd(true);
+  $("#modal").querySelectorAll("[data-navopt]").forEach(c=>c.onchange=()=>{const k=c.dataset.navopt,h=new Set(ui.navHide||[]);
+    if(c.checked)h.delete(k);else h.add(k);ui.navHide=[...h];
+    if(k==="dict"&&!c.checked){if(isNarrow())dictOv=false;else ui.hr=true;applyUI();renderDict()}     // 주제 사전 단추를 숨기면 열고 닫을 곳이 없어지니 칸도 닫는다
+    saveUI();renderNav()});
   [["#wsDev","st_dev"],["#wsConf","st_confirm"],["#wsDone","st_done"]].forEach(([id,k])=>q(id).onchange=async e=>{
     const v=Math.max(1,parseInt(e.target.value,10)||0);if(!v){return}
     await saveS(k,v);cfg=await api("/api/config");toast("저장했습니다",1500)});
@@ -218,7 +224,7 @@ function gbSection(g,sec){
   return sec("backup","깃허브 백업","노트 DB를 <b>내 비공개(Private) 깃허브 저장소</b>에 올려 둬요. 동기화가 아니라 백업이라, 내려받기(복원)는 직접 골라요.",`
      <div class="srow"><span class="sl">저장소</span><div class="sc"><input type="text" id="gbRepo" value="${esc(g.repo)}" placeholder="소유자/저장소 (예: kariyarn/redmine-notes-backup)"></div></div>
      <div class="srow"><span class="sl">브랜치</span><div class="sc"><input type="text" id="gbBranch" value="${esc(g.branch)}" style="width:10rem;flex:none"></div></div>
-     <div class="srow"><span class="sl">토큰</span><div class="sc"><input type="password" id="gbToken" autocomplete="off" placeholder="${g.token_set?"저장됨 — 바꿀 때만 새로 입력":"github_pat_…"}"><button id="gbSave" class="primary">저장 · 연결 확인</button>${g.token_set?`<button id="gbDisc" class="danger" title="토큰을 지우고 자동 올리기를 꺼요">연결 해제</button>`:""}</div></div>
+     <div class="srow"><span class="sl">토큰</span><div class="sc"><input type="text" id="gbToken" class="secret" autocomplete="off" spellcheck="false" placeholder="${g.token_set?"저장됨 — 바꿀 때만 새로 입력":"github_pat_…"}"><button id="gbSave" class="primary">저장 · 연결 확인</button>${g.token_set?`<button id="gbDisc" class="danger" title="토큰을 지우고 자동 올리기를 꺼요">연결 해제</button>`:""}</div></div>
      ${sMore(`준비: ① 깃허브에서 <b>Private</b> 저장소를 새로 만들고 ② <b>Settings → Developer settings → Fine-grained tokens</b> 에서 그 저장소 하나만 고르고 <b>Contents: Read and write</b> 권한으로 토큰을 만들어 넣으세요. 토큰은 이 PC에 암호화해서 저장하고 화면에 다시 보여 주지 않아요.<br>올리는 것은 노트 DB(노트 · 사전 · 메모 · 보관함 · 설정)뿐이에요. 폰트 · API 키 · 토큰은 올리지 않아요. 바뀐 게 없으면 올리지 않고, 저장소에 이 PC가 모르는 기록(다른 PC · 직접 수정)이 있으면 덮어쓰지 않고 멈춰요.`)}
      <div class="srow"><span class="sl">자동 올리기</span><div class="sc"><label class="chk"><input type="checkbox" id="gbAuto" ${g.auto?"checked":""} ${g.token_set?"":"disabled"}> 켜기</label>
        <span class="${g.auto?"":"dim"}">켜져 있는 동안 <input type="number" id="gbHours" min="0" max="${g.max_hours}" value="${g.hours}" class="num" ${g.auto?"":"disabled"}> 시간마다</span><span class="hint">0 = 앱을 닫을 때만</span></div></div>

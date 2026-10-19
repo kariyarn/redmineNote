@@ -108,6 +108,8 @@ main>*{min-height:0;overflow:auto}
 .todobadge{font-size:.75rem;font-weight:700;color:var(--accent);margin-left:4px}
 #setup{position:fixed;inset:0;z-index:200;background:var(--bg);display:none;overflow:auto}
 #setup.show{display:block}
+/* 키 · 토큰 칸: type=password 를 쓰면 브라우저(WebView2)가 '암호 저장' 창을 띄워서, 글자 칸에 점으로만 가린다 (.shown 이면 보임) */
+input.secret:not(.shown){-webkit-text-security:disc}
 #setup .sbox{max-width:540px;margin:7vh auto;padding:26px 28px}
 #setup .steps{margin:0 0 14px;padding-left:1.3em;line-height:1.9}
 #setup .frow input{flex:1;min-width:0}
@@ -387,7 +389,7 @@ details{margin-bottom:18px}
 .srow{display:flex;align-items:center;gap:14px;padding:7px 0;min-height:40px}
 .srow .sl{flex:none;width:118px;font-size:.9rem;font-weight:600;color:var(--text)}
 .srow .sc{flex:1;min-width:0;display:flex;align-items:center;flex-wrap:wrap;gap:8px}
-.srow .sc>input[type=text],.srow .sc>input[type=password],.srow .sc>select{flex:1;min-width:12rem}
+.srow .sc>input[type=text],.srow .sc>select{flex:1;min-width:12rem}
 .srow .sc button,.srow .sc .btn{margin:0}
 .srow input.num{width:4.8rem;flex:none}
 .srow input[type=range]{flex:1;max-width:16rem}
