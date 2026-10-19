@@ -5,7 +5,7 @@ $("#btnSet").onclick=openSettings;
 $("#modal").onclick=e=>{if(e.target.id==="modal")closeSettings()};
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&$("#modal").classList.contains("show"))closeSettings()});
 /* 설정은 종류별 탭으로 나눠 보여 준다: [키, 이름]. 각 묶음(.msec)의 data-st 가 탭 키 */
-const ST_TABS=[["gen","일반","⚙️"],["sync","가져오기 · 기준","🔄"],["view","화면","🎨"],["font","글꼴","🔤"],["write","레드마인 쓰기","✍️"],["backup","백업","💾"]];
+const ST_TABS=[["gen","일반","⚙️"],["sync","가져오기 · 기준","🔄"],["view","화면","🎨"],["font","글꼴","🔤"],["write","레드마인 쓰기","✍️"],["backup","백업","💾"],["help","도움말","📖"]];
 const sMore=html=>`<details class="smore"><summary>자세히</summary><div class="desc">${html}</div></details>`;     // 긴 설명은 접어 둔다
 /* 긴 목록(백업 파일 · 쓰기 기록 · 깃허브 백업 시점)은 접어 두고 개수만 보인다. 펼친 상태는 기억 */
 const sFold=(id,title,n,html)=>`<details class="sfold" data-sfold="${id}" ${(ui.setFold||{})[id]?"open":""}><summary>${title} <span class="cnt">${n}</span></summary><div class="flist">${html}</div></details>`;
@@ -38,8 +38,6 @@ async function renderSettings(){
      <label class="chk"><input type="checkbox" id="sAuto" ${S.auto_check==="1"?"checked":""}> 처음 열 때 최근 7일 동안 바뀐 일감을 자동으로 확인</label>
      <p class="hint">서버를 켠 뒤 처음 화면을 열 때 한 번만 해요. 바뀐 것만 갱신해요.</p>`)}
 
-   ${sec("gen","패치 노트","",`
-     <div class="srow"><span class="sl">변경 내용</span><div class="sc"><button id="pnOpen">이번 변경 보기</button><button id="pnLegacy">이전 패치 노트 (레거시)</button></div></div>`)}
 
    ${sec("sync","자동 가져오기",`정한 간격마다 바뀐 일감을 가져와요. <b>영업일 ${aw[0]} ~ ${aw[1]}</b>에만, 트레이에 있어도 동작해요.`,`
      <div class="srow"><span class="sl">간격</span><div class="sc"><input type="number" id="sAutoSync" min="0" max="1440" step="5" value="${autoSyncMin()}" class="num"> 분마다<span class="hint">0 = 끔 · 최소 ${AUTO_SYNC_MIN}분</span></div></div>
@@ -95,6 +93,10 @@ async function renderSettings(){
      ${sFold("bks","백업 파일",bks.length,bks.map(b=>`<div class="bk"><span class="nm">${esc(b.name)}</span><span class="meta">${b.mtime} · ${kb(b.size)}</span><a class="btn" href="/api/backup/download?name=${encodeURIComponent(b.name)}">받기</a><button data-restore="${esc(b.name)}">복원</button><button class="danger" data-delbk="${esc(b.name)}">삭제</button></div>`).join("")||`<span class="meta">아직 백업이 없어요.</span>`)}
      ${sMore(`노트 · 사전 · 연결 정보 · 설정 · 등록한 폰트가 zip 하나로 묶여요. 가져오기와 서버 시작 때 하루 1회 자동 백업(최근 14개 보관)되고, 복원 직전에는 현재 상태를 따로 백업해요. 업데이트 뒤 처음 켤 때는 구조 변경 전에 <code class="ic">before-upgrade-…</code> 백업(최근 5개)을 만들어요. 저장 위치 폴더의 <code class="ic">backups</code> 에 있어요. API 키는 들어가지 않아요.`)}`)}
    ${gst?gbSection(gst,sec):""}
+
+   ${sec("help","변경 내용","새 버전을 처음 열 때 <b>최근 바뀐 것 "+PATCH_SHOW+"가지</b>만 보여 줘요. 그보다 오래된 것은 아래 <b>사용 팁</b>에 주제별로 모여 있어요.",`
+     <div class="srow"><span class="sl">패치 노트</span><div class="sc"><button id="pnOpen">최근 변경 보기</button><button id="pnLegacy">처음 2.x 안내 (1.x 에서 달라진 점)</button></div></div>`)}
+   ${sec("help","사용 팁","지금까지 생긴 기능을 주제별로 모았어요. 위쪽이 최근 것이에요.",helpHtml())}
    </div></div>
   </div>`;
   if(keepTop)$("#modal .spane").scrollTop=keepTop;
@@ -107,6 +109,7 @@ async function renderSettings(){
   q("#cKey").onclick=()=>{closeSettings();showSetup({first:false})};
   q("#pnOpen").onclick=()=>showPatchNote(false);
   q("#pnLegacy").onclick=()=>showPatchNote(false,true);
+  wireHelp(q(".spane"));
   q("#dpAuto").onchange=e=>{ui.autoDeployPg=e.target.checked;saveUI()};
   q("#dpAl").onchange=e=>{ui.depAlert=e.target.value;saveUI();checkDeployAlert(true);toast({off:"오늘 배포요청 알림을 껐어요",on:"알림 켬: 앱을 켤 때·창으로 돌아올 때 확인해요",auto:"알림 자동: 10분마다 확인해요"}[e.target.value],2600)};
   q("#zAllow").onchange=e=>{ui.allowZoom=e.target.checked;saveUI();toast(ui.allowZoom?"확대/축소를 허용했어요":"확대/축소를 막았어요",2200)};

@@ -185,6 +185,16 @@ table.vptab{border-collapse:collapse}table.vptab th,table.vptab td{text-align:le
 .pn-dots i{width:8px;height:8px;border-radius:50%;background:var(--line);cursor:pointer}
 .pn-dots i.on{background:var(--accent);transform:scale(1.25)}
 .pn-foot{text-align:center;margin-top:6px}
+/* 2.19.1 설정 → 도움말: 지금까지의 패치 노트 카드를 주제별 사용 팁으로 */
+.hp-q{width:100%;box-sizing:border-box;margin:2px 0 10px}
+.hp-g{margin:0 0 14px}.hp-g[hidden],.hp-it[hidden],.hp-none[hidden]{display:none}
+.hp-g h5{margin:0 0 6px;font-size:.95rem;display:flex;align-items:center;gap:6px}
+.hp-g h5 .cnt{background:var(--accent-soft);color:var(--accent);font-weight:700;font-size:.72rem;border-radius:999px;padding:0 7px}
+.hp-it{display:flex;gap:10px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--surface2);margin:0 0 6px}
+.hp-ic{flex:none;width:1.6em;text-align:center;font-size:1.15rem;line-height:1.4}
+.hp-b{min-width:0;flex:1}.hp-b b{font-size:.95rem}
+.hp-v{margin-left:6px;font-size:.7rem;color:var(--sub)}
+.hp-b p{margin:3px 0 0;font-size:.88rem;line-height:1.6}.hp-b .hp-s{color:var(--sub);font-size:.82rem}
 
 /* 2.11 체크리스트: 오른쪽 아래 떠 있는 패널 (💬 댓글 단추 바로 위) */
 #todofab{position:fixed;right:24px;bottom:124px;z-index:20;border-radius:999px;padding:8px 15px;font-weight:600;background:var(--surface);color:var(--text);border:1px solid var(--line);box-shadow:0 6px 18px rgba(0,0,0,.16);display:none}
