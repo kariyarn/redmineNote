@@ -15,7 +15,7 @@
 
 > 새 버전 올리기: **Actions → build → Run workflow** 를 `main` 에서 돌리면 정식 릴리스(`v<버전>`, Latest)가 되고 위 링크가 그 파일로 바뀝니다.
 >
-> 베타: PR 이 `main` 에 머지될 때마다 자동으로 **베타 릴리스**(`v<버전>-beta.<번호>`, Pre-release)를 쌓아요. [모든 버전](https://github.com/kariyarn/redmineNote/releases)에서 받을 수 있고, Latest 가 아니라서 위 링크와 앱 안 업데이트에는 잡히지 않아요.
+> 베타: PR 이 `main` 에 머지될 때마다 자동으로 **베타 릴리스**(`v<버전>-beta.<번호>`, Pre-release)를 쌓아요. 파일 이름에 버전 · 베타 번호가 붙어서(`RedmineNotes2-Setup-2.19.2-beta.3.exe`) 정식 파일과 구분돼요. [모든 버전](https://github.com/kariyarn/redmineNote/releases)에서 받을 수 있고, Latest 가 아니라서 위 링크와 앱 안 업데이트에는 잡히지 않아요.
 >
 > 2.19 부터는 **앱 안에서 업데이트**할 수 있어요: 켤 때(하루 한 번) 새 버전을 확인해 알려 주고, **설정 → 일반 → 업데이트**에서 `받고 업데이트` → `바꾸고 다시 시작` 하면 앱이 잠깐 꺼졌다가 새 버전으로 켜져요. 설치 파일로 깐 경우는 새 설치 파일을 조용히 실행하고, exe 만 쓰는 경우는 exe 를 바꿔 끼워요. 처음 2.19 로 올라갈 때만 위 링크로 직접 받으면 돼요.
 
