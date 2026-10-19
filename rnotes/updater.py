@@ -309,6 +309,16 @@ def helper_env(new_file, mode=None):
             "RN_LOG": str(WORK_DIR / "update.log")}
 
 
+def clean_env(env=None):
+    """도우미 → 설치 파일 → 새 exe 로 이어지는 프로세스에 넘길 환경 변수.
+    PyInstaller onefile exe 는 _PYI_* (풀어 놓은 임시 폴더 _MEIxxxx 위치 등)를 환경에 두는데, 새 exe 가 예전 exe 와 같은 경로라서
+    이것을 물려받으면 '같은 앱의 자식'으로 여겨 이미 지워진 예전 임시 폴더에서 python3xx.dll 을 찾다가 실패한다
+    (업데이트 뒤 다시 켜질 때 'python dll 을 찾을 수 없습니다'). 그래서 빼고, 새로 시작하라고(PYINSTALLER_RESET_ENVIRONMENT) 알린다."""
+    env = {k: v for k, v in (os.environ if env is None else env).items() if not (k.upper().startswith("_PYI_") or k.upper().startswith("_MEIPASS"))}
+    env["PYINSTALLER_RESET_ENVIRONMENT"] = "1"
+    return env
+
+
 def apply():
     """받아 둔 새 버전으로 바꾼다: 도우미를 띄우고 앱을 끈다. 화면에 응답할 틈을 주려고 끄는 것은 잠깐 뒤에."""
     st = status()
@@ -321,10 +331,11 @@ def apply():
     WORK_DIR.mkdir(parents=True, exist_ok=True)
     script = WORK_DIR / "apply-update.cmd"
     script.write_bytes(HELPER.replace("\n", "\r\n").encode("ascii"))   # cmd 는 CRLF · ASCII 로 (경로는 환경 변수로 넘겨 한글도 안전)
-    env = {**os.environ, **helper_env(_DL["file"], st["mode"])}
+    env = {**clean_env(), **helper_env(_DL["file"], st["mode"])}
     _DL["state"] = "applying"
     if DRY_RUN:
-        return {"ok": True, "dry_run": True, "script": str(script), "env": {k: v for k, v in env.items() if k.startswith("RN_")}}
+        return {"ok": True, "dry_run": True, "script": str(script), "env": {k: v for k, v in env.items() if k.startswith("RN_")},
+                "inherit": sorted(k for k in env if k.upper().startswith(("_PYI_", "_MEIPASS", "PYINSTALLER_")))}
     flags = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0) | getattr(subprocess, "CREATE_NO_WINDOW", 0)
     subprocess.Popen(["cmd.exe", "/d", "/c", str(script)], env=env, creationflags=flags, close_fds=True,
                      stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
