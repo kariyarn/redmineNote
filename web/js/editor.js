@@ -301,7 +301,9 @@ function renderCenter(){
      ${sim.list.length&&!V2()?`<div class="chips erow"><span class="meta">비슷한 과거</span><button type="button" class="sim" data-sim="${n.issue_id}" title="${esc(sim.ts.map(t=>t.term).join(" · "))} 를 가진 과거 일감">같은 주제 ${sim.list.length}건 보기 →</button></div>`:""}
      ${(()=>{   // 코드 대상: 내 기록에 쓴 이름을 먼저, 그다음 여러 일감에 나온 이름 순
        // 계층 순서(컨트롤러 → 서비스 → SQL → 테이블 → 화면)로 묶어 보여 준다. 컬럼은 내 기록에 쓴 것만.
-       const tk=[...n._tok.entries()].filter(([k,ty])=>!COMMON_COLS.has(k)&&(ty!==T_COL||n._tokMine.has(k)))
+       // 배포요청 일감은 코드 이력(buildTokens)에서 빠져 _tok 이 없다 → 코드 대상도 보이지 않는다 (예전에는 여기서 오류가 나 가져오기 · 다시 그리기가 멈췄다)
+       if(!n._tok)return "";
+       const tk=[...n._tok.entries()].filter(([k,ty])=>!COMMON_COLS.has(k)&&tokIdx.has(k)&&(ty!==T_COL||n._tokMine.has(k)))
          .sort((a,b)=>FLOW_ORDER.indexOf(a[1])-FLOW_ORDER.indexOf(b[1])||tokIdx.get(b[0]).notes.length-tokIdx.get(a[0]).notes.length).slice(0,18);
        return tk.length?`<div class="chips erow"><span class="meta">코드 대상</span>${tk.map(([k,ty])=>`<span class="chip tokchip" data-tok="${esc(k)}" title="${ty} · 이 이름이 나온 일감 ${tokIdx.get(k).notes.length}건의 이력 보기">${typePill(ty)}${esc(k)} ${relPill(n._rel.get(k)||"ref")} <small>${tokIdx.get(k).notes.length}</small></span>`).join("")}</div>`:"";
      })()}

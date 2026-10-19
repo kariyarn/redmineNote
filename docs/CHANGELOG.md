@@ -412,3 +412,7 @@ build-exe.bat
 - **화면**: 왼쪽 위 `베타` 표시, 설정의 버전 · 업데이트 현재 버전에 `2.20.0 베타 (abc1234)`. `/api/config` 에 `channel` · `build` · `versionLabel`.
 - **CI**: PR 확인 · 베타 릴리스는 베타로, Run workflow(정식 릴리스)는 정식으로 빌드한다. 결과물 이름 `RedmineNotes2-Beta-<버전>`. 베타 릴리스 설명에 `빌드:` 줄을 더했다.
 - 참고: 이 변경 전에 올라간 베타(`RedmineNotes2-Setup-2.19.x-beta.N.exe`)는 정식 이름이라 베타 업데이트가 건너뛴다. 시험 `tests/test_beta.py`.
+
+## 2.20.1 — 가져오기 오류 고침
+- **문제**: 배포요청 일감(역할 `배포요청`)을 노트 화면에 열어 둔 채 레드마인 가져오기를 하면 `가져오기를 마치지 못했어요: Cannot read properties of undefined (reading 'entries')` 로 멈췄다. 배포요청 일감은 코드 이력(`buildTokens`)에서 빠져 `_tok` 이 없는데, 가져온 뒤 다시 그릴 때 노트 화면의 '코드 대상'이 `n._tok.entries()` 를 불렀다(가져오기 자체는 서버에서 끝나 저장돼 있었다).
+- **고침**: `_tok` 이 없으면 '코드 대상'을 그리지 않고, 코드 이력에 없는 이름은 건너뛴다(`web/js/editor.js`).
