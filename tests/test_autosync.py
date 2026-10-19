@@ -205,6 +205,9 @@ r = run_at(31, 5, True)
 t("window minimized (hidden) -> tray balloon", r["tray"] and len(balloons) == 1)
 r = run_at(32, 5, False)
 t("window visible -> no balloon (page shows dialog)", not r["tray"] and balloons == [] and r["new"])
+config.STATE["page_focus"] = False; balloons.clear(); A._STATE["try"] = 0; last_sync(D.datetime(2026, 10, 21, 9, 0)); config.STATE["alarm_poll"] = __import__("time").time()
+r = A.run_once(D.datetime(2026, 10, 21, 9, 32)); config.STATE["page_focus"] = True
+t("window visible but another app focused -> tray balloon", r["tray"] and len(balloons) == 1)
 r = run_at(33, 600, False, notify="0")
 t("notify off -> no balloon, still listed", not r["tray"] and balloons == [] and len(r["new"]) == 2 and A.status()["notify"] is False)
 with storage.db() as c:

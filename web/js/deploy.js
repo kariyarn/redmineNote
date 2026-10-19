@@ -35,9 +35,9 @@ async function checkDeployAlert(force){
     dpAl.date=t;dpAl.id=id;dpAl.first=false;dpAl.state=st?st.state:"";dpAl.pending=st?st.pending||0:0;dpAl.requests=st?st.requests||0:0;renderNav();
     if(first||!id||dpMode()!=="auto")return;
     const now=dpAl.state;      // 자동 모드에서만, 모양이 바뀌었을 때 알려 준다
-    if(now==="pending"&&(prev===""||prev==="idle"))toast(`오늘 배포 요청이 올라왔어요 🚀 (${dpAl.pending}건 대기) — 메뉴의 🚀 를 누르면 열려요`,6000);
-    else if(now==="pending"&&prev==="landed")toast(`배포 뒤에 요청이 더 올라왔어요 (${dpAl.pending}건) — 로켓이 다시 떴어요 🚀`,6000);
-    else if(now==="landed"&&prev==="pending")toast("오늘 요청이 모두 배포됐어요 — 로켓이 착륙했어요",5000);
+    if(now==="pending"&&(prev===""||prev==="idle")){toast(`오늘 배포 요청이 올라왔어요 🚀 (${dpAl.pending}건 대기) — 메뉴의 🚀 를 누르면 열려요`,6000);attn("🚀 오늘 배포 요청이 올라왔어요",`${dpAl.pending}건 대기 중이에요`)}
+    else if(now==="pending"&&prev==="landed"){toast(`배포 뒤에 요청이 더 올라왔어요 (${dpAl.pending}건) — 로켓이 다시 떴어요 🚀`,6000);attn("🚀 배포 뒤에 요청이 더 올라왔어요",`${dpAl.pending}건 대기 중이에요`)}
+    else if(now==="landed"&&prev==="pending"){toast("오늘 요청이 모두 배포됐어요 — 로켓이 착륙했어요",5000);attn("오늘 배포 요청이 모두 배포됐어요","로켓이 착륙했어요")}
   }catch(e){}      // 연결이 안 되면 조용히 넘어간다 (이전 표시 유지)
 }
 let dpTimer=null;

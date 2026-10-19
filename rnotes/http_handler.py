@@ -31,6 +31,7 @@ from .holiday_api import status as holiday_status
 from .holidays import extra_days, holiday_dates
 from .queries import query_delete, query_import, query_list, query_pin, query_restore, query_save, query_use, query_versions
 from . import updater
+from .attention import notify as attention_notify
 from .commands import command_delete, command_list, command_save, var_delete, var_list, var_save
 from .trouble import trouble_row, trouble_save
 from . import gitbackup
@@ -165,6 +166,7 @@ class Handler(BaseHTTPRequestHandler):
         elif u.path == "/api/alarms/due":       # 지금 떠야 할 알림 + 오늘 볼 메모 (화면이 15초마다 가져간다)
             STATE["alarm_poll"] = time.time()
             STATE["alarm_hidden"] = q.get("hidden") == "1"
+            STATE["page_focus"] = q.get("focus") != "0"   # 화면에 포커스가 있는가 (윈도우가 아닐 때 '보고 있다' 판단에 쓴다)
             self.send_json({"alarms": alarms_due(), "notice": future_notice(), "server_started": STATE["started"], "now": datetime.datetime.now().isoformat(timespec="seconds")})
         elif u.path == "/api/update":           # 앱 업데이트: 현재 · 최신 버전 · 받기 진행 상태 (확인은 하지 않는다)
             self.send_json(updater.status())
@@ -515,6 +517,16 @@ class Handler(BaseHTTPRequestHandler):
                     self.send_json(trouble_save(d))
                 except ValueError as e:
                     self.send_json({"error": str(e)}, 400)
+            elif u.path == "/api/attention":   # 화면에서만 생기는 알림: 보고 있지 않으면 작업 표시줄 반짝임 + 윈도우 알림
+                if "focus" in d:
+                    STATE["page_focus"] = bool(d["focus"])
+                    STATE["alarm_poll"] = time.time()
+                    STATE["alarm_hidden"] = bool(d.get("hidden"))
+                delay = min(10.0, max(0.0, float(d.get("delay") or 0)))   # 설정의 '시험해 보기': 그 사이 다른 창을 누를 수 있게
+                if delay:
+                    time.sleep(delay)
+                    STATE["page_focus"] = False if "focus" in d else STATE.get("page_focus", True)   # 기다리는 동안 화면이 다시 알려 줄 수 없으니 (윈도우는 창으로 직접 판단)
+                self.send_json(attention_notify(str(d.get("title") or "레드마인 노트"), str(d.get("text") or "")))
             elif u.path in ("/api/update/check", "/api/update/download", "/api/update/apply"):   # 앱 업데이트: 확인 · 받기(백그라운드) · 바꾸고 다시 켜기
                 try:
                     fn = {"check": updater.check, "download": updater.start_download, "apply": updater.apply}[u.path.rsplit("/", 1)[1]]

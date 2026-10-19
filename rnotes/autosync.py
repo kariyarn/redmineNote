@@ -70,16 +70,10 @@ def _new_issues(ids):
 
 
 def _tray_notice(new):
-    """창이 안 보이면 트레이 말풍선으로 새 일감을 알린다. 창이 보이면 화면이 알림 창을 띄우므로 하지 않는다.
-    '보인다' = 화면이 45초 안에 신호를 보냈고 가려져 있지 않다 (메모 알림과 같은 기준, lifecycle.alarm_tick)."""
-    seen = time.time() - STATE.get("alarm_poll", 0) < 45 and not STATE.get("alarm_hidden")
-    if seen or not RUN.tray:
-        return False
-    try:
-        RUN.tray.balloon(f"🆕 새 레드마인 일감 {len(new)}건", " · ".join(f"#{x['id']} {x['subject']}" for x in new))
-        return True
-    except Exception:
-        return False
+    """앱 창을 보고 있지 않으면(최소화 · 가려짐 · 창 없음) 작업 표시줄 반짝임 + 윈도우 알림으로 새 일감을 알린다 (attention.notify).
+    보고 있으면 화면이 알림 창을 띄우므로 하지 않는다. 윈도우 알림을 띄웠으면 True."""
+    from .attention import notify
+    return notify(f"🆕 새 레드마인 일감 {len(new)}건", " · ".join(f"#{x['id']} {x['subject']}" for x in new))["toasted"]
 
 
 def enabled(s=None):

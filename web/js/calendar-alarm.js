@@ -155,11 +155,11 @@ async function memoAlarmDlg(sn){
 /* ---- 알림 가져오기 · 알림 창 (소리 없음) ---- */
 const alKey=a=>a.id+"|"+a.latest;
 async function checkAlarms(){
-  let r;try{r=await api("/api/alarms/due?hidden="+(document.hidden?1:0))}catch(e){return}
+  let r;try{r=await api("/api/alarms/due?hidden="+(document.hidden?1:0)+"&focus="+(document.hasFocus()?1:0))}catch(e){return}
   alr.list=r.alarms||[];alr.notice=r.notice||[];alr.started=r.server_started||"";
   const sig=alr.list.map(alKey).join(",")+"#"+alr.notice.length+"#"+ui.memoSeenDay;
   if(sig!==alr.sig){alr.sig=sig;renderNav()}
-  if(alr.notice.length&&ui.memoSeenDay!==todayStr()&&ui.memoToastDay!==todayStr()){ui.memoToastDay=todayStr();saveUI();toast(`📝 오늘 볼 메모 ${alr.notice.length}개가 있어요 (미리 적어 둔 것) — 메뉴 '메모' 옆 아이콘을 눌러 보세요`,7000)}
+  if(alr.notice.length&&ui.memoSeenDay!==todayStr()&&ui.memoToastDay!==todayStr()){ui.memoToastDay=todayStr();saveUI();attn("📝 오늘 볼 메모 "+alr.notice.length+"개","미리 적어 둔 메모가 있어요");toast(`📝 오늘 볼 메모 ${alr.notice.length}개가 있어요 (미리 적어 둔 것) — 메뉴 '메모' 옆 아이콘을 눌러 보세요`,7000)}
   alDraw();
 }
 function alDraw(){

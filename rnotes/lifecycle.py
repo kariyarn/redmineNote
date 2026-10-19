@@ -125,19 +125,18 @@ _ALARM_NOTIFIED = set()
 
 
 def alarm_tick():
-    """새로 울릴 알림이 있으면: 창이 없거나 숨겨져 있으면 트레이 말풍선, 중요 알림이면 창을 다시 연다."""
+    """새로 울릴 알림이 있으면: 앱 창을 보고 있지 않으면(최소화 · 가려짐 · 창 없음) 작업 표시줄 반짝임 + 윈도우 알림, 중요 알림이면 창을 다시 연다."""
+    from .attention import notify
     due = alarms_due()
-    seen_now = time.time() - STATE.get("alarm_poll", 0) < 45 and not STATE.get("alarm_hidden")
     for a in due:
         key = (a["id"], a["latest"])
         if key in _ALARM_NOTIFIED:
             continue
         _ALARM_NOTIFIED.add(key)
-        if not seen_now and RUN.tray:
-            try:
-                RUN.tray.balloon(f"⏰ 메모 알림 · {a['remind_time']}", a["preview"] or "(내용 없음)")
-            except Exception:
-                pass
+        try:
+            notify(f"⏰ 메모 알림 · {a['remind_time']}", a["preview"] or "(내용 없음)")
+        except Exception:
+            pass
         if a["wake"] and not app_window_open():
             wake_window()
 

@@ -17,7 +17,7 @@ APP_DIR = Path(getattr(sys, "_MEIPASS", None) or ROOT_DIR)  # web/ · icon.ico �
 WEB_DIR = APP_DIR / "web"   # 화면(HTML · CSS · JS)
 EXE_DIR = Path(sys.executable).parent if FROZEN else ROOT_DIR  # 예전 방식(프로그램 폴더)의 데이터 위치
 DEFAULT_URL = ""  # 레드마인 주소는 첫 실행 설정 화면에서 입력
-APP_VERSION = "2.19.1"  # 기능을 고칠 때 올린다. DB 에 기록되어 업데이트 직전 백업 · 낮은 버전 경고에 쓴다.
+APP_VERSION = "2.20.0"  # 기능을 고칠 때 올린다. DB 에 기록되어 업데이트 직전 백업 · 낮은 버전 경고에 쓴다.
 UPGRADE_BACKUP_KEEP = 5
 ALIVE_SEC = int(os.environ.get("REDMINE_NOTES_ALIVE_SEC") or 90)  # 화면 신호가 이 안에 있었으면 "창이 열려 있다"고 본다
 IDLE_QUIT_SEC = int(os.environ.get("REDMINE_NOTES_IDLE_SEC") or 600)  # 화면 신호가 이만큼 끊기면 스스로 종료 (0 = 끄지 않음)
@@ -28,6 +28,7 @@ MAX_UPLOAD = 80 * 1024 * 1024
 FONT_EXT = {".ttf": "font/ttf", ".otf": "font/otf", ".woff": "font/woff", ".woff2": "font/woff2"}
 SETTING_KEYS = {
     "auto_check", "font_body", "font_mono", "font_size", "line_height", "font_names",
+    "notify_flash", "notify_toast",                                   # 앱 창을 보고 있지 않을 때: 작업 표시줄 반짝임 · 윈도우 알림 (기본 켬)
     "update_auto", "update_skip",                                     # 앱 업데이트: 자동 확인(기본 켬) · '이 버전 건너뛰기'
     "auto_sync_min", "auto_sync_days", "auto_sync_notify",           # 자동 가져오기: 간격(분, 0 = 끔) · 기간(최근 N일, 최대 7) · 새 일감 알림
     "graph_limit", "graph_terms", "graph_term_link", "graph_color",  # 그래프

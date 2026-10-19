@@ -34,6 +34,12 @@ async function renderSettings(){
 
    ${updSection(sec)}
 
+   ${sec("gen","알림 방식","앱 창을 <b>보고 있지 않을 때</b>(최소화 · 다른 창에 가려짐 · 다른 앱 사용 중 · 창을 닫아 트레이에만 있음) 알림을 놓치지 않게 해요.",`
+     <div><label class="chk"><input type="checkbox" id="nFlash" ${S.notify_flash!=="0"?"checked":""}> 작업 표시줄 아이콘 반짝이기 <span class="hint">창을 다시 볼 때까지</span></label></div>
+     <div><label class="chk"><input type="checkbox" id="nToast" ${S.notify_toast!=="0"?"checked":""}> 윈도우 알림 띄우기 <span class="hint">오른쪽 아래 · 알림 센터에 남아요</span></label></div>
+     <div class="srow"><span class="sl">시험</span><div class="sc"><button type="button" id="nTest">시험해 보기</button><span class="hint">누르고 5초 안에 다른 창을 누르거나 창을 최소화해 보세요</span></div></div>
+     ${sMore("메모 알림 · 자동 가져오기 새 일감 · 오늘 배포 요청 · 새 버전 · 오늘 볼 메모에 써요. 앱 창을 보고 있을 때는 화면 안 알림만 띄워요.<br>윈도우 알림이 안 보이면 윈도우 설정 → 시스템 → 알림에서 <b>집중 지원(방해 금지)</b>이 켜져 있는지 확인하세요. 창을 닫아 트레이에만 있을 때는 반짝일 창이 없어서 윈도우 알림만 떠요.")}`)}
+
    ${sec("gen","시작 설정","",`
      <label class="chk"><input type="checkbox" id="sAuto" ${S.auto_check==="1"?"checked":""}> 처음 열 때 최근 7일 동안 바뀐 일감을 자동으로 확인</label>
      <p class="hint">서버를 켠 뒤 처음 화면을 열 때 한 번만 해요. 바뀐 것만 갱신해요.</p>`)}
@@ -142,6 +148,15 @@ async function renderSettings(){
     };
     go();
   };
+  q("#nFlash").onchange=e=>{saveS("notify_flash",e.target.checked?"1":"0");toast(e.target.checked?"보고 있지 않을 때 작업 표시줄 아이콘을 반짝여요":"반짝이지 않아요",2400)};
+  q("#nToast").onchange=e=>{saveS("notify_toast",e.target.checked?"1":"0");toast(e.target.checked?"보고 있지 않을 때 윈도우 알림을 띄워요":"윈도우 알림을 띄우지 않아요",2400)};
+  q("#nTest").onclick=async()=>{const b=q("#nTest");b.disabled=true;b.textContent="5초 기다리는 중…";
+    try{const r=await post("/api/attention",{title:"🔔 레드마인 노트 알림 시험",text:"이렇게 알려 드려요. 작업 표시줄 아이콘도 반짝여요.",focus:document.hasFocus(),hidden:document.hidden,delay:5});
+      toast(r.shown?`알렸어요 (${[r.flashed&&"반짝임",r.toasted&&"윈도우 알림"].filter(Boolean).join(" · ")})`
+        :r.watching?"창을 보고 있어서 알리지 않았어요 — 5초 안에 다른 창을 누르거나 최소화해 보세요"
+        :"알릴 방법이 없어요 — 위의 두 가지가 모두 꺼져 있거나, 소스(python main.py)로 실행 중이에요 (트레이 · 작업 표시줄 창 없음)",6000)}
+    catch(e){toast("시험하지 못했어요: "+e.message,5000)}
+    b.disabled=false;b.textContent="시험해 보기"};
   q("#sAuto").onchange=e=>{saveS("auto_check",e.target.checked?"1":"0");toast(e.target.checked?"처음 열 때 최근 7일 변경을 확인합니다":"처음 열 때 자동 확인을 끕니다",2500)};
   q("#sAutoSync").onchange=async e=>{
     const raw=parseInt(e.target.value,10)||0,v=raw>0?Math.max(AUTO_SYNC_MIN,Math.min(1440,raw)):0;e.target.value=v;
