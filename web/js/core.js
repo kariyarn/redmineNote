@@ -55,6 +55,12 @@ const fmt=d=>`${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())}`;
 const esc=s=>(s||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 async function api(p,o){const r=await fetch(p,o);const j=await r.json();if(!r.ok){const e=new Error(j.error||r.status);e.status=r.status;e.code=j.code;e.body=j;throw e}return j}
 const post=(p,b)=>api(p,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(b)});
+/* 앱 창을 보고 있지 않으면(최소화 · 가려짐 · 다른 앱 사용 중) 서버가 작업 표시줄 아이콘을 반짝이고 윈도우 알림을 띄운다 (rnotes/attention.py).
+   화면에서만 생기는 알림(배포요청 · 업데이트 · 오늘 볼 메모)에 쓴다. 메모 알림 · 자동 가져오기 새 일감은 서버가 직접 한다 */
+function attn(title,text){
+  if(document.hasFocus()&&!document.hidden)return;   // 보고 있으면 화면 안 알림으로 충분하다
+  post("/api/attention",{title,text,focus:document.hasFocus(),hidden:document.hidden}).catch(()=>{});
+}
 let tt;function toast(t,ms=5000){const e=$("#toast");e.classList.remove("act");e.textContent=t;e.classList.add("show");clearTimeout(tt);if(ms)tt=setTimeout(()=>e.classList.remove("show"),ms)}
 /* "[팀명] 제목" -> 팀명은 작은 태그로 */
 function title(s){const m=(s||"").match(/^\s*(\[[^\]]{1,24}\])\s*(.*)$/);return m&&m[2].trim()?`<span class="pre">${esc(m[1])}</span>${esc(m[2])}`:esc(s)}      // 제목 전체가 [ ] 인 것(예: [운영서버 배포요청 / 날짜])은 팀 태그가 아니라 그냥 제목

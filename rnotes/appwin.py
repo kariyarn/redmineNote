@@ -29,6 +29,16 @@ user32.PostMessageW.argtypes = [wintypes.HWND, wintypes.UINT, wintypes.WPARAM, w
 user32.ShowWindow.argtypes = [wintypes.HWND, ctypes.c_int]
 user32.SetForegroundWindow.argtypes = [wintypes.HWND]
 user32.AllowSetForegroundWindow.argtypes = [wintypes.DWORD]
+user32.GetForegroundWindow.restype = wintypes.HWND
+
+
+class FLASHWINFO(ctypes.Structure):
+    _fields_ = [("cbSize", wintypes.UINT), ("hwnd", wintypes.HWND), ("dwFlags", wintypes.DWORD),
+                ("uCount", wintypes.UINT), ("dwTimeout", wintypes.DWORD)]
+
+
+user32.FlashWindowEx.argtypes = [ctypes.POINTER(FLASHWINFO)]
+FLASHW_TRAY, FLASHW_TIMERNOFG = 0x2, 0xC   # 작업 표시줄 단추만 · 창이 맨 앞에 올 때까지 계속
 
 
 def find_browser():
@@ -128,6 +138,25 @@ def focus():
     if ws:
         return bool(user32.SetForegroundWindow(ws[0]))
     return False
+
+
+def foreground():
+    """앱 창이 지금 맨 앞(사용자가 보고 있는 창)인가. 앱 창이 하나도 없으면 None."""
+    ws = windows()
+    if not ws:
+        return None
+    fg = user32.GetForegroundWindow()
+    return any(h == fg and not user32.IsIconic(h) for h in ws)
+
+
+def flash():
+    """앱 창의 작업 표시줄 단추를 반짝인다. 사용자가 창을 맨 앞으로 가져오면 저절로 멈춘다. 반짝인 창이 있으면 True."""
+    done = False
+    for h in windows():
+        info = FLASHWINFO(ctypes.sizeof(FLASHWINFO), h, FLASHW_TRAY | FLASHW_TIMERNOFG, 0, 0)
+        user32.FlashWindowEx(ctypes.byref(info))
+        done = True
+    return done
 
 
 def allow_focus():

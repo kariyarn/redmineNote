@@ -11,6 +11,7 @@ async function updBootCheck(){   // 켠 뒤 한 번: 서버가 30초 뒤에 확�
   },40000);
 }
 function updNotice(st){
+  attn(`🆕 레드마인 노트 새 버전 ${st.latest}`,`지금 ${st.current} — 앱을 열어 업데이트할 수 있어요`);
   const e=$("#toast");e.textContent=`🆕 새 버전 ${st.latest} 이 있어요 (지금 ${st.current}) `;
   const go=document.createElement("button");go.type="button";go.className="tundo";go.textContent="업데이트";
   const later=document.createElement("button");later.type="button";later.className="tundo";later.textContent="나중에";

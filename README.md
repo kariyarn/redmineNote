@@ -83,6 +83,7 @@ python tests/test_alarm.py .
 python tests/test_autosync.py .
 python tests/test_gitbackup.py .
 python tests/test_update.py .
+python tests/test_attention.py .
 python tests/test_queries.py .
 python tests/test_commands.py .
 python tests/test_release.py main.py
@@ -95,6 +96,7 @@ python tests/test_write.py main.py
 | `test_autosync.py` | 자동 가져오기 로직 (간격 · 기간 · 업무 시간) |
 | `test_gitbackup.py` | 깃허브 백업 (가짜 깃허브: 올리기 · 변경 없음 · 충돌 · 복원 · 올리는 때) |
 | `test_update.py` | 앱 업데이트 (가짜 Releases: 확인 · 받기 · 크기/SHA-256/실행 파일 검증 · 바꾸기 준비 · 자동 확인) |
+| `test_attention.py` | 안 보고 있을 때 알림 (보고 있는지 판단 · 작업 표시줄 반짝임 · 윈도우 알림 · 설정 끄기 · 메모 알림) |
 | `test_queries.py` | 보관함의 코드/쿼리 로직 |
 | `test_commands.py` | 보관함의 명령어 로직 |
 | `test_release.py` | 가져오기 · 검색 · 배포요청 |
