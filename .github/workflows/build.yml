@@ -172,27 +172,31 @@ jobs:
           PR_URL: ${{ github.event.pull_request.html_url }}
         run: |
           # 같은 버전 안에서 번호를 하나씩 올린다: v2.19.2-beta.1, -beta.2 ... (이미 있으면 다음 번호)
-          New-Item -ItemType Directory -Force rel | Out-Null
-          Copy-Item "dist\RedmineNotes2-Setup-$env:VER.exe" rel\RedmineNotes2-Setup.exe
-          Copy-Item dist\RedmineNotes2.exe rel\RedmineNotes2.exe
+          # 파일 이름에도 버전 · 베타 번호를 넣어 정식 릴리스(RedmineNotes2-Setup.exe · RedmineNotes2.exe, 이름 고정)와 구분한다
           $tags = gh release list --limit 200 --json tagName --jq '.[].tagName'
           $prefix = "v$env:VER-beta."
           $nums = @($tags | Where-Object { $_ -like "$prefix*" } | ForEach-Object { [int]($_.Substring($prefix.Length)) })
           $n = if ($nums.Count) { ($nums | Measure-Object -Maximum).Maximum + 1 } else { 1 }
           $official = [bool]($tags | Where-Object { $_ -eq "v$env:VER" })
-          $notes = @(
-            "베타 (미리 보기) 빌드예요. 정식 릴리스는 main 에서 Actions → build → Run workflow 로 만들어요.",
-            "",
-            "- 머지된 PR: #$env:PR_NUM $env:PR_TITLE ($env:PR_URL)",
-            "- 커밋: $env:SHA",
-            "- 설치 파일: RedmineNotes2-Setup.exe (권장) · exe 만: RedmineNotes2.exe"
-          )
-          if ($official) { $notes += "- 참고: v$env:VER 정식 릴리스가 이미 있어요 — 이 PR 은 버전(rnotes/config.py 의 APP_VERSION)을 올리지 않았어요." }
-          $notes | Set-Content -Encoding utf8 notes.md
           for ($try = 0; $try -lt 5; $try++) {
             $tag = "$prefix$n"
-            gh release create $tag rel\RedmineNotes2-Setup.exe rel\RedmineNotes2.exe --target $env:SHA --title "레드마인 노트 $env:VER beta.$n (PR #$env:PR_NUM)" --notes-file notes.md --prerelease --latest=false
-            if ($LASTEXITCODE -eq 0) { "베타 릴리스 $tag 를 올렸어요"; break }
+            $setup = "RedmineNotes2-Setup-$env:VER-beta.$n.exe"; $exe = "RedmineNotes2-$env:VER-beta.$n.exe"
+            Remove-Item rel -Recurse -Force -ErrorAction SilentlyContinue
+            New-Item -ItemType Directory -Force rel | Out-Null
+            Copy-Item "dist\RedmineNotes2-Setup-$env:VER.exe" "rel\$setup"
+            Copy-Item dist\RedmineNotes2.exe "rel\$exe"
+            $notes = @(
+              "베타 (미리 보기) 빌드예요. 정식 릴리스는 main 에서 Actions → build → Run workflow 로 만들어요.",
+              "",
+              "- 머지된 PR: #$env:PR_NUM $env:PR_TITLE ($env:PR_URL)",
+              "- 커밋: $env:SHA",
+              "- 설치 파일: $setup (권장) · exe 만: $exe",
+              "- 앱 안 업데이트(정식 릴리스만 확인)에는 잡히지 않아요. 써 보려면 위 파일을 직접 받아 설치하세요."
+            )
+            if ($official) { $notes += "- 참고: v$env:VER 정식 릴리스가 이미 있어요 — 이 PR 은 버전(rnotes/config.py 의 APP_VERSION)을 올리지 않았어요." }
+            $notes | Set-Content -Encoding utf8 notes.md
+            gh release create $tag "rel\$setup" "rel\$exe" --target $env:SHA --title "레드마인 노트 $env:VER beta.$n (PR #$env:PR_NUM)" --notes-file notes.md --prerelease --latest=false
+            if ($LASTEXITCODE -eq 0) { "베타 릴리스 $tag 를 올렸어요 ($setup · $exe)"; break }
             "$tag 를 만들지 못해서 다음 번호로 다시 해요"; $n++
           }
           if ($LASTEXITCODE -ne 0) { throw "베타 릴리스를 올리지 못했어요" }
