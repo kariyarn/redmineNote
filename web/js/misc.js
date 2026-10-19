@@ -62,7 +62,7 @@ function showSetup({first=false}={}){
     ${cfg.keyUnreadable?`<p class="sumsg err" style="margin:0 0 10px">저장돼 있던 API 키를 이 PC·계정에서 열 수 없습니다 (다른 PC에서 복사했거나 계정이 바뀐 경우). 키를 다시 입력해 주세요.</p>`:""}
     <p class="meta" style="margin:0 0 12px">내 일감을 내려받으려면 레드마인 <b>API 키</b>가 한 번 필요합니다.</p>
     <ol class="steps"><li>레드마인에 로그인 → 오른쪽 위 <b>내 계정</b></li><li>화면 오른쪽 <b>API 접근 키 → 표시</b></li><li>키를 복사해서 아래 칸에 붙여넣기</li></ol>
-    <div class="frow"><label>API 키</label><input type="password" id="suKey" autocomplete="off" placeholder="여기에 붙여넣기"><button type="button" id="suShow">보기</button></div>
+    <div class="frow"><label>API 키</label><input type="text" id="suKey" class="secret" autocomplete="off" spellcheck="false" placeholder="여기에 붙여넣기"><button type="button" id="suShow">보기</button></div>
     <details style="margin:8px 0"><summary class="meta" style="cursor:pointer">고급 설정 (보통은 바꾸지 않습니다)</summary>
       <div class="frow"><label>레드마인 주소</label><input id="suUrl" value="${esc(cfg.url||cfg.defaultUrl||"")}"></div>
       <div class="frow"><label>개발담당자 번호</label><input id="suFid" value="${esc(cfg.devFieldId||"18")}" style="width:5rem;flex:none"><span class="meta">레드마인 사용자 지정 필드 번호</span></div></details>
@@ -70,13 +70,14 @@ function showSetup({first=false}={}){
     <div class="row"><button class="primary" id="suGo">연결하고 시작</button>${first?"":`<button type="button" id="suCancel">취소</button>`}</div>
     <p class="meta" style="margin-top:14px">키는 <b>이 PC의 설정 파일에만</b> 저장되고 레드마인 외에는 어디로도 보내지 않습니다. 이 프로그램이 레드마인에 쓰는 것은 <b>댓글 · 상태 · 담당자/개발담당자</b>뿐이며(직접 버튼을 눌렀을 때만), 그 밖의 것은 읽기만 합니다.</p></div>`;
   const msg=$("#suMsg"),key=$("#suKey");key.focus();
-  $("#suShow").onclick=()=>{const h=key.type==="password";key.type=h?"text":"password";$("#suShow").textContent=h?"숨기기":"보기"};
-  if($("#suCancel"))$("#suCancel").onclick=()=>el.classList.remove("show");
+  $("#suShow").onclick=()=>{const h=key.classList.toggle("shown");$("#suShow").textContent=h?"숨기기":"보기"};
+  const close=()=>{el.classList.remove("show");el.innerHTML=""};   // 닫을 때 입력칸째 지운다: 키가 든 칸이 숨은 채 남아 있으면 노트를 저장할 때마다 브라우저가 '암호 저장' 창을 띄웠다
+  if($("#suCancel"))$("#suCancel").onclick=close;
   const go=async force=>{
     msg.className="sumsg";msg.textContent="레드마인에 연결해 확인하는 중…";$("#suGo").disabled=true;
     try{
       const r=await post("/api/setup",{api_key:key.value,url:$("#suUrl").value,dev_field_id:$("#suFid").value,force});
-      el.classList.remove("show");cfg=await api("/api/config");
+      close();cfg=await api("/api/config");
       if(first){await boot();const t=new Date(),a=new Date(t);a.setDate(t.getDate()-364);toast(`${r.name||"사용자"}님으로 연결했습니다. 과거 이력까지 볼 수 있게 최근 1년 일감을 내려받습니다 (몇 분 걸릴 수 있어요)`,9000);doSync(fmt(a),fmt(t),false)}
       else{await loadAll();toast(`${r.name||"사용자"}님으로 연결했습니다`,3500)}
     }catch(e){

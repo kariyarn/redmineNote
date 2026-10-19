@@ -37,12 +37,23 @@ function trDrawList(){
   const tg=trTags().slice(0,18);
   $("#trTags").innerHTML=tg.map(([g,n])=>`<span class="tp ${trTag===g?"on":""}" data-tg="${esc(g)}">${esc(g)}<small>${n}</small></span>`).join("");
   $("#trList").innerHTML=list.map(t=>`<div class="tr-item ${t.id===trSel&&!trEd?"on":""}" data-tid="${t.id}"><div class="tt">${esc(t.title)}</div>
-      <div class="ts">${trBadge(t.status)}<span>${esc(t.day||"")}</span>${t.tags.slice(0,3).map(g=>`<span class="tg ghost">${esc(g)}</span>`).join("")}</div>
+      <div class="ts"><span class="tr-stq" data-trstq="${t.id}" title="눌러서 상태 바꾸기">${trBadge(t.status)}</span><span>${esc(t.day||"")}</span>${t.tags.slice(0,3).map(g=>`<span class="tg ghost">${esc(g)}</span>`).join("")}</div>
       ${t.symptom.trim()?`<div class="sn">${esc(t.symptom.trim().replace(/\s+/g," ").slice(0,120))}</div>`:""}</div>`).join("")
     ||`<div class="meta" style="padding:10px 4px">${troubles.length?"조건에 맞는 항목이 없어요":"아직 정리한 트러블슈팅이 없어요. ＋ 새 트러블슈팅으로 시작하세요"}</div>`;
   document.querySelectorAll("#trSt [data-ts]").forEach(b=>b.onclick=()=>{trSt=b.dataset.ts;trDrawList()});
   document.querySelectorAll("#trTags [data-tg]").forEach(b=>b.onclick=()=>{trTag=trTag===b.dataset.tg?"":b.dataset.tg;trDrawList()});
+  document.querySelectorAll("#trList [data-trstq]").forEach(b=>b.onclick=e=>{e.stopPropagation();const id=+b.dataset.trstq;
+    popMenu(b,TRST.map(x=>[x,()=>trSetStatus(id,x)]))});
   document.querySelectorAll("#trList [data-tid]").forEach(b=>b.onclick=async()=>{if(trEd&&trDirty()&&!await askC("쓰던 내용이 저장되지 않았어요. 버리고 이동할까요?"))return;trSel=+b.dataset.tid;trEd=false;trDraft=null;trDrawList();trDrawMain()});
+}
+/* 상태만 바로 바꾸기: 편집 화면에 들어가지 않고 상세 화면의 상태 단추 · 목록의 상태 표시에서 고른다 (수정 시각도 갱신) */
+async function trSetStatus(id,st){
+  const t=troubles.find(x=>x.id===id);if(!t||t.status===st||!TRST.includes(st))return;
+  try{const r=await post("/api/trouble",{id:t.id,title:t.title,status:st,tags:t.tags,rm_no:t.rm_no,symptom:t.symptom,cause:t.cause,solution:t.solution,notes:t.notes});
+    const i=troubles.findIndex(x=>x.id===r.id);if(i>=0)troubles[i]=r;
+    troubles.sort((a,b)=>(b.updated_at||"").localeCompare(a.updated_at||"")||b.id-a.id);
+    toast(`상태를 ‘${st}’ 으로 바꿨어요 ✓`,1800);trDrawList();if(!trEd)trDrawMain()}
+  catch(e){toast("상태를 바꾸지 못했어요: "+e.message,5000)}
 }
 function trRead(){const g=id=>($(id)||{}).value||"",ed=id=>$(id)?edGet($(id)):"";const st=document.querySelector("#teSt .on");
   return {id:trDraft&&trDraft.id,title:g("#teTitle"),status:st?st.dataset.st:"진행 중",tags:g("#teTags").split(",").map(x=>x.trim()).filter(Boolean),rm_no:g("#teRm"),symptom:ed("#teSym"),cause:ed("#teCause"),solution:ed("#teSol"),notes:ed("#teNote")}}
@@ -57,13 +68,14 @@ function trDrawMain(){
   const sec=(label,txt)=>`<div class="tr-sec"><h4>${label}</h4>${txt.trim()?`<div class="${pvClass()}">${renderMd(txt)}</div>`:`<div class="none">(적지 않았어요)</div>`}</div>`;
   el.innerHTML=`<div class="card tr-doc"><div class="tr-hd"><h2>${esc(t.title)}</h2><span class="sp"></span>
       <button type="button" id="trEdit">편집</button><button type="button" id="trCopy" title="증상 · 원인 · 해결을 마크다운으로 복사해요">마크다운 복사</button><button type="button" id="trDel">삭제</button></div>
-    <div class="chips" style="margin-top:8px">${trBadge(t.status)}<span class="meta">${esc(t.day||"")} 작성${t.updated_at&&t.updated_at.slice(0,10)!==t.day?` · ${esc(t.updated_at.slice(0,10))} 수정`:""}</span>
+    <div class="chips" style="margin-top:8px"><div class="seg tr-qst" title="누르면 바로 바뀌어요 (편집하지 않아도 돼요)">${TRST.map(x=>`<button type="button" data-qst="${x}" class="${t.status===x?"on":""}">${x}</button>`).join("")}</div><span class="meta">${esc(t.day||"")} 작성${t.updated_at&&t.updated_at.slice(0,10)!==t.day?` · ${esc(t.updated_at.slice(0,10))} 수정`:""}</span>
       ${t.tags.map(g=>`<span class="tp" data-tgo="${esc(g)}" title="이 태그로 목록 좁히기">${esc(g)}</span>`).join("")}
       ${t.rm_no?`<a href="#" id="trRm" class="meta">레드마인 #${esc(t.rm_no)} ↗</a>`:""}</div>
     ${toks.length?`<div class="chips" style="margin-top:8px"><span class="meta">글에 나온 코드 이름</span>${toks.map(([n,ty])=>{const e=tokIdx.get(n);return e?`<span class="tok" data-trtok="${esc(n)}" title="코드 이력에서 보기">${typePill(ty)}${esc(n)}<span class="n">${e.notes.length}</span></span>`:`<span class="tok dim" title="아직 내 노트에는 나오지 않은 이름이에요">${typePill(ty)}${esc(n)}</span>`}).join("")}</div>`:""}
     ${sec("증상",t.symptom)}${sec("원인",t.cause)}${sec("해결 방법",t.solution)}${sec("재발 방지 · 참고",t.notes)}</div>`;
   $("#trEdit").onclick=()=>{trEd=true;trDraft=JSON.parse(JSON.stringify(t));trDrawList();trDrawMain()};
   $("#trCopy").onclick=()=>copyText(trMd(t),"마크다운으로 복사했어요");
+  el.querySelectorAll("[data-qst]").forEach(b=>b.onclick=()=>trSetStatus(t.id,b.dataset.qst));
   $("#trDel").onclick=async()=>{if(!await askC(`‘${t.title}’ 을(를) 삭제할까요? 되돌릴 수 없어요.`))return;
     try{await api("/api/trouble/"+t.id,{method:"DELETE"});troubles=troubles.filter(x=>x.id!==t.id);trSel=null;toast("삭제했어요",1800);trDrawList();trDrawMain()}catch(e){toast("삭제하지 못했어요: "+e.message,5000)}};
   if($("#trRm"))$("#trRm").onclick=e=>{e.preventDefault();openExternal(`${cfg.url}/issues/${t.rm_no}`)};

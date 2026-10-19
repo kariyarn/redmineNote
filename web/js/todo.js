@@ -1,4 +1,4 @@
-/* ---------- 할 일 체크리스트: 오른쪽 아래에 떠 있는 패널(💬 댓글 단추 위). 머리줄을 끌어서 옮기면 위치를 기억한다. 완료한 항목은 지우지 않고 '보관'한다 ---------- */
+/* ---------- 할 일 체크리스트: 오른쪽 아래에 떠 있는 패널(💬 댓글 단추 위, 댓글 팝업이 열려 있으면 그 왼쪽). 머리줄을 끌어서 옮기면 위치를 기억한다. 완료한 항목은 지우지 않고 '보관'한다 ---------- */
 function buildTodoMap(){todoMap={};todos.forEach(t=>{if(t.archived_at)return;const m=todoMap[t.issue_id]||(todoMap[t.issue_id]=[0,0]);m[1]++;if(!t.done)m[0]++})}
 const todoBadge=n=>{const m=todoMap[n.issue_id];return m&&m[0]?`<span class="todobadge" title="남은 할 일 ${m[0]}건 (전체 ${m[1]}건)">☑ ${m[0]}</span>`:""};
 let todoArcOpen=false;      // 이 노트의 보관함을 펼쳐 봤는지
@@ -21,10 +21,13 @@ function placeTodo(){
     const w=p.offsetWidth||320,h=p.offsetHeight||200,l=Math.max(8,Math.min(innerWidth-w-8,pos.l)),t=Math.max(8,Math.min(innerHeight-h-8,pos.t));
     p.style.left=l+"px";p.style.top=t+"px";p.style.right="auto";p.style.bottom="auto";
   }else{
-    const r=$("#center").getBoundingClientRect(),right=Math.max(12,innerWidth-r.right+24)+"px";
-    p.style.left="auto";p.style.top="auto";p.style.right=right;p.style.bottom="124px";f.style.right=right;
+    const r=$("#center").getBoundingClientRect();let right=Math.max(12,innerWidth-r.right+24);
+    if(cmOpen){const cp=$("#cmpanel"),w=p.offsetWidth||330,nr=right+cp.offsetWidth+12;if(innerWidth-nr-w>=8)right=nr}   // 댓글 팝업이 열려 있으면 그 왼쪽에 나란히 (자리가 모자라면 제자리 → 겹치면 숨김)
+    p.style.left="auto";p.style.top="auto";p.style.right=right+"px";p.style.bottom="124px";
   }
+  if(f&&$("#cmfab"))placeCm();      // ☑ 단추 자리는 💬 · ↑ 단추와 함께 정한다
 }
+const todoHitsCm=()=>{const a=$("#todopanel").getBoundingClientRect(),b=$("#cmpanel").getBoundingClientRect();return a.left<b.right&&b.left<a.right&&a.top<b.bottom&&b.top<a.bottom};
 function updTodoFloat(){
   ensureTodoFloat();
   const f=$("#todofab"),p=$("#todopanel"),n=view==="note"&&cur?curNote():null;
@@ -32,13 +35,13 @@ function updTodoFloat(){
   const mine=todos.filter(t=>t.issue_id===cur&&!t.archived_at),open=mine.filter(t=>!t.done).length;
   f.textContent=`☑ 할 일 ${mine.length?`${open}/${mine.length}`:""}`.trim();f.classList.toggle("has",open>0);
   const want=!!ui.todoOpen;
-  if(cmOpen){p.style.display=f.style.display="none";return}     // 댓글 팝업이 떠 있는 동안은 같은 자리라 잠깐 숨긴다 (닫으면 다시 보임)
   p.style.display=want?"block":"none";f.style.display=want?"none":"block";
   placeTodo();if(want)renderTodo();
+  if(want&&cmOpen&&todoHitsCm()){p.style.display=f.style.display="none";placeCm()}     // 댓글 팝업과 겹칠 때만 잠깐 숨긴다 (닫으면 다시 보임). 안 겹치면 둘 다 띄워 둔다
 }
 function toggleTodoPanel(open){
-  if(open!==false&&cmOpen)toggleCm(false);      // 할 일을 열면 댓글 팝업은 닫는다 (겹치지 않게)
   ui.todoOpen=open===undefined?!ui.todoOpen:!!open;saveUI();updTodoFloat();
+  if(ui.todoOpen&&cmOpen&&$("#todopanel").style.display==="none")toggleCm(false);      // 할 일을 열었는데 댓글 팝업과 겹치면 먼저 연 댓글 팝업을 닫는다
   if(ui.todoOpen){const i=$("#todoNew");if(i)i.focus()}
 }
 function wireTodoDrag(){      // 머리줄을 잡고 끌기 (더블클릭하면 원래 자리)
@@ -48,7 +51,8 @@ function wireTodoDrag(){      // 머리줄을 잡고 끌기 (더블클릭하면 
     if(e.button!==0||e.target.closest("button,input"))return;e.preventDefault();
     const r=p.getBoundingClientRect(),dx=e.clientX-r.left,dy=e.clientY-r.top;
     const mv=ev=>{ui.todoPos={l:ev.clientX-dx,t:ev.clientY-dy};placeTodo()};
-    const up=()=>{document.removeEventListener("pointermove",mv);document.removeEventListener("pointerup",up);saveUI()};
+    const up=()=>{document.removeEventListener("pointermove",mv);document.removeEventListener("pointerup",up);saveUI();
+      if(cmOpen&&todoHitsCm())toggleCm(false)};      // 댓글 팝업 위로 끌어다 놓으면 먼저 열려 있던 댓글 팝업을 닫는다
     document.addEventListener("pointermove",mv);document.addEventListener("pointerup",up);
   });
 }
