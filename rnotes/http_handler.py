@@ -522,10 +522,6 @@ class Handler(BaseHTTPRequestHandler):
                     STATE["page_focus"] = bool(d["focus"])
                     STATE["alarm_poll"] = time.time()
                     STATE["alarm_hidden"] = bool(d.get("hidden"))
-                delay = min(10.0, max(0.0, float(d.get("delay") or 0)))   # 설정의 '시험해 보기': 그 사이 다른 창을 누를 수 있게
-                if delay:
-                    time.sleep(delay)
-                    STATE["page_focus"] = False if "focus" in d else STATE.get("page_focus", True)   # 기다리는 동안 화면이 다시 알려 줄 수 없으니 (윈도우는 창으로 직접 판단)
                 self.send_json(attention_notify(str(d.get("title") or "레드마인 노트"), str(d.get("text") or "")))
             elif u.path in ("/api/update/check", "/api/update/download", "/api/update/apply"):   # 앱 업데이트: 확인 · 받기(백그라운드) · 바꾸고 다시 켜기
                 try:
