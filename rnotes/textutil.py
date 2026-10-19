@@ -6,7 +6,8 @@ import re
 
 def plain(text):
     """레드마인 본문(HTML일 수 있음)을 읽기 쉬운 일반 글자로 바꾼다."""
-    text = re.sub(r"(?i)<br\s*/?>|</p>|</div>|</li>", "\n", text or "")
+    text = re.sub(r"(?i)</t[dh]>\s*(?=<t[dh]\b)", " | ", text or "")  # 표 칸 사이: 글자가 붙지 않게
+    text = re.sub(r"(?i)<br\s*/?>|</p>|</div>|</li>|</tr>", "\n", text)
     text = html.unescape(re.sub(r"<[^>]+>", "", text)).replace("\xa0", " ")
     return re.sub(r"\n\s*\n+", "\n", text).strip()
 

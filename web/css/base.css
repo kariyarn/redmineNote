@@ -379,7 +379,7 @@ details{margin-bottom:18px}
 .spane{flex:1;min-width:0;overflow:auto;padding:6px 26px 28px}
 .mbox.stabbed .msec{display:none;padding:20px 0 18px;border-bottom:1px solid var(--line)}
 .mbox.stabbed[data-st=gen] .msec[data-st=gen],.mbox.stabbed[data-st=sync] .msec[data-st=sync],.mbox.stabbed[data-st=view] .msec[data-st=view],
-.mbox.stabbed[data-st=font] .msec[data-st=font],.mbox.stabbed[data-st=write] .msec[data-st=write],.mbox.stabbed[data-st=backup] .msec[data-st=backup]{display:block}
+.mbox.stabbed[data-st=font] .msec[data-st=font],.mbox.stabbed[data-st=write] .msec[data-st=write],.mbox.stabbed[data-st=backup] .msec[data-st=backup],.mbox.stabbed[data-st=help] .msec[data-st=help]{display:block}
 .spane .msec h4{font-size:1.02rem;margin:0 0 4px;letter-spacing:-.01em}
 .spane .lead{margin:0 0 14px;color:var(--sub);font-size:.88rem;line-height:1.55}
 .spane .lead .bad,.spane .hint.bad{color:#c0392b}

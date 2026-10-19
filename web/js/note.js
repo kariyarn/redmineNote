@@ -144,6 +144,12 @@ function wireCf(n){
 }
 const _TAGS=/<\/?(?:p|div|span|br|ul|ol|li|strong|b|em|i|u|a|h[1-6]|table|thead|tbody|tr|td|th|blockquote|font|code|pre|img|hr|sup|sub)\b[^>]*>/gi;
 function decodeEnt(t){if(!/&[#\w]+;/.test(t))return t;const d=document.createElement("textarea");d.innerHTML=t;return d.value}   // &nbsp; &lt; 등을 원래 글자로
+/* HTML 표의 줄 -> Textile 꼴 |칸|칸| (머리칸은 |_. 칸|). 칸 안의 줄바꿈 · 문단은 띄어쓰기로, 사진은 그 자리에 */
+function tblRows(b){
+  const cell=c=>c.replace(/<img\b[^>]*>/gi,m=>{const u=(m.match(/\bsrc\s*=\s*["']([^"']+)["']/i)||[])[1];return u?` [[img:${encodeURIComponent(u)}]] `:""})
+    .replace(/<br\s*\/?>|<\/(?:p|div|li)>/gi," ").replace(_TAGS,"").replace(/\|/g,"¦").replace(/\s+/g," ").trim();
+  return (b.match(/<tr\b[^>]*>[\s\S]*?<\/tr>/gi)||[]).map(r=>"|"+(r.match(/<t[dh]\b[^>]*>[\s\S]*?<\/t[dh]>/gi)||[]).map(c=>(/^<th/i.test(c)?"_. ":"")+cell(c)).join("|")+"|").join("\n");
+}
 /* 레드마인 댓글(원문이 HTML 이든 Textile 이든 일반 글이든) -> 태그 없는 글 + 코드 상자(```) / 코드 모양(`) . 댓글을 보여 주는 모든 곳이 이 함수 하나를 쓴다. */
 function remoteText(raw){
   let t=(raw||"").replace(/\r\n/g,"\n");
@@ -153,6 +159,7 @@ function remoteText(raw){
   const code=c=>trimCode(html?decodeEnt(c.replace(/<br\s*\/?>/gi,"\n").replace(_TAGS,"")):c);   // HTML 글 속 코드는 &#39; &amp; 같은 표기를 원래 글자로
   t=t.replace(/<pre><code(?: class="([^"]*)")?>\n?([\s\S]*?)\n?<\/code><\/pre>/g,(m,l,c)=>"\n```"+(l||"")+"\n"+code(c)+"\n```\n")
     .replace(/<pre[^>]*>\n?([\s\S]*?)\n?<\/pre>/g,(m,c)=>"\n```\n"+code(c)+"\n```\n");
+  if(html)t=t.replace(/<table\b[^>]*>([\s\S]*?)<\/table>/gi,(m,b)=>"\n"+tblRows(b)+"\n");   // HTML 표 -> |칸|칸| 줄 (칸 태그를 그냥 지우면 글자가 붙어 버린다)
   const para=html?"\n\n":"\n";                                           // HTML 문단 사이는 빈 줄 한 줄 (레드마인 화면과 같은 모양)
   return t.split(/(```[\s\S]*?```)/).map((p,i)=>i%2?p:decodeEnt(
     p.replace(/<img\b[^>]*>/gi,m=>{const u=(m.match(/\bsrc\s*=\s*["']([^"']+)["']/i)||[])[1];return u?`\n[[img:${encodeURIComponent(u)}]]\n`:""})
@@ -259,7 +266,23 @@ window.addEventListener("keydown",e=>{
   else if(k==="1"){e.stopPropagation();e.preventDefault();lbZoom(1)}
 },true);
 document.addEventListener("error",e=>{const t=e.target;if(t&&t.classList&&t.classList.contains("rimg")){t.classList.add("bad");t.alt="사진을 불러오지 못했어요";t.removeAttribute("title")}},true);
-const richHtml=raw=>imgify(renderMd(remoteText(raw)).replace(/\n(<div class="cbw">)/g,"$1").replace(/(<\/pre><\/div>)\n/g,"$1"));
+/* |칸|칸| 줄이 이어지면 표로 그린다: 레드마인 HTML 표(remoteText 가 바꾼 것) · Textile 표(|_. 머리칸|) · 마크다운 표(| a | b | 와 |---|---|) */
+function tablify(h){
+  const row=l=>/^\s*\|.*\|\s*$/.test(l)&&l.split("|").length>3,sep=l=>/^\s*\|(?:\s*:?-{3,}:?\s*\|)+\s*$/.test(l);
+  const L=h.split("\n"),out=[];
+  for(let i=0;i<L.length;){
+    if(!row(L[i])){out.push(L[i++]);continue}
+    const rows=[];
+    while(i<L.length&&row(L[i])){if(sep(L[i])){if(rows.length)rows[rows.length-1].head=true}else rows.push({c:L[i].trim().slice(1,-1).split("|")});i++}
+    out.push("\uE003<div class=\"rtbl\"><table>"+rows.map(r=>"<tr>"+r.c.map(c=>{
+      const m=/^\s*(?:(_)(?:[=^~]|&[lg]t;|[\\\/]\d+)*|(?:[=^~]|&[lg]t;|[\\\/]\d+)+)\.\s/.exec(c),th=r.head||!!(m&&m[1]);
+      const v=(m?c.slice(m[0].length):c).trim(),nw=v.replace(/<[^>]+>|&\w+;/g,"x").length<=30;   // 짧은 칸(날짜 · 번호)은 한 줄로
+      return `<${th?"th":"td"}${nw?' class="nw"':""}>${v}</${th?"th":"td"}>`}).join("")+"</tr>").join("")+"</table></div>\uE003");
+  }
+  return out.join("\n").replace(/\n?\uE003\n?/g,"");   // 표 앞뒤 줄바꿈은 빈 줄로 보이지 않게
+}
+const tablifyMd=h=>h.split(/(<div class="cbw">[\s\S]*?<\/pre><\/div>)/).map((p,i)=>i%2?p:tablify(p)).join("");   // 코드 상자 안의 | 는 건드리지 않는다
+const richHtml=raw=>imgify(tablifyMd(renderMd(remoteText(raw))).replace(/\n(<div class="cbw">)/g,"$1").replace(/(<\/pre><\/div>)\n/g,"$1"));
 const cmBody=j=>richHtml(j.raw!=null?j.raw:j.notes);
 function origCard(n){
   const n2=noteImgs(n).length;
@@ -281,7 +304,7 @@ const chgHtml=c=>`<div class="chg"><span class="chgdot" aria-hidden="true">↻</
 const cmHist=n=>cmEntries(n).map(e=>e.c?chgHtml(e.c):(j=>`<div class="cm ${j.user&&j.user.id===cfg.meId?"me":""}"><div class="av">${esc(avatar(j.user.name))}</div><div style="flex:1;min-width:0"><div class="who"><b>${esc(j.user.name)}</b> · ${dTime(j.created_on)}</div><div class="bubble">${cmBody(j)}</div><div class="cmimgs" data-attj="${j.id||0}"></div></div></div>`)(e.j)).join("")||`<span class="meta">댓글이 없습니다.</span>`;
 function cmSum(n){   // 접혀 있을 때 한 줄 미리보기: 마지막 댓글
   const j=n.journals[n.journals.length-1];if(!j)return "· 아직 댓글이 없어요";
-  const t=remoteText(j.raw!=null?j.raw:j.notes).replace(/```[A-Za-z0-9_+#.-]*/g," ").replace(/`/g,"").replace(/\s+/g," ").trim();
+  const t=remoteText(j.raw!=null?j.raw:j.notes).replace(/\|_\. /g,"|").replace(/```[A-Za-z0-9_+#.-]*/g," ").replace(/`/g,"").replace(/\s+/g," ").trim();
   return `· 마지막 ${esc(j.user.name)} ${dTime(j.created_on)} — ${esc(t.slice(0,60))}${t.length>60?"…":""}`;
 }
 

@@ -23,6 +23,13 @@
 .attcard .attrow .ab .am{margin-left:0;text-align:left}
 .attcard a.dl{text-decoration:none}
 .j.orig{overflow-wrap:anywhere}
+/* 2.19.1 레드마인 표: 칸이 붙어 읽히지 않게 진짜 표로. 넓으면 표만 옆으로 밀어 본다 */
+.rtbl{overflow-x:auto;margin:6px 0;white-space:normal}
+.rtbl table{border-collapse:collapse;font-size:.9em;line-height:1.5}
+.rtbl th,.rtbl td{border:1px solid var(--line);padding:4px 9px;text-align:left;vertical-align:top;overflow-wrap:normal;word-break:keep-all;min-width:3em}
+.rtbl th{background:var(--surface);font-weight:600}
+.rtbl .nw{white-space:nowrap}
+.rtbl tr:nth-child(even) td{background:var(--surface)}
 .chg{display:flex;gap:10px;margin:0 0 12px 4px;color:var(--sub);font-size:.86rem;line-height:1.5}
 .chg .chgdot{flex:none;width:30px;height:30px;border-radius:50%;background:var(--surface2);border:1px dashed var(--line);display:flex;align-items:center;justify-content:center;font-size:.8rem;margin-right:2px}
 .chg .chgbody{min-width:0}.chg b{color:var(--text);font-weight:600}
