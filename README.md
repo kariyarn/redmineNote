@@ -15,7 +15,7 @@
 
 > 새 버전 올리기: **Actions → build → Run workflow** 를 `main` 에서 돌리면 정식 릴리스(`v<버전>`, Latest)가 되고 위 링크가 그 파일로 바뀝니다.
 >
-> 베타: PR 이 `main` 에 머지될 때마다 자동으로 **베타 릴리스**(`v<버전>-beta.<번호>`, Pre-release)를 쌓아요. 파일은 `RedmineNotes2-Beta-Setup-2.19.2-beta.3.exe` · `RedmineNotes2-Beta-2.19.2-beta.3.exe` 처럼 정식 파일과 이름이 달라요. [모든 버전](https://github.com/kariyarn/redmineNote/releases)에서 받을 수 있고, Latest 가 아니라서 위 링크와 정식 버전의 앱 안 업데이트에는 잡히지 않아요.
+> 베타: PR 이 `main` 에 머지될 때마다 자동으로 **베타 릴리스**(`v<버전>-beta.<번호>`, Pre-release)를 쌓아요. 파일은 `RedmineNotes2-Beta-Setup-2.20.0-beta.3.exe` · `RedmineNotes2-Beta-2.20.0-beta.3.exe` 처럼 정식 파일과 이름이 달라요. [모든 버전](https://github.com/kariyarn/redmineNote/releases)에서 받을 수 있고, Latest 가 아니라서 위 링크와 정식 버전의 앱 안 업데이트에는 잡히지 않아요.
 > - 베타는 **정식과 따로 설치 · 실행**돼요: 설치 위치(`%LOCALAPPDATA%\Programs\RedmineNotes2-Beta`) · exe 이름 · 포트(8792, 정식 8791) · 창 제목 `레드마인 노트 2 (베타)` · 작업 표시줄 묶음 · 트레이 · 앱 창 프로필 · 시작 메뉴/제거 항목이 모두 따로예요.
 > - **노트 데이터(일감 · 메모 · 설정 · 백업)는 같이 써요**(`%APPDATA%\RedmineNotes2`). 그래서 정식과 베타는 **한 번에 하나만** 켤 수 있고, 다른 쪽이 켜져 있으면 알리고 끝나요.
 > - 베타의 앱 안 업데이트는 가장 새 **베타**를 확인해요(빌드한 커밋으로 같은 빌드인지 봐요).
