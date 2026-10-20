@@ -9,7 +9,7 @@ from .storage import db
 
 
 def command_row(row):
-    d = {key: row[key] for key in ("id", "shortcut", "description", "created_at", "updated_at")}
+    d = {key: row[key] for key in ("id", "shortcut", "description", "created_at", "updated_at", "position")}
     d["pinned"] = bool(row["pinned"])
     return d
 
@@ -17,7 +17,7 @@ def command_row(row):
 def command_list():
     with db() as c:
         return [command_row(row) for row in c.execute(
-            "SELECT * FROM commands ORDER BY shortcut COLLATE NOCASE, id LIMIT 5000"
+            "SELECT * FROM commands ORDER BY position, id LIMIT 5000"
         )]
 
 
@@ -48,8 +48,9 @@ def command_save(data):
         else:
             try:
                 cur = c.execute(
-                    "INSERT INTO commands (shortcut, description, pinned, created_at, updated_at) VALUES (?,?,?,?,?)",
-                    (shortcut, description, pinned, now, now),
+                    "INSERT INTO commands (shortcut, description, pinned, position, created_at, updated_at) "
+                    "VALUES (?,?,?,?,?,?)",
+                    (shortcut, description, pinned, c.execute("SELECT COALESCE(MAX(position), -1) + 1 FROM commands").fetchone()[0], now, now),
                 )
                 command_id = cur.lastrowid
             except sqlite3.IntegrityError as exc:
@@ -57,6 +58,18 @@ def command_save(data):
                     raise ValueError("이미 사용 중인 단축어예요") from exc
                 raise
         return command_row(c.execute("SELECT * FROM commands WHERE id=?", (command_id,)).fetchone())
+
+
+def command_reorder(ids):
+    if not isinstance(ids, list) or len(ids) > 5000 or any(type(command_id) is not int for command_id in ids):
+        raise ValueError("명령어 순서가 올바르지 않아요")
+    with db() as c:
+        current = [row["id"] for row in c.execute("SELECT id FROM commands ORDER BY position, id LIMIT 5000")]
+        if len(ids) != len(current) or set(ids) != set(current):
+            raise ValueError("목록이 바뀌었어요. 새로고침한 뒤 다시 시도해 주세요")
+        for position, command_id in enumerate(ids):
+            c.execute("UPDATE commands SET position=? WHERE id=?", (position, command_id))
+        return [command_row(row) for row in c.execute("SELECT * FROM commands ORDER BY position, id LIMIT 5000")]
 
 
 def command_delete(command_id):

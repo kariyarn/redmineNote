@@ -33,7 +33,7 @@ from .holidays import extra_days, holiday_dates
 from .queries import query_delete, query_import, query_list, query_pin, query_restore, query_save, query_use, query_versions
 from . import updater
 from .attention import notify as attention_notify
-from .commands import command_delete, command_list, command_save, var_delete, var_list, var_save
+from .commands import command_delete, command_list, command_reorder, command_save, var_delete, var_list, var_save
 from .trouble import trouble_row, trouble_save
 from . import gitbackup
 
@@ -505,6 +505,11 @@ class Handler(BaseHTTPRequestHandler):
                         self.send_json(query_pin(int(d.get("id") or 0), d.get("pinned")))
                     else:
                         self.send_json(query_save(d))
+                except (ValueError, TypeError) as e:
+                    self.send_json({"error": str(e)}, 400)
+            elif u.path == "/api/commands/order":
+                try:
+                    self.send_json(command_reorder(d.get("ids")))
                 except (ValueError, TypeError) as e:
                     self.send_json({"error": str(e)}, 400)
             elif u.path == "/api/commands":

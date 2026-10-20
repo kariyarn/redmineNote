@@ -2,7 +2,7 @@
    입력창 아래: 명령어가 CMD_BTN_MAX 개 이하면 모두 버튼, 넘으면 '버튼으로 꺼내 두기'한 것만 버튼으로 남기고 나머지는 선택칸으로 접는다.
    문구 안의 #{이름} · #{이름(인수, …)} 은 명령어 변수로 바꿔 넣는다: 상수 = 값 그대로, 함수 = 사용자가 쓴 JavaScript 함수 본문을 실행한 결과.
    함수는 따로 띄운 Worker 에서 실행해서(화면 · 저장된 데이터에 손대지 못하고, 오래 걸리면 끊는다) 앱이 멈추지 않는다. \#{…} 는 바꾸지 않고 #{…} 로 남긴다. */
-let cmdItems=[],cmdVars=[],cmdLoaded=false,cmdLoading=null,cmdSelected=null,cmdDraft=null,cmdSearch="";
+let cmdItems=[],cmdVars=[],cmdLoaded=false,cmdLoading=null,cmdSelected=null,cmdDraft=null,cmdSearch="",cmdDragId=null;
 let cmdTab="cmd",varSelected=null,varDraft=null;
 const CMD_BTN_MAX=6;          // 이보다 많으면 선택칸으로 접는다 (꺼내 둔 것은 버튼으로 남김)
 const CMD_FUNC_MS=3000;       // 함수 실행 시간 한도
@@ -14,7 +14,7 @@ async function cmdLoad(force=false){
     .finally(()=>{cmdLoading=null});
   return cmdLoading;
 }
-function cmdSort(){cmdItems.sort((a,b)=>a.shortcut.localeCompare(b.shortcut,"ko")||a.id-b.id)}
+function cmdSort(){cmdItems.sort((a,b)=>a.position-b.position||a.id-b.id)}
 function varSort(){cmdVars.sort((a,b)=>a.name.localeCompare(b.name,"ko")||a.id-b.id)}
 function cmdPut(row){const i=cmdItems.findIndex(x=>x.id===row.id);if(i<0)cmdItems.push(row);else cmdItems[i]=row;cmdSort()}
 function varPut(row){const i=cmdVars.findIndex(x=>x.id===row.id);if(i<0)cmdVars.push(row);else cmdVars[i]=row;varSort()}
@@ -221,11 +221,39 @@ function cmdDrawList(){
     return;
   }
   const list=cmdItems.filter(x=>!q||`${x.shortcut}\n${x.description}`.toLowerCase().includes(q));
-  el.innerHTML=list.map(x=>`<div class="tr-item ${x.id===cmdSelected&&!cmdDraft?"on":""}" data-cmd-select="${x.id}">
-    <div class="tt">${esc(x.shortcut)}${x.pinned?` <span class="tg" title="명령어가 많아 선택칸으로 접혀도 버튼으로 남아요">버튼</span>`:""}</div><div class="sn">${esc(x.description.replace(/\s+/g," ").slice(0,160))}</div></div>`).join("")
+  const canReorder=!q&&!cmdDraft&&list.length>1;
+  el.innerHTML=(canReorder?`<div class="meta cmd-order-hint">☷ 항목을 드래그해 순서를 바꿀 수 있어요. 댓글의 명령어에도 같은 순서가 적용돼요.</div>`:"")
+    +list.map(x=>`<div class="tr-item ${x.id===cmdSelected&&!cmdDraft?"on":""} ${canReorder?"cmd-order-item":""}" data-cmd-select="${x.id}" ${canReorder?'draggable="true" title="끌어서 순서 변경"':""}>
+    <div class="tt">${canReorder?`<span class="cmd-drag-handle" aria-hidden="true">☷</span>`:""}${esc(x.shortcut)}${x.pinned?` <span class="tg" title="명령어가 많아 선택칸으로 접혀도 버튼으로 남아요">버튼</span>`:""}</div><div class="sn">${esc(x.description.replace(/\s+/g," ").slice(0,160))}</div></div>`).join("")
     ||`<div class="meta" style="padding:10px 4px">${cmdItems.length?"검색 결과가 없어요":"아직 명령어가 없어요. ＋ 새 명령어로 단축어와 댓글 문구를 등록해 보세요."}</div>`;
   el.querySelectorAll("[data-cmd-select]").forEach(b=>b.onclick=async()=>{if(cmdDirty()&&!await askC("수정한 내용이 저장되지 않았어요. 버리고 이동할까요?"))return;
     cmdSelected=+b.dataset.cmdSelect;cmdDraft=null;cmdDrawList();cmdDrawMain()});
+  if(canReorder){
+    el.querySelectorAll(".cmd-order-item").forEach(b=>{
+      b.ondragstart=e=>{cmdDragId=+b.dataset.cmdSelect;b.classList.add("dragging");e.dataTransfer.effectAllowed="move";e.dataTransfer.setData("text/plain",String(cmdDragId))};
+      b.ondragend=()=>{cmdDragId=null;el.querySelectorAll(".cmd-order-item").forEach(x=>x.classList.remove("dragging","drop-before","drop-after"))};
+      b.ondragover=e=>{if(!cmdDragId||cmdDragId===+b.dataset.cmdSelect)return;e.preventDefault();e.dataTransfer.dropEffect="move";
+        const after=e.clientY>b.getBoundingClientRect().top+b.offsetHeight/2;b.classList.toggle("drop-before",!after);b.classList.toggle("drop-after",after)};
+      b.ondragleave=()=>b.classList.remove("drop-before","drop-after");
+      b.ondrop=async e=>{
+        e.preventDefault();const from=cmdDragId||Number(e.dataTransfer.getData("text/plain")),to=+b.dataset.cmdSelect;
+        b.classList.remove("drop-before","drop-after");
+        if(!from||from===to)return;
+        const original=cmdItems.slice(),next=original.slice(),fromIndex=next.findIndex(x=>x.id===from),toIndex=next.findIndex(x=>x.id===to);
+        if(fromIndex<0||toIndex<0)return;
+        const after=e.clientY>b.getBoundingClientRect().top+b.offsetHeight/2;
+        next.splice(fromIndex,1);
+        const targetIndex=toIndex-(fromIndex<toIndex?1:0);
+        next.splice(targetIndex+(after?1:0),0,original[fromIndex]);
+        cmdItems=next;cmdDrawList();cmdRefreshComposers();
+        try{
+          cmdItems=await post("/api/commands/order",{ids:next.map(x=>x.id)});cmdSort();cmdDrawList();cmdRefreshComposers();
+        }catch(err){
+          cmdItems=original;cmdDrawList();cmdRefreshComposers();toast("순서를 저장하지 못했어요: "+err.message,4500);
+        }
+      };
+    });
+  }
 }
 function cmdDrawMain(){return cmdTab==="var"?varDrawMain():cmdDrawCmd()}
 const varChips=()=>cmdVars.length?`<div class="row cmd-varchips" style="margin:6px 0 0;gap:6px;flex-wrap:wrap"><span class="meta">변수 넣기</span>${cmdVars.map(v=>`<button type="button" class="mini" data-ins="${esc(varInsText(v))}" title="${esc(VAR_KIND[v.kind]+" "+varSigText(v)+(v.description?" · "+v.description:""))}">${esc(varSigText(v))}</button>`).join("")}</div>`:"";

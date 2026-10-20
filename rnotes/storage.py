@@ -256,6 +256,10 @@ def init_db():
         cmd_cols = {r["name"] for r in c.execute("PRAGMA table_info(commands)")}
         if "pinned" not in cmd_cols:  # 2.18.0: 버튼으로 꺼내 두기 (명령어가 많아 선택칸으로 접혀도 버튼으로 남긴다)
             c.execute("ALTER TABLE commands ADD COLUMN pinned INTEGER DEFAULT 0")
+        if "position" not in cmd_cols:  # 2.21.2: 등록 순서와 사용자가 바꾼 순서 보존
+            c.execute("ALTER TABLE commands ADD COLUMN position INTEGER NOT NULL DEFAULT 0")
+            for position, row in enumerate(c.execute("SELECT id FROM commands ORDER BY id")):
+                c.execute("UPDATE commands SET position=? WHERE id=?", (position, row["id"]))
         if "params" not in {r["name"] for r in c.execute("PRAGMA table_info(cmd_vars)")}:  # 2.18.0: 함수 인자 [{name, type, default}]
             c.execute("ALTER TABLE cmd_vars ADD COLUMN params TEXT DEFAULT '[]'")
         seed_cmd_vars(c)

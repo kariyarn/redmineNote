@@ -27,7 +27,29 @@ t("create trims shortcut and preserves multiline text",
   a["shortcut"] == "배포요청" and a["description"] == "운영 서버 배포를 요청드립니다.\n확인 부탁드립니다." and a["id"] > 0)
 b = C.command_save({"shortcut": "장애", "description": "확인 중입니다."})
 listed = C.command_list()
-t("list sorted by shortcut", [x["shortcut"] for x in listed] == ["배포요청", "장애"])
+t("commands follow registration order", [x["shortcut"] for x in listed] == ["배포요청", "장애"])
+t("positions are assigned in registration order", [x["position"] for x in listed] == [0, 1])
+reordered = C.command_reorder([b["id"], a["id"]])
+t("reorder persists requested order", [x["id"] for x in reordered] == [b["id"], a["id"]]
+  and [x["shortcut"] for x in C.command_list()] == ["장애", "배포요청"])
+tail = C.command_save({"shortcut": "새 명령어", "description": "마지막에 추가"})
+t("new commands append after customized order", [x["id"] for x in C.command_list()] == [b["id"], a["id"], tail["id"]])
+C.command_delete(tail["id"])
+storage.init_db()
+t("custom order survives database initialization", [x["id"] for x in C.command_list()] == [b["id"], a["id"]])
+for invalid_order in ([a["id"]], [a["id"], a["id"]], [a["id"], 999999], [True, b["id"]]):
+    try:
+        C.command_reorder(invalid_order)
+        t("invalid command order rejected", False)
+    except ValueError:
+        t("invalid command order rejected", True)
+C.command_reorder([a["id"], b["id"]])
+with storage.db() as c:
+    c.execute("ALTER TABLE commands DROP COLUMN position")
+storage.init_db()
+t("legacy commands migrate to registration order",
+  [x["id"] for x in C.command_list()] == [a["id"], b["id"]]
+  and [x["position"] for x in C.command_list()] == [0, 1])
 
 for duplicate in ("배포요청", " 배포요청 "):
     try:
