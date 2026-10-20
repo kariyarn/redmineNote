@@ -121,6 +121,20 @@ jobs:
         if: steps.reuse.outputs.reused != 'true'
         run: python tests/test_exe.py dist/${{ steps.ver.outputs.exe }}.exe
 
+      - name: 오른쪽 아래 알림 창 시험 (실제 창을 띄워 위치 · 누르기 · 닫힘 확인, 화면을 찍어 둔다)
+        if: steps.reuse.outputs.reused != 'true'
+        run: |
+          mkdir popup-shot
+          python tests/test_popup.py . popup-shot
+
+      - uses: actions/upload-artifact@v7
+        if: always() && steps.reuse.outputs.reused != 'true'
+        with:
+          name: popup-shot-${{ steps.ver.outputs.version }}
+          path: popup-shot/
+          if-no-files-found: ignore
+          retention-days: 14
+
       - name: (실패했을 때만) 멈춘 곳 · 오류 내용 보기
         if: failure() && steps.reuse.outputs.reused != 'true'
         shell: pwsh
