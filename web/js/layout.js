@@ -79,7 +79,9 @@ function renderNav(){
   {const moreItems=mk("summary","요약")+mk("graph","그래프")+mk("code","코드 이력")+mk("deploy","배포요청",0,dpIc)+mk("trouble","트러블슈팅")+vaultNav()+dictBtn;
   $("#navitems").innerHTML=mk("today","오늘",nowN)+mk("history","이력")+mk("mine","내 기록")+mk("memo","메모",0,memoEx)
     +(moreItems?`<div class="nv-sec" id="navmore"><span>더 보기${!more&&dpIc&&navShown("deploy")?" "+dpIcon(true):""}</span>${chev(more)}</div>`+(more?moreItems:""):"")}
-  document.querySelectorAll("#nav [data-nav]").forEach(b=>b.onclick=()=>{setNav(b.dataset.nav);toTop();setTimeout(toTop,60)});     // 이미 그 화면이어도 맨 위로
+  document.querySelectorAll("#nav [data-nav]").forEach(b=>{const k=b.dataset.nav,nt=e=>{const o=tabOpt(e);if((o.bg||o.newTab)&&TAB_SCREENS.includes(k)){e.preventDefault();tabOpenNew(k,o);return true}};
+    b.onclick=e=>{if(nt(e))return;setNav(k);toTop();setTimeout(toTop,60)};     // 이미 그 화면이어도 맨 위로 · 휠 클릭 / Ctrl+클릭 = 새 탭
+    b.onmousedown=e=>{if(e.button===1)e.preventDefault()};b.onauxclick=e=>{if(e.button===1)nt(e)}});
   document.querySelectorAll("#nav [data-nvb]").forEach(i=>i.onclick=e=>{e.stopPropagation();if(i.dataset.nvb==="al"){alr.hide.clear();alDraw()}else sbcGo(todayStr())});
   sbcDraw();
   if($("#navmore"))$("#navmore").onclick=()=>{ui.navMore=!more;saveUI();renderNav()};

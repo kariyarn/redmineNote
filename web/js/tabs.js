@@ -1,7 +1,7 @@
 /* ---------- 탭 (2.22 · 화면 탭 2.22.2): 크롬처럼 노트 · 화면(메모 · 트러블슈팅 · 요약 …)을 열어 두고 오간다 ----------
    목록 · 링크에서 그냥 누르기 = 지금 탭에서 열기 (이미 탭으로 열려 있으면 그 탭으로)
    휠 클릭 · Ctrl+클릭 = 새 탭에 열기 (지금 보던 노트는 그대로) · Ctrl+Shift+클릭 = 새 탭에 열고 그 탭으로
-   메뉴에서 메모 · 트러블슈팅 · 요약 같은 화면을 누르면 그 화면의 탭으로 (없으면 새 탭). 화면 탭에서 노트를 열면 옆에 노트 탭
+   메뉴의 메모 · 트러블슈팅 · 요약 같은 화면도 같다: 그냥 누르기 = 지금 탭을 그 화면으로, 휠 클릭 · Ctrl+클릭 = 새 탭 (이미 열려 있으면 그 탭으로)
    탭: 누르기 = 그 노트 · 화면으로 · × 또는 휠 클릭 = 닫기 · 끌어서 순서 바꾸기 · 우클릭 = 다른 탭 / 오른쪽 탭 닫기
    Ctrl+W = 지금 탭 닫기 · Ctrl+Tab / Ctrl+Shift+Tab = 다음 / 이전 탭 · Ctrl+1~9 (Alt+PageUp / Alt+PageDown · Alt+W 도 된다). 열어 둔 탭은 기억했다가 다시 켜면 그대로 (ui.tabs · ui.tabCur) */
 const TAB_MAX=12;                 // 넘으면 가장 왼쪽(지금 탭이 아닌 것)부터 닫는다
@@ -19,16 +19,22 @@ function tabRestore(){            // 켤 때 (노트를 읽은 뒤): 지난번 �
   if(cur==null&&tabs.includes(ui.tabCur))cur=ui.tabCur;
   tabAt=tabs.indexOf(cur);
 }
-function tabPlace(k,newTab){      // k 를 어느 탭에 둘지: 이미 있으면 그대로. 노트 탭에서 노트를 열면 그 자리를 바꾸고, 새 탭 · 화면 · 화면 탭에서 연 노트는 지금 탭 오른쪽에
+function tabPlace(k,newTab){      // k 를 어느 탭에 둘지: 이미 있으면 그대로(그 탭으로). 새 탭이면 지금 탭 오른쪽에, 아니면 노트든 화면이든 지금 탭 자리를 바꾼다 (크롬과 같다)
   if(tabs.includes(k))return;
   const ck=curKey(),i=tabs.includes(ck)?tabs.indexOf(ck):tabAt<tabs.length?tabAt:-1;
-  if(newTab||i<0||isScr(k)||isScr(tabs[i]))tabs.splice(i<0?tabs.length:i+1,0,k);else tabs[i]=k;
+  if(newTab||i<0||!(tabs.includes(ck)||ck===k))tabs.splice(i<0?tabs.length:i+1,0,k);      // 지금 보고 있는 탭이 없으면(이력 목록만 보는 중) 바꾸지 않고 옆에
+  else{if(!isScr(tabs[i])&&tabs[i]===cur&&isScr(k))cur=null;tabs[i]=k}      // 노트 탭이 화면으로 바뀌면 그 노트는 닫힌 것 (이력 · 오늘에서 저절로 되살아나지 않게)
   while(tabs.length>TAB_MAX)tabs.splice(tabs.findIndex(x=>x!==k&&x!==ck),1);
 }
 function tabSync(){               // 탭이 아닌 길(메뉴 · 뒤로 가기 · 오늘 화면의 자동 열기)로 연 노트 · 화면도 탭에 둔다
+  if(view==="note"&&todayFull())return;      // 새 디자인의 넓은 오늘 목록: 노트를 보고 있지 않다
   const k=curKey();
   if(k!=null&&!tabs.includes(k)&&(isScr(k)||all.some(n=>n.issue_id===k))){tabPlace(k,false);tabSave()}
   if(tabs.includes(k))tabAt=tabs.indexOf(k);
+}
+function tabOpenNew(k,o){        // 메뉴 화면을 휠 클릭 · Ctrl+클릭 = 새 탭 (Ctrl+Shift+클릭 = 새 탭으로 이동). 이미 열려 있으면 그 탭으로
+  if(tabs.includes(k)||o.newTab||curKey()==null){tabPlace(k,true);tabActivate(k);return}
+  tabPlace(k,true);tabSave();renderTabBar();toast(`${NAVLABEL[k]||k} 을(를) 새 탭에 열었어요 · 위쪽 탭을 누르면 가요`,2200);
 }
 function tabLeave(){const k=curKey();if(k!=null&&tabs.includes(k))tabScroll.set(k,$("#center").scrollTop)}   // 다른 탭으로 가기 전에 보던 위치를 기억
 function tabActivate(k){
