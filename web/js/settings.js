@@ -38,6 +38,8 @@ async function renderSettings(){
    ${sec("gen","알림 방식","앱 창을 <b>보고 있지 않을 때</b>(최소화 · 다른 창에 가려짐 · 다른 앱 사용 중 · 창을 닫아 트레이에만 있음) 알림을 놓치지 않게 해요.",`
      <div><label class="chk"><input type="checkbox" id="nFlash" ${S.notify_flash!=="0"?"checked":""}> 작업 표시줄 아이콘 반짝이기 <span class="hint">창을 다시 볼 때까지</span></label></div>
      <div><label class="chk"><input type="checkbox" id="nPopup" ${S.notify_popup!=="0"?"checked":""}> 오른쪽 아래 알림 창 <span class="hint">카카오톡 알림처럼 · 자동 가져오기의 새 일감 · 새 댓글 · 누르면 그 노트의 새 댓글로</span></label> <button type="button" class="mini" id="nPopupTry">미리 보기</button></div>
+     ${autoSyncMin()?`<p class="hint" style="margin-left:0">창을 닫아 두어도 서버가 <b>${autoSyncMin()}분마다</b>(영업일 ${(autoSync.st&&autoSync.st.window||["08:30","18:30"]).join(" ~ ")}) 바뀐 일감을 확인해서 알려 줘요.</p>`
+       :`<p class="hint bad" style="margin-left:0">⚠ <b>자동 가져오기가 꺼져 있어요.</b> 창을 닫거나 다른 일을 하는 동안에는 레드마인을 확인하지 않아서 알림 창이 뜨지 않아요 (앱을 열었을 때 화면 안에서만 알려 줘요). <button type="button" class="mini primary" id="nAutoOn">10분마다 자동 가져오기 켜기</button></p>`}
      <div><label class="chk"><input type="checkbox" id="nToast" ${S.notify_toast!=="0"?"checked":""}> 윈도우 알림 띄우기 <span class="hint">오른쪽 아래 · 알림 센터에 남아요 (알림 창을 끄면 새 일감 · 새 댓글도 이것으로)</span></label></div>
      <p class="hint" style="margin-left:0">윈도우 알림이 안 보이면 윈도우 설정 → 시스템 → 알림에서 <b>방해 금지(집중 지원)</b>가 꺼져 있는지 확인하세요.</p>`)}
 
@@ -156,6 +158,8 @@ async function renderSettings(){
   };
   q("#nFlash").onchange=e=>{saveS("notify_flash",e.target.checked?"1":"0");toast(e.target.checked?"보고 있지 않을 때 작업 표시줄 아이콘을 반짝여요":"반짝이지 않아요",2400)};
   q("#nPopup").onchange=e=>{saveS("notify_popup",e.target.checked?"1":"0");toast(e.target.checked?"보고 있지 않을 때 새 일감 · 새 댓글을 오른쪽 아래 알림 창으로 알려 줘요":"알림 창을 껐어요 (윈도우 알림으로 알려 줘요)",2800)};
+  if(q("#nAutoOn"))q("#nAutoOn").onclick=async()=>{await saveS("auto_sync_min",10);await autoSyncPoll();renderSettings();
+    toast(`10분마다 자동으로 가져와요${S.last_sync?"":" (처음 한 번은 왼쪽 가져오기로 직접 받아 주세요)"} · 창을 닫아도 새 일감 · 새 댓글을 알려 줘요`,4000)};
   q("#nPopupTry").onclick=async()=>{const n=curNote();
     try{const r=await post("/api/popup/test",{issue_id:n?n.issue_id:null,title:n?`#${n.issue_id} ${n.subject}`:""});toast(r.shown?"오른쪽 아래를 보세요 · 누르면 "+(n?"지금 노트로 가요":"앱으로 와요"):"알림 창을 띄우지 못했어요"+(r.reason?`: ${r.reason}`:""),3500)}
     catch(e){toast("알림 창을 띄우지 못했어요: "+e.message,4000)}};
