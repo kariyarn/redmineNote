@@ -550,6 +550,9 @@ class Handler(BaseHTTPRequestHandler):
                     self.send_json(fn())
                 except updater.UpdateError as e:
                     self.send_json({"error": str(e)}, 400)
+                except OSError as e:   # 예상하지 못한 파일 · 권한 오류도 어느 단계인지 알 수 있게
+                    step = {"check": "확인", "download": "받기", "apply": "바꾸기"}[u.path.rsplit("/", 1)[1]]
+                    self.send_json({"error": f"{step} 단계에서 막혔어요 ({e}) — 릴리스 페이지에서 설치 파일을 받아 직접 실행해 주세요"}, 400)
             elif u.path == "/api/holiday/fetch":   # 이번 주 공휴일을 지금 받기
                 try:
                     fetch_and_store(week_start(datetime.date.today()))

@@ -89,6 +89,29 @@ U._DL.update(state="ready"); r = U.apply()
 t("apply: PyInstaller env not inherited (new exe must not load the old _MEI python dll)", r["inherit"] == ["PYINSTALLER_RESET_ENVIRONMENT"], r["inherit"])
 for k in ("_PYI_APPLICATION_HOME_DIR", "_PYI_ARCHIVE_FILE", "_PYI_PARENT_PROCESS_LEVEL", "_MEIPASS2"): os.environ.pop(k)
 t("helper relaunches installer silently", "/VERYSILENT" in U.HELPER and "/RELAUNCH=1" in U.HELPER and "%RN_" in U.HELPER)
+# 3-2. 바꾸기가 '액세스가 거부되었습니다(WinError 5)' 로 막히지 않게: 도우미 파일은 매번 새 이름, cmd 를 못 띄우면 설치 파일을 바로 실행
+s1 = U.write_helper(); time.sleep(1.1); s2 = U.write_helper()
+t("helper file: new name each time, old one removed", s1 != s2 and s2.exists() and not s1.exists() and len(list(U.WORK_DIR.glob("apply-update*.cmd"))) == 1)
+from rnotes import lifecycle as LC
+launched, real_popen, real_shutdown = [], U.subprocess.Popen, LC.shutdown
+def fake_popen(args, **kw):
+    if str(args[0]).lower() == "cmd.exe":
+        e = PermissionError(13, "액세스가 거부되었습니다"); e.winerror = 5; raise e
+    launched.append(list(args))
+U.subprocess.Popen, LC.shutdown, U.DRY_RUN = fake_popen, (lambda: launched.append("shutdown")), False
+U._DL.update(state="ready"); r = U.apply(); time.sleep(1.3)
+t("cmd blocked (WinError 5) -> run setup directly (it closes the app and relaunches)", r == {"ok": True} and launched[0] == [d["file"], *U.SETUP_ARGS] and launched[-1] == "shutdown", launched)
+real_write, launched[:] = U.write_helper, []
+def deny(): e = PermissionError(13, "액세스가 거부되었습니다"); e.winerror = 5; raise e
+U.write_helper = deny
+U._DL.update(state="ready"); r = U.apply(); time.sleep(1.3)
+t("helper file write blocked -> run setup directly", launched and launched[0][0] == d["file"], launched)
+def no_run(args, **kw):
+    e = PermissionError(13, "액세스가 거부되었습니다"); e.winerror = 5; raise e
+U.subprocess.Popen, launched[:] = no_run, []
+U._DL.update(state="ready")
+t("setup also blocked -> clear message naming the file, state back to ready", "WinError 5" in err(U.apply) and d["file"] in err(U.apply) and U._DL["state"] == "ready" and launched == [])
+U.subprocess.Popen, LC.shutdown, U.DRY_RUN, U.write_helper = real_popen, real_shutdown, True, real_write
 
 # 4. exe 방식: exe 를 고른다, 쓸 수 없는 폴더면 거절
 U._DL.update(state="idle", file="")
