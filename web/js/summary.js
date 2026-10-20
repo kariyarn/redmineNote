@@ -40,7 +40,7 @@ function drCard(){
     <div class="drsts"><button type="button" class="dchip ${picked.length?"":"on"}" data-drs="*">전체 <small>${cands.length}</small></button>${sts.map(([x,c])=>`<button type="button" class="dchip ${picked.includes(x)?"on":""}" data-drs="${esc(x)}">${esc(x)} <small>${c}</small></button>`).join("")}</div>
     <div class="drlist">${l.map(n=>`<div class="drrow${drPick.has(n.issue_id)?" picked":""}"><input type="checkbox" class="drck" data-drsel="${n.issue_id}" ${drPick.has(n.issue_id)?"checked":""} tabindex="-1" aria-hidden="true"><div class="drnr">${nrow(n,{age:drSel==="now"})}</div></div>`).join("")||`<div class="meta" style="padding:10px 0">조건에 맞는 DR 일감이 없어요.</div>`}</div>
     <div class="dract"><button type="button" class="primary" id="drcopy" ${l.length?"":"disabled"}>전체 복사 (${l.length})</button><button type="button" id="drcopySel" disabled>선택 복사 (0)</button><button type="button" class="mini" id="drAll" ${l.length?"":"disabled"}>모두 선택</button><button type="button" class="mini" id="drNone">해제</button><button type="button" class="mini" id="drdl" ${l.length?"":"disabled"} title="텍스트 파일로 저장">파일</button>
-      <label class="meta drmine"><input type="checkbox" id="drnum" ${ui.copyNum?"checked":""}> 번호</label><label class="meta drmine"><input type="checkbox" id="drst" ${ui.copySt?"checked":""}> 상태</label><span class="meta drhint">한 번 클릭 = 선택 · 두 번 클릭 = 열기</span></div></div>`;
+      <label class="meta drmine"><input type="checkbox" id="drnum" ${ui.copyNum?"checked":""}> 번호</label><label class="meta drmine"><input type="checkbox" id="drst" ${ui.copySt?"checked":""}> 상태</label><label class="meta drmine"><input type="checkbox" id="drteam" ${ui.copyTeam!==false?"checked":""}> 팀 이름 포함</label><span class="meta drhint">한 번 클릭 = 선택 · 두 번 클릭 = 열기</span></div></div>`;
 }
 function wireDr(){
   const go=o=>{setDrF(o);renderCenter()};
@@ -55,7 +55,11 @@ function wireDr(){
   if($("#drReset"))$("#drReset").onclick=()=>go({...DRF_DEF});
   if($("#drnum"))$("#drnum").onchange=e=>{ui.copyNum=e.target.checked;saveUI()};
   if($("#drst"))$("#drst").onchange=e=>{ui.copySt=e.target.checked;saveUI()};
-  const fmtLine=n=>{let t=ui.copyNum?`#${n.issue_id} ${n.subject}`:n.subject;if(ui.copySt)t+=` — ${n.rm_status}`;return t};
+  if($("#drteam"))$("#drteam").onchange=e=>{ui.copyTeam=e.target.checked;saveUI()};
+  const fmtLine=n=>{
+    const subject=ui.copyTeam===false?n.subject.replace(/^\s*\[[^\]]{1,24}\]\s*(?=\S)/,""):n.subject;
+    let t=ui.copyNum?`#${n.issue_id} ${subject}`:subject;if(ui.copySt)t+=` — ${n.rm_status}`;return t;
+  };
   const lines=()=>drList().map(fmtLine),selLines=()=>drList().filter(n=>drPick.has(n.issue_id)).map(fmtLine);
   const updSel=()=>{const k=selLines().length,b=$("#drcopySel");if(b){b.textContent=`선택 복사 (${k})`;b.disabled=!k}};
   const mark=c=>c.closest(".drrow").classList.toggle("picked",c.checked);
@@ -166,4 +170,3 @@ function renderSummary(){
     copyText(md,"요약을 복사했어요");
   };
 }
-
