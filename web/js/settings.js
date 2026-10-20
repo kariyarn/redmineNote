@@ -37,7 +37,8 @@ async function renderSettings(){
 
    ${sec("gen","알림 방식","앱 창을 <b>보고 있지 않을 때</b>(최소화 · 다른 창에 가려짐 · 다른 앱 사용 중 · 창을 닫아 트레이에만 있음) 알림을 놓치지 않게 해요.",`
      <div><label class="chk"><input type="checkbox" id="nFlash" ${S.notify_flash!=="0"?"checked":""}> 작업 표시줄 아이콘 반짝이기 <span class="hint">창을 다시 볼 때까지</span></label></div>
-     <div><label class="chk"><input type="checkbox" id="nToast" ${S.notify_toast!=="0"?"checked":""}> 윈도우 알림 띄우기 <span class="hint">오른쪽 아래 · 알림 센터에 남아요</span></label></div>
+     <div><label class="chk"><input type="checkbox" id="nPopup" ${S.notify_popup!=="0"?"checked":""}> 오른쪽 아래 알림 창 <span class="hint">카카오톡 알림처럼 · 자동 가져오기의 새 일감 · 새 댓글 · 누르면 그 노트의 새 댓글로</span></label> <button type="button" class="mini" id="nPopupTry">미리 보기</button></div>
+     <div><label class="chk"><input type="checkbox" id="nToast" ${S.notify_toast!=="0"?"checked":""}> 윈도우 알림 띄우기 <span class="hint">오른쪽 아래 · 알림 센터에 남아요 (알림 창을 끄면 새 일감 · 새 댓글도 이것으로)</span></label></div>
      <p class="hint" style="margin-left:0">윈도우 알림이 안 보이면 윈도우 설정 → 시스템 → 알림에서 <b>방해 금지(집중 지원)</b>가 꺼져 있는지 확인하세요.</p>`)}
 
    ${sec("gen","시작 설정","",`
@@ -48,7 +49,7 @@ async function renderSettings(){
    ${sec("sync","자동 가져오기",`정한 간격마다 바뀐 일감을 가져와요. <b>영업일 ${aw[0]} ~ ${aw[1]}</b>에만, 트레이에 있어도 동작해요.`,`
      <div class="srow"><span class="sl">간격</span><div class="sc"><input type="number" id="sAutoSync" min="0" max="1440" step="5" value="${autoSyncMin()}" class="num"> 분마다<span class="hint">0 = 끔 · 최소 ${AUTO_SYNC_MIN}분</span></div></div>
      <div class="srow"><span class="sl">가져올 기간</span><div class="sc">최근 <input type="number" id="sAutoDays" min="1" max="${AUTO_SYNC_MAX_DAYS}" value="${autoSyncDays()}" class="num"> 일<span class="hint">1 = 오늘만 · 최대 ${AUTO_SYNC_MAX_DAYS}일</span></div></div>
-     <div class="srow"><span class="sl">알림</span><div class="sc"><label class="chk"><input type="checkbox" id="sAutoNotify" ${autoSyncNotify()?"checked":""}> 새 일감이 들어오면 알림</label></div></div>
+     <div class="srow"><span class="sl">알림</span><div class="sc"><label class="chk"><input type="checkbox" id="sAutoNotify" ${autoSyncNotify()?"checked":""}> 새 일감 · 남이 단 새 댓글이 들어오면 알림</label><span class="hint">창을 보고 있지 않으면 오른쪽 아래 알림 창으로</span></div></div>
      <div class="srow"><span class="sl">공휴일</span><div class="sc"><span class="hint" style="margin:0">${holidayLine(hs)}</span><button type="button" id="sHolFetch">이번 주 다시 받기</button></div></div>
      ${sMore(`마지막으로 가져온 때부터 시간을 재요. 한 번도 가져온 적이 없으면 시작하지 않으니, 처음에는 왼쪽 <b>가져오기</b>로 직접 받아 주세요. 글을 쓰는 중에는 화면을 다시 그리지 않고 기다렸다가 반영해요. 켜 두면 창을 닫아도 프로그램이 스스로 꺼지지 않아요(트레이 아이콘 우클릭 → 서버 닫기, 또는 Ctrl+Q).<br>알림: 창이 보이면 알림 창, 최소화 · 트레이에 있으면 윈도우 알림.<br>공휴일: 공공데이터포털 <b>한국천문연구원_특일 정보</b>로 <b>매주 첫 영업일</b>에 그 주(월 ~ 일) 공휴일만 받아요(인증키 내장).`)}`)}
 
@@ -154,6 +155,10 @@ async function renderSettings(){
     go();
   };
   q("#nFlash").onchange=e=>{saveS("notify_flash",e.target.checked?"1":"0");toast(e.target.checked?"보고 있지 않을 때 작업 표시줄 아이콘을 반짝여요":"반짝이지 않아요",2400)};
+  q("#nPopup").onchange=e=>{saveS("notify_popup",e.target.checked?"1":"0");toast(e.target.checked?"보고 있지 않을 때 새 일감 · 새 댓글을 오른쪽 아래 알림 창으로 알려 줘요":"알림 창을 껐어요 (윈도우 알림으로 알려 줘요)",2800)};
+  q("#nPopupTry").onclick=async()=>{const n=curNote();
+    try{const r=await post("/api/popup/test",{issue_id:n?n.issue_id:null,title:n?`#${n.issue_id} ${n.subject}`:""});toast(r.shown?"오른쪽 아래를 보세요 · 누르면 "+(n?"지금 노트로 가요":"앱으로 와요"):"알림 창을 띄우지 못했어요"+(r.reason?`: ${r.reason}`:""),3500)}
+    catch(e){toast("알림 창을 띄우지 못했어요: "+e.message,4000)}};
   q("#nToast").onchange=e=>{saveS("notify_toast",e.target.checked?"1":"0");toast(e.target.checked?"보고 있지 않을 때 윈도우 알림을 띄워요":"윈도우 알림을 띄우지 않아요",2400)};
   q("#sAuto").onchange=e=>{saveS("auto_check",e.target.checked?"1":"0");toast(e.target.checked?"처음 열 때 최근 7일 변경을 확인합니다":"처음 열 때 자동 확인을 끕니다",2500)};
   q("#sAutoSync").onchange=async e=>{
@@ -164,7 +169,7 @@ async function renderSettings(){
   if(q("#sHolFetch"))q("#sHolFetch").onclick=async()=>{
     try{const h=await post("/api/holiday/fetch",{});toast(`이번 주 공휴일을 받았어요 (${holToast(h)})`,4000)}catch(e){toast("공휴일을 받지 못했어요: "+e.message,10000)}
     await autoSyncPoll();renderSettings()};
-  q("#sAutoNotify").onchange=e=>{saveS("auto_sync_notify",e.target.checked?"1":"0");toast(e.target.checked?"새 일감이 들어오면 알려 줘요":"새 일감 알림을 껐어요 (알림 없이 목록에만 반영해요)",2600)};
+  q("#sAutoNotify").onchange=e=>{saveS("auto_sync_notify",e.target.checked?"1":"0");toast(e.target.checked?"새 일감 · 새 댓글이 들어오면 알려 줘요":"새 일감 · 새 댓글 알림을 껐어요 (알림 없이 목록에만 반영해요)",2600)};
   q("#sAutoDays").onchange=async e=>{
     const v=Math.max(1,Math.min(AUTO_SYNC_MAX_DAYS,parseInt(e.target.value,10)||AUTO_SYNC_MAX_DAYS));e.target.value=v;
     await saveS("auto_sync_days",v);await autoSyncPoll();

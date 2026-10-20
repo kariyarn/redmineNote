@@ -19,7 +19,7 @@ from pathlib import Path
 from .alarms import alarm_ack, alarms_due, future_notice, sticky_calendar
 from .autosync import status as autosync_status
 from .config import APP_TITLE, BETA, BUILD, CHANNEL, VERSION_LABEL
-from .config import WEB_DIR, APP_VERSION, BACKUP_DIR, DATA_DIR, DB_PATH, DEFAULT_URL, FONT_DIR, FONT_EXT, FROZEN, HOME_DIR, MAX_UPLOAD, POINTER_PATH, PORT, SETTING_KEYS, STATE, conn
+from .config import WEB_DIR, APP_VERSION, BACKUP_DIR, DATA_DIR, DB_PATH, DEFAULT_URL, FONT_DIR, FONT_EXT, FROZEN, HOME_DIR, MAX_UPLOAD, POINTER_PATH, PORT, RUN, SETTING_KEYS, STATE, conn
 from .fonts import font_files
 from .lifecycle import open_or_notify, shutdown
 from .redmine import check_login, explain, fetch_ids, fetch_linked, my_id, rm_issue, rm_members, rm_statuses, sync
@@ -178,6 +178,9 @@ class Handler(BaseHTTPRequestHandler):
         elif u.path == "/api/autosync":         # 자동 가져오기 상태 + since 뒤의 결과들 (화면이 30초마다 가져간다)
             since = q.get("since")
             self.send_json(autosync_status(int(since) if since and since.lstrip("-").isdigit() else None))
+        elif u.path == "/api/open-req":         # 오른쪽 아래 알림 창을 눌러 열어 달라고 한 노트 (한 번 가져가면 지운다). 화면이 창으로 돌아올 때 · 몇 초마다 확인한다
+            req, STATE["open_req"] = STATE.get("open_req"), None
+            self.send_json({"req": req})
         elif u.path == "/api/holidays":         # 그 해의 공휴일(내장 표 + 설정의 추가 휴일). 달력 표시용
             try:
                 self.send_json(holiday_dates(int(q.get("year") or datetime.date.today().year), extra_days(get_settings().get("holiday_extra"))))
@@ -533,6 +536,14 @@ class Handler(BaseHTTPRequestHandler):
                     STATE["alarm_poll"] = time.time()
                     STATE["alarm_hidden"] = bool(d.get("hidden"))
                 self.send_json(attention_notify(str(d.get("title") or "레드마인 노트"), str(d.get("text") or "")))
+            elif u.path == "/api/popup/test":   # 설정 → 알림 방식: 오른쪽 아래 알림 창 미리 보기 (누르면 지금 연 노트로)
+                if not RUN.popup:
+                    return self.send_json({"shown": False, "reason": "윈도우에서 실행할 때만 띄울 수 있어요"})
+                from .lifecycle import open_issue
+                iid = d.get("issue_id")
+                item = {"id": int(iid) if str(iid or "").isdigit() else None, "head": "💬 미리 보기",
+                        "title": str(d.get("title") or "레드마인 노트 알림")[:120], "text": "새 댓글이 오면 이렇게 알려 줘요. 누르면 그 노트의 새 댓글로 바로 가요."}
+                self.send_json({"shown": bool(RUN.popup.show([item], open_issue))})
             elif u.path in ("/api/update/check", "/api/update/download", "/api/update/apply"):   # 앱 업데이트: 확인 · 받기(백그라운드) · 바꾸고 다시 켜기
                 try:
                     fn = {"check": updater.check, "download": updater.start_download, "apply": updater.apply}[u.path.rsplit("/", 1)[1]]

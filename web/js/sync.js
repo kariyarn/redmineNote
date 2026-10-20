@@ -56,14 +56,14 @@ async function autoSyncPollOnce(){
   });
   if(autoSync.pend&&!autoSyncHold())await autoSyncApply();else renderLastSync();
 }
-async function autoSyncApply(){
+async function autoSyncApply(quiet){      // quiet: 알림 창을 눌러 들어온 경우 (새 일감 창을 또 띄우지 않는다)
   const p=autoSync.pend;autoSync.pend=null;
   p.added.forEach(id=>fresh[id]="신규");p.changed.forEach(id=>{if(!p.added.has(id))fresh[id]="변경"});
   try{await loadSettings()}catch(e){}      // 마지막 가져오기 시각
   if(p.added.size||p.changed.size){const c=$("#center"),top=c.scrollTop;await loadAll();c.scrollTop=top;if(cmOpen)cmPanelRender();
     const vis=id=>{const n=all.find(x=>x.issue_id===id);return !n||notDeploy(n)};      // 배포요청 일감은 배포요청 화면에서만 (알림 · 개수에서 뺀다)
     const added=[...p.added].filter(vis),nA=added.length,nC=[...p.changed].filter(id=>!p.added.has(id)&&vis(id)).length;
-    if(nA&&autoSyncNotify())autoSyncNewDlg(added,nC);else if(nA||nC)toast(`자동 가져오기: 신규 ${nA} · 변경 ${nC}건`,4000)}
+    if(nA&&autoSyncNotify()&&!quiet)autoSyncNewDlg(added,nC);else if(nA||nC)toast(`자동 가져오기: 신규 ${nA} · 변경 ${nC}건`,4000)}
   renderLastSync();
 }
 const autoSyncNotify=()=>S.auto_sync_notify!=="0";      // 새 일감 알림 (기본 켬)
@@ -78,5 +78,31 @@ function autoSyncNewDlg(ids,nC){
 function startAutoSync(){
   clearInterval(autoSync.timer);autoSync.timer=setInterval(autoSyncPoll,30000);autoSyncPoll();
   document.addEventListener("visibilitychange",()=>{if(!document.hidden)autoSyncPoll()});      // 창으로 돌아오면 밀린 것을 바로
+}
+
+/* ---------- 오른쪽 아래 알림 창을 눌렀을 때 (2.22) ----------
+   서버가 앱 창을 앞으로 가져오고 '이 노트를 열어 달라'(open-req)를 남긴다 → 창으로 돌아오면(+몇 초마다) 가져가서 연다.
+   창이 닫혀 있었으면 새 창이 ?open=번호 로 열린다 (boot). 열리면 새 댓글로 바로 이동한다 (cmNewApply) */
+let openReqBusy=false;
+async function openReqPoll(){
+  if(openReqBusy)return;openReqBusy=true;
+  try{const r=await api("/api/open-req");if(r.req)await openFromAlert(r.req)}catch(e){}
+  finally{openReqBusy=false}
+}
+async function openFromAlert(q){
+  const id=+q.id;if(!id)return;
+  if(autoSync.pend)await autoSyncApply(true);      // 창이 안 보이는 동안 미뤄 둔 자동 가져오기 결과부터 반영
+  if(!all.some(n=>n.issue_id===id))await loadAll().catch(()=>{});
+  if(!all.some(n=>n.issue_id===id))return toast(`#${id} 노트를 찾지 못했어요. 가져오기를 한 번 해 주세요`,4000);
+  if(q.new&&!fresh[id])fresh[id]="신규";
+  if($("#modal").classList.contains("show"))closeSettings();
+  openNote(id);
+}
+function startOpenReq(){
+  const qp=new URLSearchParams(location.search),id=+qp.get("open");
+  if(id){history.replaceState(history.state,"","/");openFromAlert({id,new:qp.get("new")==="1"})}
+  addEventListener("focus",openReqPoll);
+  document.addEventListener("visibilitychange",()=>{if(!document.hidden)openReqPoll()});
+  setInterval(()=>{if(!document.hidden)openReqPoll()},4000);
 }
 

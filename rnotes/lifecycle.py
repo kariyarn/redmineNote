@@ -56,9 +56,10 @@ def page_alive():
     return app_window_open()
 
 
-def open_new():
-    """새 앱 창을 연다 (평소 크롬과 분리된 전용 창). 크롬/엣지를 못 찾으면 기본 브라우저로 연다."""
-    url = f"http://127.0.0.1:{PORT}"
+def open_new(query=""):
+    """새 앱 창을 연다 (평소 크롬과 분리된 전용 창). 크롬/엣지를 못 찾으면 기본 브라우저로 연다.
+    query 를 주면 주소 뒤에 붙인다 (예: '?open=1234' = 열리자마자 그 노트를 연다)."""
+    url = f"http://127.0.0.1:{PORT}/{query}"
     if sys.platform == "win32" and os.environ.get("REDMINE_NOTES_NO_APPWIN") != "1":
         try:
             from . import appwin
@@ -87,6 +88,35 @@ def open_or_notify():
         return False
     open_new()
     return True
+
+
+def open_issue(item):
+    """오른쪽 아래 알림 창을 눌렀을 때: 앱 창이 열려 있으면 앞으로 가져오고 그 노트를 열게 하고(화면이 /api/open-req 로 가져간다),
+    닫혀 있으면 그 노트를 여는 새 창을 연다. 노트는 열리면서 새 댓글로 바로 이동한다."""
+    iid = (item or {}).get("id")
+    req = {"id": int(iid), "new": bool(item.get("new"))} if iid else None
+    if page_alive():
+        STATE["open_req"] = req
+        try:
+            from . import appwin
+            appwin.allow_focus()
+            appwin.focus()
+        except Exception:
+            pass
+        return
+    STATE["open_req"] = None
+    open_new(f"?open={req['id']}" + ("&new=1" if req["new"] else "") if req else "")
+
+
+def start_popup():
+    """오른쪽 아래 알림 창 (윈도우에서만). 앱 창을 보고 있지 않을 때 자동 가져오기의 새 일감 · 새 댓글을 띄운다."""
+    if sys.platform != "win32" or os.environ.get("REDMINE_NOTES_NO_APPWIN") == "1":
+        return
+    try:
+        from . import popup
+        RUN.popup = popup
+    except Exception:
+        pass
 
 
 def start_tray():

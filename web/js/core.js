@@ -128,8 +128,11 @@ async function loadAll(){
   [all,links,terms,skipped,codeNotes,todos]=await Promise.all([api("/api/notes"),api("/api/links"),api("/api/terms"),api("/api/skipped"),api("/api/codenotes"),api("/api/todos"),loadProgress()]);
   trLoad(true);     // 트러블슈팅(코드 이력의 관련 목록용). 기다리지 않는다
   buildTodoMap();
-  all.forEach(prep);terms.forEach(prepTerm);buildTokens();renderAll();
+  all.forEach(prep);terms.forEach(prepTerm);buildTokens();
+  if(!tabInit){tabInit=true;tabRestore()}      // 처음 읽을 때 한 번: 지난번에 열어 둔 탭 (그리기 전에)
+  renderAll();
 }
+let tabInit=false;
 const has=(n,t)=>t._k.some(k=>n._h.includes(k));
 const qmatch=(n,q)=>!q||(ui.qscope==="all"?n._h.includes(q):n._t.includes(q));   // 검색: 기본은 제목·번호, '내용 포함'이면 본문·댓글·내 기록까지
 /* 용어는 여러 개를 선택할 수 있고, 선택한 용어를 모두 포함한 노트만 찾는다(교집합). */

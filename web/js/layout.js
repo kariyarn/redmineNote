@@ -33,7 +33,7 @@ dragSplit("#s1",x=>ui.lw=Math.max(260,Math.min(640,x-NAVW)));
 dragSplit("#s2",x=>ui.rw=Math.max(220,Math.min(600,innerWidth-x)));
 
 /* ---------- 렌더 ---------- */
-function renderAll(){applyUI();renderNav();renderHead();if(view!=="graph")renderList();renderCenter();renderDict();navRecord()}   // 그래프 화면의 목록은 그래프를 그린 뒤에 만든다
+function renderAll(){applyUI();renderNav();renderHead();if(view!=="graph")renderList();renderCenter();renderTabBar();renderDict();navRecord()}   // 그래프 화면의 목록은 그래프를 그린 뒤에 만든다
 const IC=(d)=>`<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
 const NAVICON={
   today:IC('<circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4L7 17M17 7l1.4-1.4"/>'),

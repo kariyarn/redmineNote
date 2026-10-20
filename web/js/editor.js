@@ -1,6 +1,6 @@
 /* ---------- 코드/강조 표기 ( ```전체 코드``` , `일부 코드` ) ---------- */
 function renderMd(src){
-  const s=esc(src);
+  const s=esc(softNl(src));      // 예전에 저장된 문단 안 줄바꿈(Shift+Enter) 표시 글자도 줄바꿈으로 보여 준다
   const inline=t=>t.replace(/\n{3,}/g,"\n\n").replace(/`([^`\n]+)`/g,'<code class="ic">$1</code>');   // 빈 줄은 최대 한 줄 (예전에 저장된 겹빈줄도 깔끔하게)
   let out="",last=0,m;const re=/```(?:([A-Za-z0-9_+#.-]*)\n)?([\s\S]*?)```/g;
   while((m=re.exec(s))){
@@ -28,7 +28,8 @@ function wireCp(root){
    - `글자` 를 입력/붙여넣기     -> 그 자리에서 코드 모양으로 바뀐다
    - 코드 상자 안: ``` 입력 또는 Ctrl+Enter/Esc = 상자 밖으로 나가기, Tab = 들여쓰기 */
 const LANG="[A-Za-z0-9_+#.-]*";
-const SOFT_BREAK="\uE002";
+const SOFT_BREAK="\uE002";      // 문단 안 줄바꿈(Shift+Enter): 레드마인 댓글에서만 <br /> 로 올린다
+const softNl=t=>String(t||"").split(SOFT_BREAK).join("\n");      // 내 기록(진행 기록 · 정리 기록 · 메모 …)에서는 그냥 줄바꿈
 function parseSegs(s,open){
   const out=[];let last=0,m;const re=new RegExp("```(?:("+LANG+")\\n)?([\\s\\S]*?)```","g");
   while((m=re.exec(s))){
@@ -230,9 +231,10 @@ function edInit(root,md){
   parseSegs(md||"",false).forEach(g=>root.appendChild(g.t==="x"?mkText(g.s):mkCode(g.s,g.lang)));
   fixStructure(root);applyFmt(root);
 }
-function edGet(root){   // 편집기 -> 저장용 글 (``` 와 ` 로 되돌린다)
-  return [...root.children].map(el=>el.classList.contains("cbk")
+function edGet(root){   // 편집기 -> 저장용 글 (``` 와 ` 로 되돌린다). 문단 안 줄바꿈 표시는 댓글 입력칸(.cmta)에서만 남긴다
+  const out=[...root.children].map(el=>el.classList.contains("cbk")
     ?"```"+(el.dataset.lang||"")+"\n"+el.querySelector("textarea").value.replace(/\n+$/,"")+"\n```":serText(el)).filter(s=>s!=="").join("\n");
+  return root.classList.contains("cmta")?out:softNl(out);
 }
 function addCodeBox(root){
   const act=document.activeElement,after=act&&act.classList&&act.classList.contains("tb")&&root.contains(act)?act:root.lastElementChild;
@@ -249,7 +251,7 @@ const avatar=name=>{const t=(name||"?").replace(/\[[^\]]*\]/g,"").trim();return 
 /* 새 디자인: 원문 아래 '같은 주제' 구역. 이 노트의 드문 용어(simInfo)를 모두 가진 과거 일감 중 최근 3건을
    제목 · 상태 · 그때 남긴 기록 첫 줄(정리 기록 → 마지막 진행 기록 → 마지막 댓글)로 보여 주고, 누르면 그 노트를 연다. */
 function simLine(x){
-  const first=s=>(s||"").replace(/```[\s\S]*?```/g," ").split("\n").map(t=>t.trim()).find(Boolean)||"";
+  const first=s=>softNl(s).replace(/```[\s\S]*?```/g," ").split("\n").map(t=>t.trim()).find(Boolean)||"";
   const a=first(x.action);if(a)return "정리: "+a;
   const p=(x._pg||[])[0];if(p&&first(p.text))return "진행 기록: "+first(p.text);
   const j=[...(x.journals||[])].reverse().find(j=>first(j.notes));if(j)return "댓글: "+first(j.notes);
@@ -268,7 +270,7 @@ function simBlock(n,sim){
 function renderCenter(){
   flushEdits();                       // 다른 노트/보기로 가기 전에, 저장하지 않은 변경이 있으면 먼저 자동 저장한다
   if(view!=="note")edNote=null;
-  else if(cur!=null&&cur===seenOpen)markSeen(all.find(x=>x.issue_id===cur));     // 내가 연 노트는 본 것으로 (자동으로 오른쪽에 열린 것은 빼고)
+  else if(cur!=null&&cur===seenOpen){const sn=all.find(x=>x.issue_id===cur);cmNewMark(sn);markSeen(sn)}     // 내가 연 노트는 본 것으로 (자동으로 오른쪽에 열린 것은 빼고). 그 전에 새 댓글을 기억해 둔다
   $("#center").classList.remove("todo-on");
   updFab();
   $("#center").dataset.ns=ui.noteStyle==="card"?"card":"doc";   // 노트 모양: 설정에서 고른 문서 스타일 / 기존(카드) 스타일
@@ -330,7 +332,7 @@ function renderCenter(){
                :skipped[x.id]?`<a class="rel missing" href="${cfg.url}/issues/${x.id}" target="_blank"><span class="k">${relLabel(x)}</span><span class="meta">#${x.id}</span><span class="meta">받을 수 없음 (${esc(skipped[x.id])})</span><span class="go">레드마인에서 열기 ↗</span></a>`
                :`<a class="rel missing" data-fetch="${x.id}"><span class="k">${relLabel(x)}</span><span class="meta">#${x.id}</span><span class="meta">아직 저장되지 않은 일감</span><span class="go">눌러서 가져오기</span></a>`}).join("")||`<span class="meta">연결된 일감이 없습니다.</span>`)}
    <div class="savebar"><button class="primary" id="save">저장</button><span class="meta" id="sv">✓ 저장된 상태 · Ctrl+S 로 저장 · 내 기록은 이 PC에만 저장됩니다</span></div>`;
-  document.querySelectorAll("[data-open]").forEach(e=>e.onclick=()=>openNote(+e.dataset.open));
+  document.querySelectorAll("[data-open]").forEach(e=>{e.onclick=ev=>openNote(+e.dataset.open,tabOpt(ev));e.onauxclick=ev=>{if(ev.button===1){ev.preventDefault();openNote(+e.dataset.open,{bg:true})}}});
   document.querySelectorAll("[data-fetch]").forEach(e=>e.onclick=async()=>{
     const id=+e.dataset.fetch;toast(`#${id} 가져오는 중…`,0);
     try{const r=await post("/api/fetch",{ids:[id]});await loadAll();
@@ -359,5 +361,5 @@ function renderCenter(){
   wireCf(n);wireJump(n);wireComposer($("#sec-write"),n);loadAtt(n);fillAttImgs();
   $("#refone").onclick=()=>refreshOne(n,true);autoRefresh(n);
   document.querySelectorAll("[data-cmnew]").forEach(b=>b.onclick=ev=>{ev.stopPropagation();toggleCm(true)});
-  spy();
+  spy();cmNewApply(n);
 }

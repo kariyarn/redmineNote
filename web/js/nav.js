@@ -35,7 +35,18 @@ function wireCpNo(n){   // 노트 위쪽: #번호 복사 (기본) + ▾ 다른 �
 }
 let todayWide=true;
 const todayFull=()=>V2()&&nav==="today"&&todayWide;
-function openNote(id){cur=id;seenOpen=id;todayWide=false;if(!NAVLABEL[nav]&&nav!=="today"&&nav!=="history")nav="history";view="note";renderAll()}
+/* 노트 열기 (탭: tabs.js). o.bg = 새 탭에 열고 지금 노트는 그대로 · o.newTab = 새 탭에 열고 그 탭으로 · 아니면 지금 탭에서 */
+function openNote(id,o={}){
+  if(o.bg&&view==="note"&&cur!=null&&cur!==id&&all.some(n=>n.issue_id===id)){
+    const had=tabs.includes(id);tabPlace(id,true);tabSave();renderTabBar();if(!had)toast("새 탭에 열었어요 · 위쪽 탭을 누르면 가요",2200);return}
+  const back=cur!==id&&tabs.includes(id);                 // 이미 열어 둔 탭으로 돌아가기: 보던 위치 그대로
+  if(cur!=null&&cur!==id&&view==="note"&&tabs.includes(cur))tabScroll.set(cur,$("#center").scrollTop);
+  if(cmNew&&cmNew.id!==id)cmNew=null;                      // 새 댓글 강조는 처음 연 그때만
+  tabPlace(id,o.newTab);
+  cur=id;seenOpen=id;todayWide=false;if(!NAVLABEL[nav]&&nav!=="today"&&nav!=="history")nav="history";view="note";renderAll();
+  if(back&&tabScroll.has(id)&&!(cmNew&&cmNew.id===id))$("#center").scrollTop=tabScroll.get(id);     // 방금 새 댓글로 이동했으면 그대로
+  tabSave();
+}
 
 /* 용어 누르기: 한 번 누르면 선택, 다시 누르면 취소. 여러 개 선택하면 모두 포함한 노트만 남는다. */
 function toggleTerm(t){   // 용어를 고르면 그래프는 '선택한 용어 보기'로, 모두 해제하면 고르기 전에 보던 모드로 돌아간다

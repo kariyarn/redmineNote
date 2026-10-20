@@ -14,7 +14,7 @@ from .gitbackup import loop as gitbackup_loop
 from .updater import loop as update_loop
 from .config import CHANNEL_PORTS, DATA_DIR, FROZEN, IDLE_QUIT_SEC, OTHER_CHANNEL, PORT, STATE
 from .http_handler import Handler, Server
-from .lifecycle import alarm_loop, idle_watchdog, open_browser, start_tray
+from .lifecycle import alarm_loop, idle_watchdog, open_browser, start_popup, start_tray
 from .storage import ensure_daily_backup, init_db
 
 
@@ -79,6 +79,7 @@ def run():
     except Exception:
         pass
     start_tray()
+    start_popup()
     open_browser()
     threading.Thread(target=alarm_loop, daemon=True).start()
     threading.Thread(target=autosync_loop, daemon=True).start()   # 자동 가져오기 (켜져 있을 때만 가져온다)

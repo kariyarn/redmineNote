@@ -50,7 +50,9 @@ function wireRows(root){
   root.querySelectorAll(".nrow").forEach(r=>{
     r.onclick=e=>{
       if(nav==="graph"&&view==="graph"){if(e.detail>1)return;graphPin(+r.dataset.id);return}     // 그래프 그림이 보일 때: 한 번 = 강조 고정/해제, 더블클릭 = 노트 열기
-      openNote(+r.dataset.id)};
+      openNote(+r.dataset.id,tabOpt(e))};
+    r.onmousedown=e=>{if(e.button===1)e.preventDefault()};      // 휠 클릭 = 새 탭 (자동 스크롤이 켜지지 않게)
+    r.onauxclick=e=>{if(e.button===1&&!(nav==="graph"&&view==="graph")){e.preventDefault();openNote(+r.dataset.id,{bg:true})}};
     r.ondblclick=()=>{if(nav==="graph"&&view==="graph")openNote(+r.dataset.id)};
     r.onmouseenter=r.onfocus=()=>graphHover(+r.dataset.id);r.onmouseleave=r.onblur=()=>graphHover(0);
     r.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();openNote(+r.dataset.id)}};

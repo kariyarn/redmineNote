@@ -2,7 +2,8 @@
 창이 최소화돼 있거나 닫혀서 트레이에만 있어도 서버가 켜져 있는 동안 돌고, 영업일(토 · 일 · 공휴일 제외)의 업무 시간(08:30 ~ 18:30)에만 가져온다.
 공휴일은 holiday_api 가 매주 첫 영업일에 그 주 것을 받아 둔다 (+ 내장 공휴일 표 · 설정의 추가 휴일).
 화면은 /api/autosync 로 결과를 가져가서, 바뀐 일감이 있으면 다시 읽어 그린다.
-새 일감이 들어오면 알린다: 창이 보이면 화면이 알림 창을, 창이 안 보이면(최소화 · 트레이) 서버가 트레이 말풍선을 띄운다."""
+새 일감 · 남이 단 새 댓글(변경)이 있으면 알린다: 창이 보이면 화면이 알림 창을, 창이 안 보이면(최소화 · 가려짐 · 트레이) 서버가
+오른쪽 아래 알림 창(popup, 누르면 그 노트의 새 댓글로)을 띄운다. 알림 창을 못 띄우거나 꺼 두었으면 예전처럼 트레이 말풍선."""
 import collections
 import datetime
 import json
@@ -11,7 +12,7 @@ import time
 from .holiday_api import maybe_fetch_week, off_day
 from .holiday_api import status as holiday_status
 from .config import RUN, STATE
-from .redmine import SYNC_LOCK, sync
+from .redmine import SYNC_LOCK, my_id, sync
 from .storage import configured, db, get_settings
 
 
@@ -54,8 +55,13 @@ def last_sync_at(s):
 
 
 def notify_on(s):
-    """새 일감 알림 (설정 auto_sync_notify, 기본 켬)."""
+    """새 일감 · 새 댓글 알림 (설정 auto_sync_notify, 기본 켬)."""
     return str(s.get("auto_sync_notify") or "1") != "0"
+
+
+def popup_on(s):
+    """오른쪽 아래 알림 창 (설정 notify_popup, 기본 켬). 끄면 윈도우 알림(트레이 말풍선)으로 알린다."""
+    return str(s.get("notify_popup") or "1") != "0"
 
 
 def _new_issues(ids):
@@ -69,11 +75,76 @@ def _new_issues(ids):
             if i in rows and "배포요청" not in (rows[i]["roles"] or "").split(",")]   # 배포요청 일감은 배포요청 화면에서만 (알림도 하지 않는다)
 
 
-def _tray_notice(new):
-    """앱 창을 보고 있지 않으면(최소화 · 가려짐 · 창 없음) 작업 표시줄 반짝임 + 윈도우 알림으로 새 일감을 알린다 (attention.notify).
-    보고 있으면 화면이 알림 창을 띄우므로 하지 않는다. 윈도우 알림을 띄웠으면 True."""
-    from .attention import notify
-    return notify(f"🆕 새 레드마인 일감 {len(new)}건", " · ".join(f"#{x['id']} {x['subject']}" for x in new))["toasted"]
+def _first_line(t, n=90):
+    t = next((x.strip() for x in (t or "").splitlines() if x.strip()), "")
+    return t[:n] + ("…" if len(t) > n else "")
+
+
+def _activity(ids, before):
+    """바뀐 일감마다, 가져오기 전 수정 시각(before) 뒤에 남이 단 댓글 · 변경. 내가 한 것은 뺀다 (배포요청 일감도 뺀다).
+    [{id, subject, who, text, count}] — text 는 마지막 것의 첫 줄 (댓글) 또는 바뀐 항목 (변경)."""
+    if not ids:
+        return []
+    me, me_name = my_id(), (STATE.get("me_name") or "").strip()
+    with db() as c:
+        rows = {r["issue_id"]: r for r in c.execute(
+            f"SELECT issue_id, subject, roles, journals, changes FROM notes WHERE issue_id IN ({','.join('?' * len(ids))})", list(ids))}
+    out = []
+    for i in ids:
+        r, since = rows.get(i), before.get(i) or ""
+        if not r or not since or "배포요청" in (r["roles"] or "").split(","):
+            continue
+        ent = []
+        try:
+            for j in json.loads(r["journals"] or "[]"):
+                u = j.get("user") or {}
+                if (j.get("created_on") or "") > since and not (me and u.get("id") == me):
+                    ent.append((j["created_on"], u.get("name") or "", _first_line(j.get("notes"))))
+            for ch in json.loads(r["changes"] or "[]"):
+                if (ch.get("created_on") or "") > since and not (me_name and (ch.get("user") or "").strip() == me_name):
+                    it = (ch.get("items") or [{}])[0]
+                    what = it.get("note") or (f"{it.get('old')} → {it.get('new')}" if it.get("old") and it.get("new") else it.get("new") or "")
+                    ent.append((ch["created_on"], ch.get("user") or "", f"{it.get('label') or '변경'}: {what}".strip(": ")))
+        except (ValueError, TypeError, KeyError, AttributeError):
+            continue
+        if ent:
+            last = max(ent, key=lambda e: e[0])
+            out.append({"id": i, "subject": r["subject"] or "", "who": last[1], "text": last[2], "count": len(ent)})
+    return out
+
+
+def _popup_items(new, act):
+    """알림 창 내용. 많으면 앞의 몇 건만 따로 띄우고 나머지는 '…외 N건' 한 장으로 묶는다."""
+    items = [{"id": x["id"], "new": True, "head": "🆕 새 레드마인 일감", "title": f"#{x['id']} {x['subject']}", "text": x["project"]} for x in new]
+    items += [{"id": x["id"], "new": False, "head": f"💬 {x['who'] or '레드마인'}" + (f" 외 {x['count'] - 1}건" if x["count"] > 1 else ""),
+               "title": f"#{x['id']} {x['subject']}", "text": x["text"] or "새 댓글이 있어요"} for x in act]
+    if len(items) > 3:
+        rest = items[2:]
+        items = items[:2] + [{"id": None, "head": "레드마인 노트", "title": f"새 소식 {len(rest)}건 더",
+                              "text": " · ".join(x["title"] for x in rest)}]
+    return items
+
+
+def _tray_notice(new, act=()):
+    """앱 창을 보고 있지 않으면(최소화 · 가려짐 · 창 없음) 작업 표시줄 반짝임 + 오른쪽 아래 알림 창으로 알린다.
+    알림 창을 띄울 수 없거나 꺼 두었으면 윈도우 알림(트레이 말풍선)으로 (attention.notify).
+    보고 있으면 화면이 알림 창을 띄우므로 하지 않는다. 돌려주는 값: (윈도우 알림을 띄웠나, 알림 창을 띄웠나)."""
+    from .attention import app_focused, notify, toast_on
+    if app_focused():
+        return False, False
+    shown = False
+    if popup_on(get_settings()) and RUN.popup:
+        from .lifecycle import open_issue
+        try:
+            shown = RUN.popup.show(_popup_items(new, act), open_issue)
+        except Exception:
+            shown = False
+    if new:
+        title, text = f"🆕 새 레드마인 일감 {len(new)}건", " · ".join(f"#{x['id']} {x['subject']}" for x in new)
+    else:
+        title, text = f"💬 새 댓글 {sum(x['count'] for x in act)}건", " · ".join(f"#{x['id']} {x['who']}: {x['text']}" for x in act)
+    r = notify(title, text, toast=not shown)   # 알림 창을 띄웠으면 반짝임만
+    return r["toasted"], shown
 
 
 def enabled(s=None):
@@ -123,12 +194,15 @@ def run_once(now=None):
     d_to = now.date().isoformat()
     run = {"at": now.isoformat(timespec="seconds"), "from": d_from, "to": d_to}
     try:
+        with db() as c:   # 가져오기 전 수정 시각: 그 뒤에 달린 댓글 · 변경이 '새 소식'
+            before = {r["issue_id"]: r["updated_on"] or "" for r in c.execute("SELECT issue_id, updated_on FROM notes")}
         r = sync(d_from, d_to)
-        new = _new_issues(r["added_ids"])
+        new, act = _new_issues(r["added_ids"]), _activity(r["changed_ids"], before)
+        tray, pop = _tray_notice(new, act) if (new or act) and notify_on(s) else (False, False)
         run.update(added_ids=r["added_ids"], changed_ids=r["changed_ids"], failed=len(r["failed"]), aborted=r["aborted"], error="", new=new,
-                   tray=bool(new) and notify_on(s) and _tray_notice(new))
+                   act=act, tray=tray, popup=pop)
     except Exception as e:   # SyncError 는 사용자에게 그대로 보여 줄 한국어 설명이다
-        run.update(added_ids=[], changed_ids=[], failed=0, aborted=None, error=str(e)[:300] or "알 수 없는 오류예요", new=[], tray=False)
+        run.update(added_ids=[], changed_ids=[], failed=0, aborted=None, error=str(e)[:300] or "알 수 없는 오류예요", new=[], act=[], tray=False, popup=False)
     _STATE["seq"] += 1
     run["seq"] = _STATE["seq"]
     _RUNS.append(run)
