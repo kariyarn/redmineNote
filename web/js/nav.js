@@ -2,6 +2,7 @@
 const NAVVIEW={today:"note",history:"note",mine:"mine",summary:"summary",graph:"graph",code:"code",memo:"memo",deploy:"deploy",trouble:"trouble",queries:"queries",commands:"commands",
   vaultCode:"queries",vaultQuery:"queries",vaultCommands:"commands"};
 function setNav(n,o={}){
+  tabLeave();      // 지금 탭(노트 · 화면)의 보던 위치를 기억해 둔다
   if(!o.keepQ)$("#q").value="";
   if(!o.keepSel&&n!=="history"&&n!=="graph")sel=[];
   if((n==="vaultCode"||n==="vaultQuery")&&n!==nav){qvLang="";qvTag=""}
@@ -37,10 +38,11 @@ let todayWide=true;
 const todayFull=()=>V2()&&nav==="today"&&todayWide;
 /* 노트 열기 (탭: tabs.js). o.bg = 새 탭에 열고 지금 노트는 그대로 · o.newTab = 새 탭에 열고 그 탭으로 · 아니면 지금 탭에서 */
 function openNote(id,o={}){
-  if(o.bg&&view==="note"&&cur!=null&&cur!==id&&all.some(n=>n.issue_id===id)){
+  const ck=curKey();
+  if(o.bg&&ck!=null&&ck!==id&&all.some(n=>n.issue_id===id)){
     const had=tabs.includes(id);tabPlace(id,true);tabSave();renderTabBar();if(!had)toast("새 탭에 열었어요 · 위쪽 탭을 누르면 가요",2200);return}
-  const back=cur!==id&&tabs.includes(id);                 // 이미 열어 둔 탭으로 돌아가기: 보던 위치 그대로
-  if(cur!=null&&cur!==id&&view==="note"&&tabs.includes(cur))tabScroll.set(cur,$("#center").scrollTop);
+  const back=ck!==id&&tabs.includes(id);                  // 이미 열어 둔 탭으로 돌아가기: 보던 위치 그대로
+  tabLeave();
   if(cmNew&&cmNew.id!==id)cmNew=null;                      // 새 댓글 강조는 처음 연 그때만
   tabPlace(id,o.newTab);
   cur=id;seenOpen=id;todayWide=false;if(!NAVLABEL[nav]&&nav!=="today"&&nav!=="history")nav="history";view="note";renderAll();

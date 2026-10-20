@@ -239,6 +239,7 @@ body{display:flex;flex-direction:column}
 .ntab.on::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;background:var(--tab-on)}
 .ntab-dot{width:8px;height:8px;border-radius:50%;flex:none;background:var(--c,var(--ext))}
 .ntab-dot.s-대기{--c:var(--warn)}.ntab-dot.s-진행{--c:var(--accent)}.ntab-dot.s-완료{--c:var(--ok)}.ntab-dot.s-중단{--c:var(--ext)}
+.ntab-ic{display:flex;flex:none;color:var(--accent)}.ntab-ic .ic{width:15px;height:15px}
 .ntab-no{flex:none;font-size:.76rem;opacity:.7;font-variant-numeric:tabular-nums}
 .ntab-t{flex:1;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 .ntab.unseen .ntab-t{color:var(--text);font-weight:700}
