@@ -303,7 +303,7 @@ const chgItem=it=>`<li><b>${esc(it.label)}</b> ${it.note?esc(it.note):(it.old&&i
 const chgHtml=c=>`<div class="chg" data-cmt="${esc(c.created_on||"")}"${cfg.meName&&c.user===cfg.meName?" data-mine":""}><span class="chgdot" aria-hidden="true">↻</span><div class="chgbody"><b>${esc(c.user)}</b> <span class="meta">· ${dTime(c.created_on)} · 변경</span><ul>${c.items.map(chgItem).join("")}</ul><div class="cmimgs" data-attj="${c.id||0}"></div></div></div>`;
 const cmHist=n=>cmEntries(n).map(e=>e.c?chgHtml(e.c):(j=>`<div class="cm ${j.user&&j.user.id===cfg.meId?"me":""}" data-cmt="${esc(j.created_on||"")}"${j.user&&cfg.meId&&j.user.id===cfg.meId?" data-mine":""}><div class="av">${esc(avatar(j.user.name))}</div><div style="flex:1;min-width:0"><div class="who"><b>${esc(j.user.name)}</b> · ${dTime(j.created_on)}</div><div class="bubble">${cmBody(j)}</div><div class="cmimgs" data-attj="${j.id||0}"></div></div></div>`)(e.j)).join("")||`<span class="meta">댓글이 없습니다.</span>`;
 /* ---------- 새 댓글로 바로 (2.22) ----------
-   안 본 일감(목록에서 강조된 것)을 처음 열면, 마지막으로 본 뒤에 남이 단 댓글 · 변경에 NEW 를 붙여 칠하고 그 첫 번째로 바로 이동한다.
+   안 본 일감(목록에서 강조된 것)을 처음 열면, 마지막으로 본 뒤에 남이 단 댓글 · 변경을 NEW 영역 하나로 묶어 칠하고 그 자리로 바로 이동한다.
    기준은 안 본 일감 강조와 같다(rm_seen: 마지막으로 열어 본 때의 수정일). 한 번 열면 본 것이 되므로 다음에 열 때는 하지 않는다.
    새로 들어온 일감(처음 받은 것)은 원문부터 읽도록 이동하지 않는다. 다른 노트로 가면 강조는 사라진다. */
 let cmNew=null;
@@ -315,14 +315,19 @@ function cmNewMark(n){
 function cmNewApply(n){
   if(!cmNew||cmNew.id!==n.issue_id)return;
   const els=[...document.querySelectorAll("#sec-cm [data-cmt]")].filter(e=>e.dataset.cmt>cmNew.since&&!("mine" in e.dataset));
-  els.forEach(e=>{e.classList.add("cm-new");const w=e.querySelector(".who")||e.querySelector(".chgbody");if(w&&!w.querySelector(".cm-newtag"))w.insertAdjacentHTML("afterbegin",`<span class="cm-newtag">NEW</span>`)});
+  if(!els.length){cmNew.jumped=true;return}
+  /* 새 댓글 · 변경을 하나씩 칠하지 않고, 첫 번째부터 마지막까지 한 영역으로 묶는다 (사이에 낀 내 댓글도 같이) */
+  const grp=document.createElement("div");grp.className="cm-newgrp";
+  grp.innerHTML=`<div class="cm-newhd"><span class="cm-newtag">NEW</span><span>마지막으로 본 뒤 새 댓글 · 변경 <b>${els.length}</b>건</span></div>`;
+  const last=els[els.length-1];els[0].before(grp);
+  for(let x=grp.nextSibling;x;){const nx=x.nextSibling;grp.appendChild(x);if(x===last)break;x=nx}
   if(cmNew.jumped)return;
-  cmNew.jumped=true;if(!els.length)return;
+  cmNew.jumped=true;
   const card=$("#sec-cm");if(card&&card.classList.contains("collapsed"))setCf(n,card,true);   // 접혀 있으면 펼친 뒤
-  const c=$("#center"),go=b=>{jumpLock={k:"cm",t:Date.now()};els[0].scrollIntoView({block:"start",behavior:b});setTimeout(spy,b==="smooth"?500:60)};
+  const c=$("#center"),go=b=>{jumpLock={k:"cm",t:Date.now()};grp.scrollIntoView({block:"start",behavior:b});setTimeout(spy,b==="smooth"?500:60)};
   go("auto");const y=c.scrollTop;
-  setTimeout(()=>{if(els[0].isConnected&&Math.abs(c.scrollTop-y)<4)go("smooth")},450);      // 사진 · 첨부가 늦게 그려져 밀렸으면 한 번 더 (그사이 직접 스크롤했으면 두지 않는다)
-  toast(`마지막으로 본 뒤 새 댓글 · 변경 ${els.length}건 — 첫 번째로 이동했어요`,3500);
+  setTimeout(()=>{if(grp.isConnected&&Math.abs(c.scrollTop-y)<4)go("smooth")},450);      // 사진 · 첨부가 늦게 그려져 밀렸으면 한 번 더 (그사이 직접 스크롤했으면 두지 않는다)
+  toast(`마지막으로 본 뒤 새 댓글 · 변경 ${els.length}건 — 그 자리로 이동했어요`,3500);
 }
 function cmSum(n){   // 접혀 있을 때 한 줄 미리보기: 마지막 댓글
   const j=n.journals[n.journals.length-1];if(!j)return "· 아직 댓글이 없어요";

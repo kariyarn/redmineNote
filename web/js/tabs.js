@@ -24,13 +24,14 @@ function tabSync(){               // 탭이 아닌 길(뒤로 가기 · 오늘 �
   if(view==="note"&&cur!=null&&!tabs.includes(cur)&&all.some(n=>n.issue_id===cur)){tabPlace(cur,false);tabSave()}
   if(tabs.includes(cur))tabAt=tabs.indexOf(cur);
 }
-/* 탭 줄은 앱 맨 위 전체 폭 (#tabbar). 어느 화면에서든 보이고, 노트 화면일 때만 지금 탭이 강조된다 */
+/* 탭 줄은 앱 맨 위 전체 폭 (#tabbar). 탭이 둘 이상일 때만 보이고(어느 화면에서든), 노트 화면일 때만 지금 탭이 강조된다 */
 function renderTabBar(){
   const bar=$("#tabbar");if(!bar)return;
   tabSync();
   const showOn=view==="note"&&!todayFull();
-  bar.hidden=!tabs.length;
-  bar.innerHTML=tabs.length?`<div id="ntabs" role="tablist" aria-label="열어 둔 노트">${tabs.map(id=>{const n=all.find(x=>x.issue_id===id);if(!n)return "";const on=showOn&&id===cur;
+  const show=tabs.length>1;      // 탭이 하나뿐이면 탭 줄을 숨긴다 (탭은 그대로 기억)
+  bar.hidden=!show;
+  bar.innerHTML=show?`<div id="ntabs" role="tablist" aria-label="열어 둔 노트">${tabs.map(id=>{const n=all.find(x=>x.issue_id===id);if(!n)return "";const on=showOn&&id===cur;
     return `<div class="ntab${on?" on":""}${id!==cur&&isUnseen(n)?" unseen":""}" role="tab" aria-selected="${on}" data-tab="${id}" draggable="true" title="#${id} ${esc(n.subject)}&#10;휠 클릭 · × 로 닫기 · 끌어서 순서 바꾸기 · 우클릭 메뉴">`
       +`<span class="ntab-dot s-${stOf(n)}"></span><span class="ntab-no">#${id}</span><span class="ntab-t">${esc(n.subject)}</span><button type="button" class="ntab-x" data-tabx="${id}" title="탭 닫기 (Alt+W)" aria-label="탭 닫기">×</button></div>`}).join("")}</div>`:"";
   wireTabs();
