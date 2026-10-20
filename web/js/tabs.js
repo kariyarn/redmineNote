@@ -3,7 +3,7 @@
    휠 클릭 · Ctrl+클릭 = 새 탭에 열기 (지금 보던 노트는 그대로) · Ctrl+Shift+클릭 = 새 탭에 열고 그 탭으로
    메뉴에서 메모 · 트러블슈팅 · 요약 같은 화면을 누르면 그 화면의 탭으로 (없으면 새 탭). 화면 탭에서 노트를 열면 옆에 노트 탭
    탭: 누르기 = 그 노트 · 화면으로 · × 또는 휠 클릭 = 닫기 · 끌어서 순서 바꾸기 · 우클릭 = 다른 탭 / 오른쪽 탭 닫기
-   Alt+PageUp / Alt+PageDown = 앞 / 뒤 탭, Alt+W = 지금 탭 닫기. 열어 둔 탭은 기억했다가 다시 켜면 그대로 (ui.tabs · ui.tabCur) */
+   Ctrl+W = 지금 탭 닫기 · Ctrl+Tab / Ctrl+Shift+Tab = 다음 / 이전 탭 · Ctrl+1~9 (Alt+PageUp / Alt+PageDown · Alt+W 도 된다). 열어 둔 탭은 기억했다가 다시 켜면 그대로 (ui.tabs · ui.tabCur) */
 const TAB_MAX=12;                 // 넘으면 가장 왼쪽(지금 탭이 아닌 것)부터 닫는다
 /* 탭 하나 = 노트(일감 번호) 또는 화면(메뉴 이름). 화면은 하나씩만 열리고(이미 열려 있으면 그 탭으로), 오늘 · 이력은 노트 목록이라 탭이 아니다 */
 const TAB_SCREENS=["mine","summary","graph","code","memo","deploy","trouble","queries","commands","vaultCode","vaultQuery","vaultCommands"];
@@ -43,7 +43,7 @@ function renderTabBar(){
   const ck=view==="note"&&todayFull()?null:curKey();
   const show=tabs.length>1;      // 탭이 하나뿐이면 탭 줄을 숨긴다 (탭은 그대로 기억)
   bar.hidden=!show;
-  bar.innerHTML=show?`<div id="ntabs" role="tablist" aria-label="열어 둔 탭">${tabs.map(k=>{const on=k===ck,x=`<button type="button" class="ntab-x" data-tabx="${k}" title="탭 닫기 (Alt+W)" aria-label="탭 닫기">×</button>`,tip="휠 클릭 · × 로 닫기 · 끌어서 순서 바꾸기 · 우클릭 메뉴";
+  bar.innerHTML=show?`<div id="ntabs" role="tablist" aria-label="열어 둔 탭">${tabs.map(k=>{const on=k===ck,x=`<button type="button" class="ntab-x" data-tabx="${k}" title="탭 닫기 (Ctrl+W)" aria-label="탭 닫기">×</button>`,tip="휠 클릭 · × 로 닫기 · 끌어서 순서 바꾸기 · 우클릭 메뉴";
     if(isScr(k))return `<div class="ntab scr${on?" on":""}" role="tab" aria-selected="${on}" data-tab="${k}" draggable="true" title="${esc(NAVLABEL[k]||k)}&#10;${tip}"><span class="ntab-ic">${NAVICON[k]||""}</span><span class="ntab-t">${esc(NAVLABEL[k]||k)}</span>${x}</div>`;
     const n=all.find(a=>a.issue_id===k);if(!n)return "";
     return `<div class="ntab${on?" on":""}${k!==cur&&isUnseen(n)?" unseen":""}" role="tab" aria-selected="${on}" data-tab="${k}" draggable="true" title="#${k} ${esc(n.subject)}&#10;${tip}">`
@@ -52,6 +52,7 @@ function renderTabBar(){
 }
 function tabAfterClose(gone,nx){  // 지금 탭을 닫은 뒤: 다음 탭으로, 없으면 노트는 비우고 화면은 오늘로
   tabAt=-1;
+  if(gone===cur)cur=null;      // 닫은 노트가 오늘 화면의 자동 열기 등으로 되살아나지 않게
   if(nx!=null){tabActivate(nx);return}
   if(isScr(gone)){tabSave();setNav("today");return}
   cur=null;tabSave();renderAll();
@@ -89,6 +90,23 @@ function wireTabs(){
   });
   const on=bar.querySelector(".ntab.on");if(on)on.scrollIntoView({block:"nearest",inline:"nearest"});
 }
+/* 크롬과 같은 단축키. 앱 창(--app)에서는 브라우저가 Ctrl+W · Ctrl+Tab 을 화면에 먼저 넘겨 주므로 막고 탭에 쓸 수 있다.
+   Ctrl+W(Ctrl+F4) = 지금 탭 닫기 (탭이 없어도 창은 닫지 않는다 — 무심코 눌러 창 전체가 닫히지 않게)
+   Ctrl+Tab · Ctrl+PageDown = 다음 탭, Ctrl+Shift+Tab · Ctrl+PageUp = 이전 탭, Ctrl+1~8 = 그 번째 탭, Ctrl+9 = 마지막 탭 */
+document.addEventListener("keydown",e=>{
+  if(!(e.ctrlKey||e.metaKey)||e.altKey)return;
+  const k=e.key,dlg=$("#modal").classList.contains("show")||!!$("#wdlg.show");
+  if((k==="w"||k==="W"||e.code==="KeyW"||k==="F4")&&!e.shiftKey){
+    e.preventDefault();e.stopPropagation();
+    if(dlg)return;
+    if(tabs.includes(curKey()))tabClose(curKey());
+    else toast("닫을 탭이 없어요 · 창을 닫으려면 오른쪽 위 × 를 누르세요",2600);
+    return;
+  }
+  if(dlg)return;
+  if(k==="Tab"||k==="PageUp"||k==="PageDown"){e.preventDefault();tabStep(k==="PageUp"||(k==="Tab"&&e.shiftKey)?-1:1);return}
+  if(!e.shiftKey&&/^Digit[1-9]$/.test(e.code||"")&&tabs.length>1){e.preventDefault();const n=+e.code.slice(5);tabActivate(tabs[n===9?tabs.length-1:Math.min(n,tabs.length)-1])}
+},true);
 document.addEventListener("keydown",e=>{
   if(!e.altKey||e.ctrlKey||e.metaKey||$("#modal").classList.contains("show"))return;
   if(e.key==="PageUp"||e.key==="PageDown"){e.preventDefault();tabStep(e.key==="PageUp"?-1:1)}
