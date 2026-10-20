@@ -113,7 +113,7 @@ function pgEntry(p){
 const pgFold=new Set();      // 접어 둔 날짜 ("일감번호|날짜"). 화면을 열어 둔 동안만 기억한다
 const pgInit=new Set();      // 처음 연 노트: 오늘(없으면 가장 최근 날짜)만 펼치고 나머지 날짜는 접어서 시작한다
 const pgKey=(n,d)=>`${n.issue_id}|${d}`;
-const pgPreview=t=>(t||"").replace(/```[\s\S]*?```/g," ⟨코드⟩ ").split(/\r?\n/).map(x=>x.replace(/[​`]/g,"").trim()).find(Boolean)||"";
+const pgPreview=t=>softNl(t).replace(/```[\s\S]*?```/g," ⟨코드⟩ ").split(/\r?\n/).map(x=>x.replace(/[​`]/g,"").trim()).find(Boolean)||"";
 function pgListHtml(n){
   const arr=n._pg||[];
   if(!arr.length)return `<div class="meta">아직 진행 기록이 없습니다. 날마다 어디까지 했는지 남겨 두면 다음에 이어서 하기 쉽습니다.</div>`;

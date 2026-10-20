@@ -225,6 +225,63 @@ A.sync = lambda f, to: {"added_ids": [], "changed_ids": [501], "failed": [], "ab
 r = run_at(35, 600, False)
 t("only changes -> nothing to notify", r["new"] == [] and not r["tray"])
 
+# 15-2. 바뀐 일감의 새 소식: 가져오기 전 수정 시각 뒤에 남이 단 댓글 · 변경만 (내 것 · 배포요청 일감은 빼고). 창이 안 보이면 오른쪽 아래 알림 창
+config.STATE["me_id"], config.STATE["me_name"] = 7, "나개발"
+J = [{"id": 1, "user": {"id": 9, "name": "김기획"}, "created_on": "2026-10-20T01:00:00Z", "notes": "예전 댓글"},
+     {"id": 2, "user": {"id": 9, "name": "김기획"}, "created_on": "2026-10-21T01:00:00Z", "notes": "\n확인 부탁드려요\n둘째 줄"},
+     {"id": 3, "user": {"id": 7, "name": "나개발"}, "created_on": "2026-10-21T02:00:00Z", "notes": "내가 단 댓글"}]
+CH = [{"id": 4, "user": "박운영", "created_on": "2026-10-21T00:30:00Z", "items": [{"label": "상태", "old": "진행", "new": "완료"}]},
+      {"id": 5, "user": "나개발", "created_on": "2026-10-21T03:00:00Z", "items": [{"label": "상태", "old": "접수", "new": "진행"}]}]
+with storage.db() as c:
+    c.execute("INSERT OR REPLACE INTO notes (issue_id, subject, project, roles, journals, changes, updated_on) VALUES (?,?,?,?,?,?,?)",
+              (601, "댓글 달린 일감", "[DR] 시험", "담당자", json.dumps(J, ensure_ascii=False), json.dumps(CH, ensure_ascii=False), "2026-10-20T05:00:00Z"))
+    c.execute("INSERT OR REPLACE INTO notes (issue_id, subject, project, roles, journals, changes, updated_on) VALUES (?,?,?,?,?,?,?)",
+              (602, "내 댓글만", "[DR] 시험", "담당자", json.dumps(J[2:], ensure_ascii=False), "[]", "2026-10-20T05:00:00Z"))
+act = A._activity([601, 602, 999], {601: "2026-10-20T05:00:00Z", 602: "2026-10-20T05:00:00Z"})
+t("activity: others' new comment + change, mine excluded", act == [{"id": 601, "subject": "댓글 달린 일감", "who": "김기획", "text": "확인 부탁드려요", "count": 2}])
+t("activity: no 'before' (new issue) -> none", A._activity([601], {}) == [])
+t("activity: change text", A._activity([601], {601: "2026-10-21T00:00:00Z"})[0]["count"] == 2 and
+  A._activity([601], {601: "2026-10-21T00:40:00Z"})[0]["text"] == "확인 부탁드려요")
+shown_items = []
+class FakePopup:
+    ok = True
+    @staticmethod
+    def show(items, on_click=None): shown_items.append((items, on_click)); return FakePopup.ok
+config.RUN.tray, config.RUN.popup = FakeTray, FakePopup
+A.sync = lambda f, to: {"added_ids": [], "changed_ids": [601], "failed": [], "aborted": None}
+with storage.db() as c:
+    c.execute("UPDATE notes SET updated_on=? WHERE issue_id=601", ("2026-10-20T05:00:00Z",))
+shown_items.clear(); r = run_at(40, 600, False)
+t("changed issue with new comment -> popup (no balloon)", r["popup"] and not r["tray"] and balloons == [] and len(shown_items) == 1
+  and shown_items[0][0] == [{"id": 601, "new": False, "head": "💬 김기획 외 1건", "title": "#601 댓글 달린 일감", "text": "확인 부탁드려요"}]
+  and callable(shown_items[0][1]) and r["act"][0]["id"] == 601)
+shown_items.clear(); r = run_at(41, 5, False)
+t("window visible -> no popup", not r["popup"] and shown_items == [] and r["act"])
+put(notify_popup="0"); shown_items.clear(); r = run_at(42, 600, False)
+t("popup off -> balloon instead", not r["popup"] and r["tray"] and shown_items == [] and balloons == [("💬 새 댓글 2건", "#601 김기획: 확인 부탁드려요")])
+put(notify_popup="1"); FakePopup.ok = False; r = run_at(43, 600, False)
+t("popup failed -> balloon instead", not r["popup"] and r["tray"] and len(balloons) == 1)
+FakePopup.ok = True
+A.sync = lambda f, to: {"added_ids": [501], "changed_ids": [601], "failed": [], "aborted": None}
+shown_items.clear(); r = run_at(44, 600, False)
+t("new + comment in one popup batch", [x["id"] for x in shown_items[0][0]] == [501, 601] and shown_items[0][0][0]["new"] is True)
+items = A._popup_items([{"id": i, "subject": f"새 {i}", "project": "P"} for i in (1, 2, 3, 4)], [])
+t("many -> 2 + summary", len(items) == 3 and items[2]["id"] is None and items[2]["title"] == "새 소식 2건 더")
+config.RUN.popup = None
+
+# 15-3. 알림 창을 누르면: 앱 창이 열려 있으면 그 화면이 노트를 열게(open_req) 하고, 닫혀 있으면 그 노트를 여는 새 창
+from rnotes import lifecycle as LC
+opened_q = []
+LC.open_new = lambda query="": opened_q.append(query)
+config.STATE["last_ping"] = __import__("time").time()
+LC.open_issue({"id": 601, "new": False})
+t("window open -> open request for the page", config.STATE["open_req"] == {"id": 601, "new": False} and opened_q == [])
+config.STATE["last_ping"] = 0
+LC.open_issue({"id": 501, "new": True})
+t("window closed -> new window with ?open=", opened_q == ["?open=501&new=1"] and config.STATE["open_req"] is None)
+LC.open_issue({"id": None})
+t("summary popup -> just open the app", opened_q[-1] == "")
+
 # 16. 트레이 알림(말풍선)을 누르면 아이콘을 누른 것처럼 창을 연다 (열려 있으면 앞으로)
 if sys.platform == "win32":
     from rnotes import tray as TR
