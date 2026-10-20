@@ -319,6 +319,27 @@ def clean_env(env=None):
     return env
 
 
+SETUP_ARGS = ["/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/CLOSEAPPLICATIONS", "/RELAUNCH=1"]   # 도우미(HELPER)가 넘기는 것과 같다
+
+
+def _oserr(e):
+    return f"WinError {e.winerror}" if getattr(e, "winerror", None) else (e.strerror or str(e) or e.__class__.__name__)
+
+
+def write_helper():
+    """도우미 파일을 쓴다. 매번 새 이름으로: 지난번 도우미가 아직 붙잡고 있거나 백신이 검사 중인 파일을 덮어쓰다가
+    '액세스가 거부되었습니다(WinError 5)' 로 막히지 않게. 지난 도우미 파일은 지울 수 있으면 지운다."""
+    WORK_DIR.mkdir(parents=True, exist_ok=True)
+    for old in WORK_DIR.glob("apply-update*.cmd"):
+        try:
+            old.unlink()
+        except OSError:
+            pass
+    script = WORK_DIR / f"apply-update-{os.getpid()}-{int(time.time())}.cmd"
+    script.write_bytes(HELPER.replace("\n", "\r\n").encode("ascii"))   # cmd 는 CRLF · ASCII 로 (경로는 환경 변수로 넘겨 한글도 안전)
+    return script
+
+
 def apply():
     """받아 둔 새 버전으로 바꾼다: 도우미를 띄우고 앱을 끈다. 화면에 응답할 틈을 주려고 끄는 것은 잠깐 뒤에."""
     st = status()
@@ -328,17 +349,34 @@ def apply():
         raise UpdateError("받아 둔 새 버전이 없어요 — 먼저 받으세요")
     if st["mode"] == "exe" and not os.access(Path(sys.executable).parent, os.W_OK):
         raise UpdateError("이 exe 가 있는 폴더에 쓸 수 없어요 — 설치 파일(RedmineNotes2-Setup.exe)로 설치하면 앱 안에서 업데이트할 수 있어요")
-    WORK_DIR.mkdir(parents=True, exist_ok=True)
-    script = WORK_DIR / "apply-update.cmd"
-    script.write_bytes(HELPER.replace("\n", "\r\n").encode("ascii"))   # cmd 는 CRLF · ASCII 로 (경로는 환경 변수로 넘겨 한글도 안전)
     env = {**clean_env(), **helper_env(_DL["file"], st["mode"])}
+    try:
+        script = write_helper()
+    except OSError as e:
+        script = None
+        if st["mode"] != "installer":
+            raise UpdateError(f"업데이트 도우미 파일을 임시 폴더에 쓰지 못했어요 ({_oserr(e)}) — 백신이 막았을 수 있어요. 릴리스 페이지에서 설치 파일을 받아 직접 실행하세요")
     _DL["state"] = "applying"
     if DRY_RUN:
         return {"ok": True, "dry_run": True, "script": str(script), "env": {k: v for k, v in env.items() if k.startswith("RN_")},
                 "inherit": sorted(k for k in env if k.upper().startswith(("_PYI_", "_MEIPASS", "PYINSTALLER_")))}
     flags = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0) | getattr(subprocess, "CREATE_NO_WINDOW", 0)
-    subprocess.Popen(["cmd.exe", "/d", "/c", str(script)], env=env, creationflags=flags, close_fds=True,
-                     stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    try:
+        if script is None:
+            raise OSError("도우미 파일 없음")
+        subprocess.Popen(["cmd.exe", "/d", "/c", str(script)], env=env, creationflags=flags, close_fds=True,
+                         stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except OSError as e:
+        if st["mode"] != "installer":
+            _DL["state"] = "ready"
+            raise UpdateError(f"업데이트 도우미를 실행하지 못했어요 ({_oserr(e)}) — 보안 정책 · 백신이 막았을 수 있어요. 릴리스 페이지에서 받아 직접 바꾸세요")
+        try:   # 설치 파일 방식은 도우미 없이도 된다: 설치 파일이 켜져 있는 앱을 닫고(CloseApplications) 설치한 뒤 다시 켠다(RELAUNCH)
+            subprocess.Popen([_DL["file"], *SETUP_ARGS], env=clean_env(), close_fds=True,
+                             stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except OSError as e2:
+            _DL["state"] = "ready"
+            raise UpdateError(f"설치 파일을 실행하지 못했어요 ({_oserr(e2)}) — 보안 정책 · 백신이 막았을 수 있어요. "
+                              f"받아 둔 파일: {_DL['file']} 을 직접 실행하거나 릴리스 페이지에서 받으세요")
 
     def bye():
         time.sleep(1.0)
