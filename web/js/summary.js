@@ -38,7 +38,7 @@ function drCard(){
       <label class="drmine" title="내가 요청한 일감만"><input type="checkbox" id="drMine" ${f.mine?"checked":""}> 내가 요청</label>
       <button type="button" class="mini" id="drReset" title="필터를 처음 상태로">↺</button></div>
     <div class="drsts"><button type="button" class="dchip ${picked.length?"":"on"}" data-drs="*">전체 <small>${cands.length}</small></button>${sts.map(([x,c])=>`<button type="button" class="dchip ${picked.includes(x)?"on":""}" data-drs="${esc(x)}">${esc(x)} <small>${c}</small></button>`).join("")}</div>
-    <div class="drlist">${l.map(n=>`<div class="drrow${drPick.has(n.issue_id)?" picked":""}"><input type="checkbox" class="drck" data-drsel="${n.issue_id}" ${drPick.has(n.issue_id)?"checked":""} tabindex="-1" aria-hidden="true"><div class="drnr">${nrow(n,{age:drSel==="now"})}</div></div>`).join("")||`<div class="meta" style="padding:10px 0">조건에 맞는 DR 일감이 없어요.</div>`}</div>
+    <div class="drlist">${l.map(n=>`<div class="drrow${drPick.has(n.issue_id)?" picked":""}"><input type="checkbox" class="drck" data-drsel="${n.issue_id}" ${drPick.has(n.issue_id)?"checked":""} tabindex="-1" aria-hidden="true"><div class="drnr">${nrow(n)}</div></div>`).join("")||`<div class="meta" style="padding:10px 0">조건에 맞는 DR 일감이 없어요.</div>`}</div>
     <div class="dract"><button type="button" class="primary" id="drcopy" ${l.length?"":"disabled"}>전체 복사 (${l.length})</button><button type="button" id="drcopySel" disabled>선택 복사 (0)</button><button type="button" class="mini" id="drAll" ${l.length?"":"disabled"}>모두 선택</button><button type="button" class="mini" id="drNone">해제</button><button type="button" class="mini" id="drdl" ${l.length?"":"disabled"} title="텍스트 파일로 저장">파일</button>
       <label class="meta drmine"><input type="checkbox" id="drnum" ${ui.copyNum?"checked":""}> 번호</label><label class="meta drmine"><input type="checkbox" id="drst" ${ui.copySt?"checked":""}> 상태</label><label class="meta drmine"><input type="checkbox" id="drteam" ${ui.copyTeam!==false?"checked":""}> 팀 이름 포함</label><span class="meta drhint">한 번 클릭 = 선택 · 두 번 클릭 = 열기</span></div></div>`;
 }
@@ -122,7 +122,7 @@ function renderSummary(){
     <div class="chips">${TRST.map(st=>`<span class="badge s-${TRCLS[st]}">${st} ${trIn.filter(x=>x.status===st).length}</span>`).join("")}</div>
     <div class="mini-list">${trIn.slice(0,12).map(x=>`<a class="rel" data-trop="${x.id}">${trBadge(x.status)}<span>${esc(x.title)}</span><span class="meta">${esc((x.updated_at||"").slice(5,10))}</span></a>`).join("")||`<span class="meta">이 기간에 수정한 트러블슈팅이 없어요.</span>`}${trIn.length>12?`<div class="meta">외 ${trIn.length-12}건 · 트러블슈팅 화면에서 모두 볼 수 있어요</div>`:""}</div></div>`:"";
   const kpHtml=sumKp&&kpMap[sumKp]?`<div class="card kplist"><div class="fhd"><span>${kpMap[sumKp][0]}</span><small>${kpMap[sumKp][1].length}건 · ${sumKp==="need"||sumKp==="active"?"기간 무관":esc(rangeText("summary"))} · 눌러서 열기</small><span class="sp"></span><button type="button" class="mini" data-kp="${sumKp}">닫기</button></div>
-    <div class="klist">${[...kpMap[sumKp][1]].sort(byUpdDesc).map(n=>nrow(n,{age:sumKp==="active"})).join("")||`<span class="meta">해당하는 일감이 없어요.</span>`}</div></div>`:"";
+    <div class="klist">${[...kpMap[sumKp][1]].sort(byUpdDesc).map(n=>nrow(n)).join("")||`<span class="meta">해당하는 일감이 없어요.</span>`}</div></div>`:"";
 
   $("#center").innerHTML=`<div class="mine-h">
       <span class="meta"><b>${q?"전체 기간":rangeText("summary")}</b> 에 수정된 내 일감${q?` · 검색 '${esc(q)}'`:""}</span><span class="sp"></span><button id="sumcopy">요약 복사 (마크다운)</button></div>

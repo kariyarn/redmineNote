@@ -25,7 +25,6 @@ function setList(html,sig){      // 목록을 다시 그려도 스크롤이 맨 
 }
 const byUpdDesc=(a,b)=>b.updated_on.localeCompare(a.updated_on);
 const WD=["일","월","화","수","목","금","토"];
-const ageTxt=n=>{const s=stOf(n),a=ageDays(n);return (s==="대기"||s==="진행")?`${s} · ${a===0?"오늘":a+"일 전"} 수정`:relDay(n._d)};
 /* 비슷한 과거 건: 이 노트와 같은 주제(용어)를 가진 다른 내 일감. 흔한 용어는 변별력이 낮아 드문 용어 2개를 기준으로 한다. */
 let _tc=null,_tk="";
 const termCnt=()=>{const k=all.length+"|"+terms.map(t=>t.id+":"+t.term+":"+(t.aliases||"")).join(",");if(_tc&&_tk===k)return _tc;_tk=k;return _tc=new Map(terms.map(t=>[t.id,all.filter(x=>isMy(x)&&has(x,t)).length]))};
@@ -39,12 +38,15 @@ function openSimilar(n){
   sel=ts.map(t=>t.id);selMode="and";Object.assign(hist,{cat:"전체",per:"all",flag:"",more:60,pop:false});
   $("#q").value="";setNav("history",{keepSel:true});
 }
+/* 목록 한 줄: 제목 · #번호 · 구분 · 태그만 (상태 · 며칠 전 수정 · 비슷한 과거는 노트 본문에서). 오른쪽에 번호 · 제목 복사와 ☆ 고정 */
+const CP_NO='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h16M4 15h16M10 3 8 21M16 3l-2 18"/></svg>',CP_T='<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/></svg>';
 function nrow(n,o={}){
-  const s=stOf(n),c=catOf(n),tier=tierOf(n),sim=o.sim?simInfo(n):null;
+  const s=stOf(n),c=catOf(n),tier=tierOf(n);
   const tag=tier==="assigned"?`<span class="tg">내 앞으로</span>`:tier==="watch"?`<span class="tg ghost">관람</span>`:tier==="added"?`<span class="tg ghost">추가됨</span>`:tier==="ref"?`<span class="tg ghost">참조</span>`:"";
   return `<div class="nrow s-${s} ${n.issue_id===cur?"sel":""}${isUnseen(n)?" unseen":""}" data-id="${n.issue_id}" role="button" tabindex="0"${o.drag?' draggable="true" title="끌어서 순서를 바꿀 수 있어요"':""}>
-    <button type="button" class="rstar ${n.starred?"on":""}" data-star-id="${n.issue_id}" title="${n.starred?"고정 해제":"고정: 목록 맨 위에 둬요 (즐겨찾기)"}" aria-label="고정">${n.starred?"★":"☆"}</button><span class="dot"></span><div class="rb"><div class="rt">${title(n.subject)}</div>
-    <div class="rm"><span>#${n.issue_id}</span>${c!=="기타"?`<span class="cat ${c} mini" title="${esc(n.project)}">${c}</span>`:""}<span>${o.age?esc(ageTxt(n)):n._d}</span>${tag}${todoBadge(n)}${o.hide?`<button type="button" class="rhide" data-whide="${n.issue_id}" title="${o.hide==="back"?"지켜보는 중 목록에 다시 넣어요":"지켜보는 중 목록에서 숨겨요 (새 활동이 생기면 다시 보여요)"}">${o.hide==="back"?"↩ 되돌리기":"✕ 숨기기"}</button>`:""}${sim&&sim.list.length?`<button type="button" class="sim" data-sim="${n.issue_id}" title="같은 주제를 가진 과거 일감 보기">비슷한 과거 ${sim.list.length}건</button>`:""}</div></div></div>`;
+    <div class="rb"><div class="rt">${title(n.subject)}</div>
+    <div class="rm"><span>#${n.issue_id}</span>${c!=="기타"?`<span class="cat ${c} mini" title="${esc(n.project)}">${c}</span>`:""}${tag}${todoBadge(n)}${o.hide?`<button type="button" class="rhide" data-whide="${n.issue_id}" title="${o.hide==="back"?"지켜보는 중 목록에 다시 넣어요":"지켜보는 중 목록에서 숨겨요 (새 활동이 생기면 다시 보여요)"}">${o.hide==="back"?"↩ 되돌리기":"✕ 숨기기"}</button>`:""}</div></div>
+    <div class="ract"><button type="button" class="rcp" data-cpno="${n.issue_id}" title="‘#${n.issue_id}’ 복사" aria-label="번호 복사">${CP_NO}</button><button type="button" class="rcp" data-cpt="${n.issue_id}" title="제목 복사" aria-label="제목 복사">${CP_T}</button><button type="button" class="rstar ${n.starred?"on":""}" data-star-id="${n.issue_id}" title="${n.starred?"고정 해제":"고정: 목록 맨 위에 둬요 (즐겨찾기)"}" aria-label="고정">${n.starred?"★":"☆"}</button></div></div>`;
 }
 function wireRows(root){
   root.querySelectorAll(".nrow").forEach(r=>{
@@ -55,9 +57,10 @@ function wireRows(root){
     r.onauxclick=e=>{if(e.button===1&&!(nav==="graph"&&view==="graph")){e.preventDefault();openNote(+r.dataset.id,{bg:true})}};
     r.ondblclick=()=>{if(nav==="graph"&&view==="graph")openNote(+r.dataset.id)};
     r.onmouseenter=r.onfocus=()=>graphHover(+r.dataset.id);r.onmouseleave=r.onblur=()=>graphHover(0);
-    r.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();openNote(+r.dataset.id)}};
+    r.onkeydown=e=>{if(e.target===r&&(e.key==="Enter"||e.key===" ")){e.preventDefault();openNote(+r.dataset.id)}};     // 줄 안 단추(복사 · ☆)에서 누른 Enter 는 그 단추만
   });
-  root.querySelectorAll("[data-sim]").forEach(b=>b.onclick=e=>{e.stopPropagation();openSimilar(all.find(x=>x.issue_id===+b.dataset.sim))});
+  root.querySelectorAll("[data-cpno]").forEach(b=>b.onclick=e=>{e.stopPropagation();copyText("#"+b.dataset.cpno,`#${b.dataset.cpno} 복사했어요`)});
+  root.querySelectorAll("[data-cpt]").forEach(b=>b.onclick=e=>{e.stopPropagation();const n=all.find(x=>x.issue_id===+b.dataset.cpt);if(n)copyText(n.subject,"제목을 복사했어요")});
   wireStars(root);
 }
 /* ---------- 오늘 '지금 할 일' 정렬: 기본 · 최신순(레드마인 수정일) · 등록순(일감 번호) · 내 순서(끌어서). 고정(★)한 것은 항상 맨 위 ---------- */
@@ -165,17 +168,17 @@ function renderToday(){
   const openT=todos.filter(t=>!t.done&&!t.archived_at).map(t=>({t,n:all.find(x=>x.issue_id===t.issue_id)})).filter(o=>o.n);
   /* 구역 하나 = 접는 머리줄(▸ 제목 · 개수 · 설명) + 본문 */
   const sec=(key,label,sub,count,inner,extra="")=>`<div class="lsec foldr" data-tfold="${key}" role="button" tabindex="0" aria-expanded="${secOpen(key)}">${chev(secOpen(key))}<b>${label}</b><span class="lcnt">${count}</span>${sub?`<small class="lsub">${sub}</small>`:""}<span class="sp"></span>${extra}</div>${secOpen(key)?`<div class="lbody">${inner}</div>`:""}`;
-  const watchInner=()=>secSortBar("watch")+watch.map(n=>nrow(n,{age:true,hide:true})).join("")
-    +(wHid.length?`<div class="whid" data-whidtog>${secOpen("whid")?"▾":"▸"} 숨긴 ${wHid.length}개 ${secOpen("whid")?"접기":"보기"}</div>`+(secOpen("whid")?wHid.map(n=>nrow(n,{age:true,hide:watchState(n)==="manual"?"back":""})).join("")+`<div class="meta whint">직접 숨긴 것은 ↩ 로 되돌리고, ${watchAutoDays()}일 변화가 없어 자동으로 빠진 것은 ☆ 고정하면 다시 보여요. 새 활동이 생기면 저절로 다시 나타나요.</div>`:""):"");
+  const watchInner=()=>secSortBar("watch")+watch.map(n=>nrow(n,{hide:true})).join("")
+    +(wHid.length?`<div class="whid" data-whidtog>${secOpen("whid")?"▾":"▸"} 숨긴 ${wHid.length}개 ${secOpen("whid")?"접기":"보기"}</div>`+(secOpen("whid")?wHid.map(n=>nrow(n,{hide:watchState(n)==="manual"?"back":""})).join("")+`<div class="meta whint">직접 숨긴 것은 ↩ 로 되돌리고, ${watchAutoDays()}일 변화가 없어 자동으로 빠진 것은 ☆ 고정하면 다시 보여요. 새 활동이 생기면 저절로 다시 나타나요.</div>`:""):"");
   if(cur==null&&now.length&&!todayFull())cur=now[0].issue_id;     // 손 대지 않아도 가장 먼저 할 일이 오른쪽에 열려 있다 (새 디자인의 넓은 목록에서는 열지 않는다)
   const nowInner=(now.length?`<div class="sortbar"><span class="meta">정렬</span><div class="seg" id="tsort">${TSORT.map(([k,l,t])=>`<button type="button" data-ts="${k}" class="${tSort()===k?"on":""}" title="${esc(t)}">${l}</button>`).join("")}</div><span class="meta sorthint" title="☆ 로 고정하면 맨 위 · 줄을 끌어서 순서를 바꿀 수 있어요">ⓘ</span></div>`:"")
-    +(now.length?now.map(n=>nrow(n,{age:true,sim:true,drag:true})).join(""):`<div class="okbox">✓ 지금 할 일이 없어요</div>`);
+    +(now.length?now.map(n=>nrow(n,{drag:true})).join(""):`<div class="okbox">✓ 지금 할 일이 없어요</div>`);
   const todoInner=openT.slice(0,8).map(o=>`<div class="trow" data-tid="${o.t.id}"><input type="checkbox" title="완료"><span class="tx">${esc(o.t.text)}</span><a data-open="${o.n.issue_id}" title="${esc(o.n.subject)}">#${o.n.issue_id}</a></div>`).join("")+(openT.length>8?`<div class="meta" style="padding:2px 12px">…외 ${openT.length-8}건 (각 노트에서 볼 수 있어요)</div>`:"")||`<div class="meta" style="padding:4px 12px">남은 할 일이 없어요</div>`;
   setList(`<div class="pane-title">오늘</div><div class="pane-sub">${dt} · 지금 할 일 ${now.length}건</div>
     ${sec("now","지금 할 일","",now.length,nowInner)}
     ${(openT.length||arcN)?sec("todo","내 할 일","",openT.length,todoInner,arcN?`<a class="tarc" data-tarc title="완료해서 보관한 체크리스트 보기">보관함 ${arcN}</a>`:""):""}
-    ${recent.length?sec("recent","최근 바뀐 것","3일 이내",recent.length,secSortBar("recent")+recent.map(n=>nrow(n,{age:true})).join("")):""}
-    ${dev.length?sec("dev","참고 · 내가 개발 담당","",dev.length,secSortBar("dev")+dev.map(n=>nrow(n,{age:true})).join("")):""}
+    ${recent.length?sec("recent","최근 바뀐 것","3일 이내",recent.length,secSortBar("recent")+recent.map(n=>nrow(n)).join("")):""}
+    ${dev.length?sec("dev","참고 · 내가 개발 담당","",dev.length,secSortBar("dev")+dev.map(n=>nrow(n)).join("")):""}
     ${(watch.length||wHid.length)?sec("watch","지켜보는 중","",watch.length,watchInner()):""}`,"today");
   wireRows($("#list"));
   wireNowDrag($("#list"),now.map(n=>n.issue_id));  document.querySelectorAll("#list [data-secs] [data-sv]").forEach(b=>b.onclick=e=>{e.stopPropagation();const k=b.closest("[data-secs]").dataset.secs;ui.secSort=Object.assign({},ui.secSort||{},{[k]:b.dataset.sv});saveUI();renderList()});
