@@ -8,8 +8,17 @@ const DRF_DEF={per:"7d",from:"",to:"",role:"auto",status:[],mine:false};
 const drF=()=>Object.assign({},DRF_DEF,ui.drF||{});
 const drPick=new Set();      // 선택 복사용으로 체크한 일감 번호
 const setDrF=o=>{ui.drF={...drF(),...o};saveUI()};
+const drManualMode=()=>ui.drMode==="manual";
+const drManualIds=()=>Array.isArray(ui.drManual)?ui.drManual:[];
+const drManualHas=id=>drManualIds().includes(+id);
+function drManualAdd(id){
+  const exists=drManualHas(id);
+  if(!exists){ui.drManual=[...drManualIds(),+id];saveUI()}
+  toast(exists?`#${id} 는 이미 DR 모아보기에 있어요`:`#${id} 를 DR 모아보기에 추가했어요`,2400);
+}
 function drPeriod(f){const t=todayStr();return f.per==="month"?[t.slice(0,8)+"01",t]:f.per==="custom"?[f.from||t,f.to||t]:[fmt(new Date(Date.now()-7*864e5)),t]}
 function drCands(){   // 기간·역할·요청자까지 적용한 목록 (상태 칩의 개수는 여기서 센다)
+  if(drManualMode())return drManualIds().map(id=>all.find(n=>n.issue_id===+id)).filter(Boolean);
   const f=drF(),[a,b]=drPeriod(f),role=f.role==="auto"?(drSel==="week"?"dev":"assigned"):f.role;
   return all.filter(n=>{
     if(catOf(n)!=="DR"||!notDeploy(n))return false;
@@ -22,6 +31,7 @@ function drCands(){   // 기간·역할·요청자까지 적용한 목록 (상�
   });
 }
 function drList(){
+  if(drManualMode())return drCands();
   const f=drF(),c=drCands(),present=new Set(c.map(n=>n.rm_status)),st=f.status.filter(x=>present.has(x));
   return c.filter(n=>!st.length||st.includes(n.rm_status)).sort(byUpdDesc);
 }
@@ -31,19 +41,25 @@ function drCard(){
   const sts=[...cnt.entries()].sort((x,y)=>y[1]-x[1]),picked=f.status.filter(x=>cnt.has(x));
   const role=f.role==="auto"?(w?"개발담당자":"담당자"):({assigned:"담당자",dev:"개발담당자",both:"담당자 + 개발담당자"}[f.role]);
   const [pa,pb]=drPeriod(f),opt=(v,t,cur)=>`<option value="${v}" ${cur===v?"selected":""}>${t}</option>`;
-  return `<div class="card drcard"><div class="fhd"><span>DR 제목 모아보기</span><small>${esc(role)}인 DR · ${w?`${pa.slice(5)} ~ ${pb.slice(5)}`:"대기·진행 중"}${f.mine?" · 내가 요청한 것":""}</small></div>
-    <div class="drtop"><div class="seg"><button type="button" data-dr="week" class="${w?"on":""}">이번 주</button><button type="button" data-dr="now" class="${w?"":"on"}">현안</button></div>
+  const manual=drManualMode();
+  return `<div class="card drcard"><div class="fhd"><span>DR 제목 모아보기</span><small>${manual?`수동 목록 · ${cands.length}건`:`${esc(role)}인 DR · ${w?`${pa.slice(5)} ~ ${pb.slice(5)}`:"대기·진행 중"}${f.mine?" · 내가 요청한 것":""}`}</small></div>
+    ${manual?"":`<div class="drtop"><div class="seg"><button type="button" data-dr="week" class="${w?"on":""}">이번 주</button><button type="button" data-dr="now" class="${w?"":"on"}">현안</button></div>
       ${w?`<select id="drPer" title="기간">${opt("7d","최근 7일",f.per)}${opt("month","이번 달",f.per)}${opt("custom","직접 지정",f.per)}</select>${f.per==="custom"?`<input type="date" id="drFrom" value="${pa}"><span class="meta">~</span><input type="date" id="drTo" value="${pb}">`:""}`:""}
       <select id="drRole" title="내 역할">${opt("auto","역할 자동",f.role)}${opt("assigned","담당자",f.role)}${opt("dev","개발담당자",f.role)}${opt("both","둘 다 나",f.role)}</select>
       <label class="drmine" title="내가 요청한 일감만"><input type="checkbox" id="drMine" ${f.mine?"checked":""}> 내가 요청</label>
       <button type="button" class="mini" id="drReset" title="필터를 처음 상태로">↺</button></div>
-    <div class="drsts"><button type="button" class="dchip ${picked.length?"":"on"}" data-drs="*">전체 <small>${cands.length}</small></button>${sts.map(([x,c])=>`<button type="button" class="dchip ${picked.includes(x)?"on":""}" data-drs="${esc(x)}">${esc(x)} <small>${c}</small></button>`).join("")}</div>
+    <div class="drsts"><button type="button" class="dchip ${picked.length?"":"on"}" data-drs="*">전체 <small>${cands.length}</small></button>${sts.map(([x,c])=>`<button type="button" class="dchip ${picked.includes(x)?"on":""}" data-drs="${esc(x)}">${esc(x)} <small>${c}</small></button>`).join("")}</div>`}
     <div class="drlist">${l.map(n=>`<div class="drrow${drPick.has(n.issue_id)?" picked":""}"><input type="checkbox" class="drck" data-drsel="${n.issue_id}" ${drPick.has(n.issue_id)?"checked":""} tabindex="-1" aria-hidden="true"><div class="drnr">${nrow(n)}</div></div>`).join("")||`<div class="meta" style="padding:10px 0">조건에 맞는 DR 일감이 없어요.</div>`}</div>
     <div class="dract"><button type="button" class="primary" id="drcopy" ${l.length?"":"disabled"}>전체 복사 (${l.length})</button><button type="button" id="drcopySel" disabled>선택 복사 (0)</button><button type="button" class="mini" id="drAll" ${l.length?"":"disabled"}>모두 선택</button><button type="button" class="mini" id="drNone">해제</button><button type="button" class="mini" id="drdl" ${l.length?"":"disabled"} title="텍스트 파일로 저장">파일</button>
+      ${manual?`<button type="button" class="mini" id="drManualReset" ${cands.length?"":"disabled"}>초기화</button>`:""}
       <label class="meta drmine"><input type="checkbox" id="drnum" ${ui.copyNum?"checked":""}> 번호</label><label class="meta drmine"><input type="checkbox" id="drst" ${ui.copySt?"checked":""}> 상태</label><label class="meta drmine"><input type="checkbox" id="drteam" ${ui.copyTeam!==false?"checked":""}> 팀 이름 포함</label><span class="meta drhint">한 번 클릭 = 선택 · 두 번 클릭 = 열기</span></div></div>`;
 }
 function wireDr(){
   const go=o=>{setDrF(o);renderCenter()};
+  if($("#drManualReset"))$("#drManualReset").onclick=async()=>{
+    if(!await askC(`수동으로 모아 둔 DR 일감 ${drManualIds().length}건을 모두 초기화할까요?\n레드마인 노트의 일감 데이터는 삭제되지 않아요.`))return;
+    drManualIds().forEach(id=>drPick.delete(+id));ui.drManual=[];saveUI();renderCenter();toast("수동 DR 목록을 초기화했어요",2400);
+  };
   document.querySelectorAll("[data-dr]").forEach(b=>b.onclick=()=>{drSel=b.dataset.dr;renderCenter()});
   if($("#drRole"))$("#drRole").onchange=e=>go({role:e.target.value});
   if($("#drPer"))$("#drPer").onchange=e=>{const k=e.target.value,t=todayStr();go(k==="custom"&&!drF().from?{per:k,from:fmt(new Date(Date.now()-7*864e5)),to:t}:{per:k})};
@@ -169,4 +185,8 @@ function renderSummary(){
       ...trIn.map(x=>`- [${x.status}] ${x.title}`)].join("\n");
     copyText(md,"요약을 복사했어요");
   };
+}
+function wireDrManualNote(n){
+  const b=$("#drManualAdd");if(!b)return;
+  b.onclick=()=>{drManualAdd(n.issue_id);b.textContent="추가됨";b.disabled=true};
 }

@@ -68,6 +68,7 @@ async function renderSettings(){
    ${sec("view","화면 구성","",`
      <div class="srow"><span class="sl">디자인</span><div class="sc"><div class="seg"><button type="button" id="dsOld" class="${V2()?"":"on"}">기존 디자인</button><button type="button" id="dsV2" class="${V2()?"on":""}">새 디자인</button></div></div></div>
      <div class="srow"><span class="sl">노트 모양</span><div class="sc"><div class="seg"><button type="button" id="nsDoc" class="${ui.noteStyle==="card"?"":"on"}">문서 스타일</button><button type="button" id="nsCard" class="${ui.noteStyle==="card"?"on":""}">카드</button></div></div></div>
+     <div class="srow"><span class="sl">DR 제목 모아보기</span><div class="sc"><div class="seg"><button type="button" id="drAutoMode" class="${ui.drMode==="manual"?"":"on"}">자동</button><button type="button" id="drManualMode" class="${ui.drMode==="manual"?"on":""}">수동</button></div><span class="hint">자동은 기존 조건으로 일감을 모으고, 수동은 노트에서 직접 추가한 일감만 보여요.</span></div></div>
      <div class="srow"><span class="sl">메뉴 줄 간격</span><div class="sc"><div class="seg"><button type="button" id="ndNorm" class="${ui.navDense?"":"on"}">보통</button><button type="button" id="ndDense" class="${ui.navDense?"on":""}">촘촘</button></div></div></div>
      <div class="srow"><span class="sl">메뉴에 보일 항목</span><div class="sc navopt">${NAV_OPT.map(([k,l])=>`<label class="chk"><input type="checkbox" data-navopt="${k}" ${(ui.navHide||[]).includes(k)?"":"checked"}> ${l}</label>`).join("")}<span class="hint">끈 항목은 왼쪽 메뉴에서 숨겨요 · <b>오늘</b>과 지금 보는 화면은 늘 보여요</span></div></div>
      <div class="srow"><span class="sl">확대/축소</span><div class="sc"><label class="chk"><input type="checkbox" id="zAllow" ${ui.allowZoom?"checked":""}> 허용</label><span class="hint">기본은 막혀 있어요 · Ctrl+0 = 100%</span></div></div>
@@ -128,6 +129,8 @@ async function renderSettings(){
   document.querySelectorAll("#modal [data-th]").forEach(b=>b.onclick=()=>setTh(b.dataset.th));
   const setNs=v=>{ui.noteStyle=v;saveUI();renderSettings();if(view==="note")renderCenter()};
   q("#nsDoc").onclick=()=>setNs("doc");q("#nsCard").onclick=()=>setNs("card");
+  const setDrMode=v=>{ui.drMode=v;saveUI();renderSettings();if(view==="summary")renderCenter()};
+  q("#drAutoMode").onclick=()=>setDrMode("auto");q("#drManualMode").onclick=()=>setDrMode("manual");
   const setDs=v=>{ui.design=v;saveUI();applyTheme();if(v!=="v2")eiRestore();renderAll();renderSettings()};
   q("#dsOld").onclick=()=>setDs("classic");q("#dsV2").onclick=()=>setDs("v2");
   const setNd=v=>{ui.navDense=v;saveUI();applyTheme();renderSettings()};
@@ -266,4 +269,3 @@ function gbWire(q,afterRestore){
     toast("깃허브에서 내려받아 복원하는 중…",0);
     try{afterRestore(await post("/api/gitbackup/restore",{sha:b.dataset.gbrestore}))}catch(err){toast("복원 실패: "+err.message,9000)}});
 }
-

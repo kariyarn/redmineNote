@@ -33,6 +33,7 @@ function wireCpNo(n){   // 노트 위쪽: #번호 복사 (기본) + ▾ 다른 �
   const txt={full:`#${n.issue_id} ${n.subject}`,hash:`#${n.issue_id}`,num:String(n.issue_id),link:`${cfg.url}/issues/${n.issue_id}`};
   b.onclick=()=>copyText(txt.hash,"복사했어요");
   $("#cpNoM").onclick=e=>{e.stopPropagation();popMenu(e.currentTarget,[[`#번호  ·  ${txt.hash}  (기본)`,()=>copyText(txt.hash,"복사했어요")],[`#번호 제목  ·  ${txt.full.slice(0,28)}${txt.full.length>28?"…":""}`,()=>copyText(txt.full,"복사했어요")],[`번호만  ·  ${txt.num}`,()=>copyText(txt.num,"복사했어요")],["레드마인 링크",()=>copyText(txt.link,"링크를 복사했어요")]])};
+  wireDrManualNote(n);
 }
 let todayWide=true;
 const todayFull=()=>V2()&&nav==="today"&&todayWide;

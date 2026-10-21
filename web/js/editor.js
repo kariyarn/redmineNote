@@ -292,7 +292,7 @@ function renderCenter(){
    <div class="notebox">
    ${jumpHtml(n,nb)}
    <div class="card ehead">
-     <div class="itop">${catPill(n,true)}<a class="meta" href="${cfg.url}/issues/${n.issue_id}" target="_blank" title="레드마인에서 #${n.issue_id} 열기">레드마인 ↗</a><span class="cpno"><button type="button" class="mini" id="cpNo" title="‘#번호’ 로 복사해요 (▾ 로 제목 포함 · 번호만 · 링크)">📋 #${n.issue_id} 복사</button><button type="button" class="mini" id="cpNoM" title="다른 모양으로 복사">▾</button></span><span class="sp"></span><button type="button" class="mini" id="refone" title="이 일감을 레드마인에서 다시 읽어 옵니다 (레드마인에서 지운 댓글·바뀐 상태 반영)">↻ 새로 읽기</button>${starBtn(n)}</div>
+     <div class="itop">${catPill(n,true)}<a class="meta" href="${cfg.url}/issues/${n.issue_id}" target="_blank" title="레드마인에서 #${n.issue_id} 열기">레드마인 ↗</a><span class="cpno"><button type="button" class="mini" id="cpNo" title="‘#번호’ 로 복사해요 (▾ 로 제목 포함 · 번호만 · 링크)">📋 #${n.issue_id} 복사</button><button type="button" class="mini" id="cpNoM" title="다른 모양으로 복사">▾</button>${drManualMode()&&catOf(n)==="DR"&&notDeploy(n)?`<button type="button" class="mini" id="drManualAdd" ${drManualHas(n.issue_id)?"disabled":""}>${drManualHas(n.issue_id)?"추가됨":"일감에 추가"}</button>`:""}</span><span class="sp"></span><button type="button" class="mini" id="refone" title="이 일감을 레드마인에서 다시 읽어 옵니다 (레드마인에서 지운 댓글·바뀐 상태 반영)">↻ 새로 읽기</button>${starBtn(n)}</div>
      <h2>${title(n.subject)}</h2>
      <div class="chips" style="margin-top:0"><span class="badge s-${s}">${s}</span>${staleBadge(n)}${rolesOf(n).map(r=>`<span class="tag ${r}">${r}</span>`).join("")}</div>
      <div class="emeta">레드마인 상태 <b>${esc(n.rm_status)}</b> · ${esc(n.project)} · ${esc(n.tracker)} · 담당 ${esc(n.assignee)} · 작성 ${esc(n.author)} · ${n._d}</div>
