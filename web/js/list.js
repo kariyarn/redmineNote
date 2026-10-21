@@ -38,15 +38,14 @@ function openSimilar(n){
   sel=ts.map(t=>t.id);selMode="and";Object.assign(hist,{cat:"전체",per:"all",flag:"",more:60,pop:false});
   $("#q").value="";setNav("history",{keepSel:true});
 }
-/* 목록 한 줄: 제목 · #번호 · 구분 · 태그만 (상태 · 며칠 전 수정 · 비슷한 과거는 노트 본문에서). 오른쪽에 번호 · 제목 복사와 ☆ 고정 */
+/* 목록 한 줄: 제목 · #번호 · 구분 · 태그만 (상태 · 며칠 전 수정 · 비슷한 과거는 노트 본문에서). 제목은 줄 전체 너비, 번호 · 제목 복사와 ☆ 고정은 아랫줄 오른쪽 */
 const CP_NO='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h16M4 15h16M10 3 8 21M16 3l-2 18"/></svg>',CP_T='<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/></svg>';
 function nrow(n,o={}){
   const s=stOf(n),c=catOf(n),tier=tierOf(n);
   const tag=tier==="assigned"?`<span class="tg">내 앞으로</span>`:tier==="watch"?`<span class="tg ghost">관람</span>`:tier==="added"?`<span class="tg ghost">추가됨</span>`:tier==="ref"?`<span class="tg ghost">참조</span>`:"";
   return `<div class="nrow s-${s} ${n.issue_id===cur?"sel":""}${isUnseen(n)?" unseen":""}" data-id="${n.issue_id}" role="button" tabindex="0"${o.drag?' draggable="true" title="끌어서 순서를 바꿀 수 있어요"':""}>
     <div class="rb"><div class="rt">${title(n.subject)}</div>
-    <div class="rm"><span>#${n.issue_id}</span>${c!=="기타"?`<span class="cat ${c} mini" title="${esc(n.project)}">${c}</span>`:""}${tag}${todoBadge(n)}${o.hide?`<button type="button" class="rhide" data-whide="${n.issue_id}" title="${o.hide==="back"?"지켜보는 중 목록에 다시 넣어요":"지켜보는 중 목록에서 숨겨요 (새 활동이 생기면 다시 보여요)"}">${o.hide==="back"?"↩ 되돌리기":"✕ 숨기기"}</button>`:""}</div></div>
-    <div class="ract"><button type="button" class="rcp" data-cpno="${n.issue_id}" title="‘#${n.issue_id}’ 복사" aria-label="번호 복사">${CP_NO}</button><button type="button" class="rcp" data-cpt="${n.issue_id}" title="제목 복사" aria-label="제목 복사">${CP_T}</button><button type="button" class="rstar ${n.starred?"on":""}" data-star-id="${n.issue_id}" title="${n.starred?"고정 해제":"고정: 목록 맨 위에 둬요 (즐겨찾기)"}" aria-label="고정">${n.starred?"★":"☆"}</button></div></div>`;
+    <div class="rm"><span>#${n.issue_id}</span>${c!=="기타"?`<span class="cat ${c} mini" title="${esc(n.project)}">${c}</span>`:""}${tag}${todoBadge(n)}<span class="ract">${o.hide?`<button type="button" class="rhide" data-whide="${n.issue_id}" title="${o.hide==="back"?"지켜보는 중 목록에 다시 넣어요":"지켜보는 중 목록에서 숨겨요 (새 활동이 생기면 다시 보여요)"}">${o.hide==="back"?"↩ 되돌리기":"✕ 숨기기"}</button>`:""}<button type="button" class="rcp" data-cpno="${n.issue_id}" title="‘#${n.issue_id}’ 복사" aria-label="번호 복사">${CP_NO}</button><button type="button" class="rcp" data-cpt="${n.issue_id}" title="제목 복사" aria-label="제목 복사">${CP_T}</button><button type="button" class="rstar ${n.starred?"on":""}" data-star-id="${n.issue_id}" title="${n.starred?"고정 해제":"고정: 목록 맨 위에 둬요 (즐겨찾기)"}" aria-label="고정">${n.starred?"★":"☆"}</button></span></div></div></div>`;
 }
 function wireRows(root){
   root.querySelectorAll(".nrow").forEach(r=>{
