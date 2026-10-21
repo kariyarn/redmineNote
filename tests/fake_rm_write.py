@@ -71,25 +71,10 @@ class H(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
-    def kasi(self, q):
-        """가짜 공휴일 API ('한국천문연구원_특일 정보' getRestDeInfo). 인증키 good-holiday-key 만 받는다.
-        그 달 1일 · 오늘(그 달이면)을 공휴일로, 15일을 공휴일 아닌 날(isHoliday N)로 돌려준다. 한 건이면 목록이 아니라 객체로 (실제 API 와 같게)."""
-        if (q.get("serviceKey") or [""])[0] != "good-holiday-key":
-            return self.send(403, {"OpenAPI_ServiceResponse": {"cmmMsgHeader": {"errMsg": "SERVICE_KEY_IS_NOT_REGISTERED_ERROR", "returnAuthMsg": "등록되지 않은 서비스키", "returnReasonCode": "30"}}})
-        y, m = int(q["solYear"][0]), int(q["solMonth"][0])
-        days = {datetime.date(y, m, 1): ("가짜 휴일(1일)", "Y"), datetime.date(y, m, 15): ("가짜 기념일(15일)", "N")}
-        if TODAY[:7] == f"{y:04d}-{m:02d}":
-            days[datetime.date.fromisoformat(TODAY)] = ("가짜 휴일(오늘)", "Y")
-        items = [{"dateKind": "01", "dateName": n, "isHoliday": h, "locdate": int(d.strftime("%Y%m%d")), "seq": 1} for d, (n, h) in sorted(days.items())]
-        return self.send(200, {"response": {"header": {"resultCode": "00", "resultMsg": "NORMAL SERVICE."},
-                                            "body": {"items": {"item": items[0] if len(items) == 1 else items}, "numOfRows": 100, "pageNo": 1, "totalCount": len(items)}}})
-
     def do_GET(self):
         u = urlparse(self.path)
         if u.path == "/__puts":
             return self.send(200, PUTS)
-        if u.path == "/B090041/openapi/service/SpcdeInfoService/getRestDeInfo":   # 가짜 공휴일 API (레드마인 키 검사 없이)
-            return self.kasi(parse_qs(u.query))
         if not u.path.startswith("/__test/") and self.headers.get("X-Redmine-API-Key") != "good-key":
             return self.send(401, {"error": "bad"})
         q = parse_qs(u.query)

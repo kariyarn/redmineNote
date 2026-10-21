@@ -33,13 +33,6 @@ const autoSync={seq:null,pend:null,err:"",st:null,timer:null,busy:null};      //
 const autoSyncHold=()=>document.hidden||(isTyping()&&document.activeElement!==$("#q"))||!!editing||trEd||qvEd||codeEd||$("#sync").disabled||$("#modal").classList.contains("show")||!!$("#wdlg.show")||!!$("#setup.show")||!!$("#lbox.show");      // 검색창은 다시 그려도 그대로라서 미루지 않는다
 const autoSyncTip=st=>{const n=st.next?new Date(st.next):null,d=n?fmt(n):"";
   return `${st.minutes}분마다 최근 ${st.days}일 동안 바뀐 일감을 자동으로 가져와요 (영업일 ${st.window[0]} ~ ${st.window[1]}, 창을 닫아도 트레이에서)`+(st.holiday&&st.holiday.today_off?" · 오늘은 쉬는 날":"")+(n?` · 다음 ${d===todayStr()?"":d.slice(5)+" "}${z(n.getHours())}:${z(n.getMinutes())} 무렵`:"")};
-/* 설정 창의 공휴일 한 줄: 이번 주에 받은 공휴일 · 받은 때 · 마지막 오류 (인증키가 없으면 내장 표로 본다는 안내) */
-const holidayLine=h=>{
-  if(!h.key_set)return `인증키가 없으면 공휴일을 새로 받지 않고, 내장 공휴일 표(2026 ~ 2028) · 아래 <b>경고 · 그래프 기준 › 추가 휴일</b> · 이미 받아 둔 공휴일로 쉬는 날을 판단해요.`;
-  const w=`이번 주(${h.week[0].slice(5)} ~ ${h.week[1].slice(5)})`;
-  const got=h.fetched?`${w} 공휴일: <b>${h.days.length?h.days.map(x=>`${esc(x.date.slice(5))} ${esc(x.name)}`).join(", "):"없음"}</b> · ${esc(h.fetched_at.slice(5).replace("T"," "))} 받음`:`${w} 공휴일은 아직 받지 않았어요 (영업일 업무 시간에 자동으로 받아요)`;
-  return got+(h.error?` · <span style="color:#c0392b">${esc(h.error_at.slice(5).replace("T"," "))} ${esc(h.error)}</span>`:"");      // 설정 창의 다른 경고와 같은 색
-};
 function autoSyncPoll(){      // 타이머 · 창 복귀 · 설정 변경이 겹쳐 불러도 한 번만 돈다 (같은 결과를 두 번 받지 않게)
   return autoSync.busy||(autoSync.busy=autoSyncPollOnce().finally(()=>{autoSync.busy=null}));
 }

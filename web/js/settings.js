@@ -16,8 +16,8 @@ async function renderSettings(){
   let bks=[];try{bks=await api("/api/backups")}catch(e){}
   let wlog=[];try{wlog=await api("/api/write/log?limit=12")}catch(e){}
   let ast=autoSync.st;try{ast=await api("/api/autosync")}catch(e){}
-  let gst=null;try{gst=await api("/api/gitbackup")}catch(e){}      // 깃허브 백업 설정 · 마지막 결과 (토큰은 있는지만)      // 자동 가져오기 · 공휴일 상태 (서버가 알려 준 값)
-  const aw=(ast&&ast.window)||["08:30","18:30"],hs=(ast&&ast.holiday)||{key_set:false,days:[],week:["",""]};
+  let gst=null;try{gst=await api("/api/gitbackup")}catch(e){}      // 깃허브 백업 설정 · 마지막 결과 (토큰은 있는지만)      // 자동 가져오기 상태 (서버가 알려 준 값)
+  const aw=(ast&&ast.window)||["08:30","18:30"];
   const wc=wcfg(),names=extraNames();
   const tab=ST_TABS.some(t=>t[0]===ui.setTab)?ui.setTab:"gen";
   const sec=(t,title,lead,body,id="")=>`<section class="msec" data-st="${t}"${id?` id="${id}"`:""}><h4>${title}</h4>${lead?`<p class="lead">${lead}</p>`:""}${body}</section>`;
@@ -52,12 +52,12 @@ async function renderSettings(){
      <div class="srow"><span class="sl">간격</span><div class="sc"><input type="number" id="sAutoSync" min="0" max="1440" step="5" value="${autoSyncMin()}" class="num"> 분마다<span class="hint">0 = 끔 · 최소 ${AUTO_SYNC_MIN}분</span></div></div>
      <div class="srow"><span class="sl">가져올 기간</span><div class="sc">최근 <input type="number" id="sAutoDays" min="1" max="${AUTO_SYNC_MAX_DAYS}" value="${autoSyncDays()}" class="num"> 일<span class="hint">1 = 오늘만 · 최대 ${AUTO_SYNC_MAX_DAYS}일</span></div></div>
      <div class="srow"><span class="sl">알림</span><div class="sc"><label class="chk"><input type="checkbox" id="sAutoNotify" ${autoSyncNotify()?"checked":""}> 새 일감 · 남이 단 새 댓글이 들어오면 알림</label><span class="hint">창을 보고 있지 않으면 오른쪽 아래 알림 창으로</span></div></div>
-     <div class="srow"><span class="sl">공휴일</span><div class="sc"><span class="hint" style="margin:0">${holidayLine(hs)}</span><button type="button" id="sHolFetch">이번 주 다시 받기</button></div></div>
-     ${sMore(`마지막으로 가져온 때부터 시간을 재요. 한 번도 가져온 적이 없으면 시작하지 않으니, 처음에는 왼쪽 <b>가져오기</b>로 직접 받아 주세요. 글을 쓰는 중에는 화면을 다시 그리지 않고 기다렸다가 반영해요. 켜 두면 창을 닫아도 프로그램이 스스로 꺼지지 않아요(트레이 아이콘 우클릭 → 서버 닫기, 또는 Ctrl+Q).<br>알림: 창이 보이면 알림 창, 최소화 · 트레이에 있으면 윈도우 알림.<br>공휴일: 공공데이터포털 <b>한국천문연구원_특일 정보</b>로 <b>매주 첫 영업일</b>에 그 주(월 ~ 일) 공휴일만 받아요(인증키 내장).`)}`)}
+     <div class="srow"><span class="sl">쉬는 날</span><div class="sc"><span class="hint" style="margin:0">토 · 일 · 내장 공휴일 표(2026 ~ 2028) · 아래 <b>경고 · 그래프 기준 › 추가 휴일</b>에 적은 날에는 가져오지 않아요.</span></div></div>
+     ${sMore(`마지막으로 가져온 때부터 시간을 재요. 한 번도 가져온 적이 없으면 시작하지 않으니, 처음에는 왼쪽 <b>가져오기</b>로 직접 받아 주세요. 글을 쓰는 중에는 화면을 다시 그리지 않고 기다렸다가 반영해요. 켜 두면 창을 닫아도 프로그램이 스스로 꺼지지 않아요(트레이 아이콘 우클릭 → 서버 닫기, 또는 Ctrl+Q).<br>알림: 창이 보이면 알림 창, 최소화 · 트레이에 있으면 윈도우 알림.<br>쉬는 날: 공휴일은 앱에 들어 있는 표로만 판단해요(인터넷에서 받지 않아요). 임시공휴일 · 회사 휴무일은 <b>추가 휴일</b>에 적어 주세요.`)}`)}
 
    ${sec("sync","경고 · 그래프 기준","⏳ 는 레드마인에서 <b>마지막으로 수정된 날</b>부터 지난 일수예요.",`
      <div class="srow"><span class="sl">오래 대기</span><div class="sc"><input type="number" id="sStale" min="1" max="365" value="${staleDays()}" class="num"> 일 이상이면 ⏳<label class="chk"><input type="checkbox" id="sStaleP" ${S.stale_progress==="1"?"checked":""}> 진행 중도 포함</label></div></div>
-     <div class="srow"><span class="sl">추가 휴일</span><div class="sc"><input type="text" id="sHol" value="${esc(S.holiday_extra||"")}" placeholder="예) 2026-12-31, 2027-01-04"><span class="hint">알림이 건너뛸 날 (내장: 2026~2028 공휴일)</span></div></div>
+     <div class="srow"><span class="sl">추가 휴일</span><div class="sc"><input type="text" id="sHol" value="${esc(S.holiday_extra||"")}" placeholder="예) 2026-12-31, 2027-01-04"><span class="hint">알림 · 자동 가져오기가 건너뛸 날 (내장: 2026~2028 공휴일)</span></div></div>
      <div class="srow"><span class="sl">지켜보는 중</span><div class="sc"><input type="number" id="sWatch" min="0" max="365" value="${watchAutoDays()}" class="num"> 일 동안 변화가 없으면 오늘 화면에서 숨김<span class="hint">0 = 끔</span></div></div>
      <div class="srow"><span class="sl">용어 연결</span><div class="sc"><input type="number" id="sTL" min="1" max="50" value="${Math.max(1,parseInt(S.graph_term_link,10)||2)}" class="num"> 건 이상 같은 일감이면 그래프에서 점선으로 연결</div></div>`)}
 
@@ -169,10 +169,6 @@ async function renderSettings(){
     const raw=parseInt(e.target.value,10)||0,v=raw>0?Math.max(AUTO_SYNC_MIN,Math.min(1440,raw)):0;e.target.value=v;
     await saveS("auto_sync_min",v);await autoSyncPoll();
     toast(!v?"자동 가져오기를 껐어요":`${raw<AUTO_SYNC_MIN?`레드마인 부하를 줄이려고 최소 ${AUTO_SYNC_MIN}분으로 맞췄어요 · `:""}${v}분마다 자동으로 가져와요${S.last_sync?"":" (처음 한 번은 왼쪽 가져오기로 직접 받아 주세요)"}`,4000)};
-  const holToast=h=>h.days.length?h.days.map(d=>`${d.date.slice(5)} ${d.name}`).join(", "):"이번 주 공휴일 없음";
-  if(q("#sHolFetch"))q("#sHolFetch").onclick=async()=>{
-    try{const h=await post("/api/holiday/fetch",{});toast(`이번 주 공휴일을 받았어요 (${holToast(h)})`,4000)}catch(e){toast("공휴일을 받지 못했어요: "+e.message,10000)}
-    await autoSyncPoll();renderSettings()};
   q("#sAutoNotify").onchange=e=>{saveS("auto_sync_notify",e.target.checked?"1":"0");toast(e.target.checked?"새 일감 · 새 댓글이 들어오면 알려 줘요":"새 일감 · 새 댓글 알림을 껐어요 (알림 없이 목록에만 반영해요)",2600)};
   q("#sAutoDays").onchange=async e=>{
     const v=Math.max(1,Math.min(AUTO_SYNC_MAX_DAYS,parseInt(e.target.value,10)||AUTO_SYNC_MAX_DAYS));e.target.value=v;

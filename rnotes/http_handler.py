@@ -27,8 +27,6 @@ from .rm_deploy import deploy_issues, deploy_state, rm_peek, rm_projects, rm_sea
 from .rm_write import do_write, preview_write, refresh_local, rm_attachments, write_info
 from .sticky import sticky_row, sticky_save
 from .storage import backup_path, configured, db, get_settings, list_backups, note_count, restore_bytes, save_config, snapshot_zip, stamp
-from .holiday_api import HolidayApiError, fetch_and_store, week_start
-from .holiday_api import status as holiday_status
 from .holidays import extra_days, holiday_dates
 from .queries import query_delete, query_import, query_list, query_pin, query_restore, query_save, query_use, query_versions
 from . import updater
@@ -553,12 +551,6 @@ class Handler(BaseHTTPRequestHandler):
                 except OSError as e:   # 예상하지 못한 파일 · 권한 오류도 어느 단계인지 알 수 있게
                     step = {"check": "확인", "download": "받기", "apply": "바꾸기"}[u.path.rsplit("/", 1)[1]]
                     self.send_json({"error": f"{step} 단계에서 막혔어요 ({e}) — 릴리스 페이지에서 설치 파일을 받아 직접 실행해 주세요"}, 400)
-            elif u.path == "/api/holiday/fetch":   # 이번 주 공휴일을 지금 받기
-                try:
-                    fetch_and_store(week_start(datetime.date.today()))
-                except HolidayApiError as e:
-                    return self.send_json({"error": str(e)}, 502)
-                self.send_json(holiday_status())
             elif u.path == "/api/rm/refresh":   # 일감 1건을 레드마인에서 다시 읽어 저장 (읽기 전용: 레드마인에서 지운 댓글·바뀐 상태 반영)
                 try:
                     iid = int(d.get("issue_id") or 0)
