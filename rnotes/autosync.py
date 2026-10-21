@@ -1,6 +1,6 @@
 """자동 가져오기: 설정한 간격(분)마다 서버가 스스로 레드마인에서 바뀐 일감을 가져온다.
 창이 최소화돼 있거나 닫혀서 트레이에만 있어도 서버가 켜져 있는 동안 돌고, 영업일(토 · 일 · 공휴일 제외)의 업무 시간(08:30 ~ 18:30)에만 가져온다.
-공휴일은 holiday_api 가 매주 첫 영업일에 그 주 것을 받아 둔다 (+ 내장 공휴일 표 · 설정의 추가 휴일).
+쉬는 날은 내장 공휴일 표(rnotes/holidays.py) · 설정의 추가 휴일로만 판단한다 (공휴일을 따로 받아 오지 않는다).
 화면은 /api/autosync 로 결과를 가져가서, 바뀐 일감이 있으면 다시 읽어 그린다.
 새 일감 · 남이 단 새 댓글(변경)이 있으면 알린다: 창이 보이면 화면이 알림 창을, 창이 안 보이면(최소화 · 가려짐 · 트레이) 서버가
 오른쪽 아래 알림 창(popup, 누르면 그 노트의 새 댓글로)을 띄운다. 알림 창을 못 띄우거나 꺼 두었으면 예전처럼 트레이 말풍선."""
@@ -9,9 +9,8 @@ import datetime
 import json
 import time
 
-from .holiday_api import maybe_fetch_week, off_day
-from .holiday_api import status as holiday_status
 from .config import RUN, STATE
+from .holidays import extra_days, is_off_day
 from .redmine import SYNC_LOCK, my_id, sync
 from .storage import configured, db, get_settings
 
@@ -157,6 +156,12 @@ def _base(s):
     return None if last is None else max(last.timestamp(), _STATE["try"])
 
 
+def off_day(d, s=None):
+    """자동 가져오기가 쉬는 날인가: 토 · 일 · 내장 공휴일 표 · 설정의 추가 휴일."""
+    s = get_settings() if s is None else s
+    return is_off_day(d.isoformat(), extra_days(s.get("holiday_extra")))
+
+
 def due(now, s):
     """지금 가져올 때인가: 켜져 있고 · 영업일의 업무 시간이고 · 한 번은 가져온 적이 있고 · 마지막 가져오기(또는 시도)부터 간격이 지났을 때.
     처음 가져오기는 사용자가 직접(최근 1년) 하는 것이 맞아서, 한 번도 가져온 적이 없으면 하지 않는다."""
@@ -176,7 +181,7 @@ def next_at(now, s):
         t = datetime.datetime.combine(t.date(), WORK_START)
     elif t.time() > WORK_END:
         t = datetime.datetime.combine(t.date() + datetime.timedelta(days=1), WORK_START)
-    for _ in range(31):   # 토 · 일 · 공휴일은 건너뛴다 (아는 범위에서: 아직 받지 않은 주의 공휴일은 내장 표 · 추가 휴일로)
+    for _ in range(31):   # 토 · 일 · 공휴일(내장 표 · 추가 휴일)은 건너뛴다
         if not off_day(t.date(), s):
             break
         t = datetime.datetime.combine(t.date() + datetime.timedelta(days=1), WORK_START)
@@ -217,21 +222,14 @@ def status(since=None, now=None):
     return {
         "enabled": enabled(s), "minutes": interval_min(s), "days": range_days(s), "notify": notify_on(s), "max_days": MAX_DAYS, "min_minutes": MIN_MINUTES,
         "window": [WORK_START.strftime("%H:%M"), WORK_END.strftime("%H:%M")], "in_window": in_window(now),
-        "next": nxt.isoformat(timespec="minutes") if nxt else "", "seq": _STATE["seq"], "holiday": holiday_status(now, s),
+        "next": nxt.isoformat(timespec="minutes") if nxt else "", "seq": _STATE["seq"], "holiday": {"today_off": off_day(now.date(), s)},
         "runs": [r for r in list(_RUNS) if since is not None and r["seq"] > since],
     }
 
 
 def tick(now=None):
-    """한 번 확인: 켜져 있으면 업무 시간에 이번 주 공휴일을 먼저 받아 두고(매주 첫 영업일, 한 번), 가져올 때면 가져온다."""
-    now = now or datetime.datetime.now()
-    s = get_settings()
-    if enabled(s) and in_window(now):
-        try:
-            maybe_fetch_week(now, s)
-        except Exception:
-            pass   # 공휴일을 못 받아도 내장 표 · 추가 휴일로 판단한다
-    return run_once(now)
+    """한 번 확인: 가져올 때면 가져온다."""
+    return run_once(now or datetime.datetime.now())
 
 
 def autosync_loop():

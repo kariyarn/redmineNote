@@ -264,6 +264,7 @@ def init_db():
             c.execute("ALTER TABLE cmd_vars ADD COLUMN params TEXT DEFAULT '[]'")
         seed_cmd_vars(c)
         repair_truncated_requirements(c)
+        c.execute("DELETE FROM settings WHERE key='holiday_api'")  # 2.22.7: 공휴일 API 를 뺐다 — 받아 두었던 공휴일 · 오류 기록을 지운다 (쉬는 날은 내장 표 · 추가 휴일로)
         if not STATE["newer_db"]:  # 더 새 버전의 DB 는 버전 기록을 낮추지 않는다
             c.execute("INSERT INTO settings (key,value) VALUES ('app_version',?) "
                       "ON CONFLICT(key) DO UPDATE SET value=excluded.value", (APP_VERSION,))
