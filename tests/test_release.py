@@ -199,7 +199,7 @@ try:
     chk("자동 가져오기 설정 저장 (허용 목록 밖 키는 무시)", s == 200 and st.get("auto_sync_min") == "10" and st.get("auto_sync_days") == "3" and st.get("auto_sync_notify") == "0" and "not_a_setting" not in st, st)
     s, a1 = call("GET", "/api/autosync?since=0")
     chk("자동 가져오기 켜짐 상태", s == 200 and a1["enabled"] is True and a1["minutes"] == 10 and a1["days"] == 3 and isinstance(a1["runs"], list), a1)
-    # 공휴일은 받아 오지 않는다 (2.22.5): 내장 표 · 추가 휴일로만 쉬는 날을 판단하고, 공휴일 받기 경로는 없다
+    # 공휴일은 받아 오지 않는다 (2.22.7): 내장 표 · 추가 휴일로만 쉬는 날을 판단하고, 공휴일 받기 경로는 없다
     tdy = datetime.date.today().isoformat()
     chk("자동 가져오기 상태의 공휴일 = 오늘 쉬는 날인지만 · 새 일감 알림 끔(방금 설정)", set(a1["holiday"]) == {"today_off"} and a1["notify"] is False, a1)
     s, r = call("POST", "/api/holiday/fetch", {}); chk("공휴일 받기 경로는 없음", s == 404, r)

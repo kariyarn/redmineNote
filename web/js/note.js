@@ -115,7 +115,7 @@ function composerVisible(){
 }
 function spy(){   // 지금 보고 있는 위치에 맞춰 이동 바 강조
   const c=$("#center"),jb=$("#jumpbar");if(!jb||view!=="note")return;
-  const fab=$("#cmfab");if(fab&&curNote())fab.style.display=composerVisible()&&!cmOpen?"none":"block";
+  const fab=$("#cmfab");if(fab&&curNote()){const d=composerVisible()&&!cmOpen?"none":"block";if(fab.style.display!==d){fab.style.display=d;placeCm()}}     // 💬 가 숨거나 나타나면 ↑ · ☑ 자리도 다시 (안 하면 ↑ 와 겹친다)
   if(cmOpen&&composerVisible())toggleCm(false);   // 스크롤해서 아래 댓글 쓰기 칸에 오면 팝업은 자동으로 닫는다 (초안은 두 곳이 같이 씀)
   const top=c.getBoundingClientRect().top+jb.offsetHeight+40;let on=JUMPS[0][0];
   for(const [k] of JUMPS){const el=jumpEl(k);if(el&&el.getBoundingClientRect().top<=top)on=k}
