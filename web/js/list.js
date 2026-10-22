@@ -41,11 +41,12 @@ function openSimilar(n){
 /* 목록 한 줄: 제목 · #번호 · 구분 · 태그만 (상태 · 며칠 전 수정 · 비슷한 과거는 노트 본문에서). 제목은 줄 전체 너비, 번호 · 제목 복사와 ☆ 고정은 아랫줄 오른쪽 */
 const CP_NO='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h16M4 15h16M10 3 8 21M16 3l-2 18"/></svg>',CP_T='<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/></svg>';
 function nrow(n,o={}){
-  const s=stOf(n),c=catOf(n),tier=tierOf(n);
+  const s=stOf(n),c=catOf(n),tier=tierOf(n),drAdded=drManualHas(n.issue_id);
+  const canAddDr=drManualMode()&&c==="DR"&&notDeploy(n);
   const tag=tier==="assigned"?`<span class="tg">내 앞으로</span>`:tier==="watch"?`<span class="tg ghost">관람</span>`:tier==="added"?`<span class="tg ghost">추가됨</span>`:tier==="ref"?`<span class="tg ghost">참조</span>`:"";
-  return `<div class="nrow s-${s} ${n.issue_id===cur?"sel":""}${isUnseen(n)?" unseen":""}" data-id="${n.issue_id}" role="button" tabindex="0"${o.drag?' draggable="true" title="끌어서 순서를 바꿀 수 있어요"':""}>
+  return `<div class="nrow s-${s} ${n.issue_id===cur?"sel":""}${isUnseen(n)?" unseen":""}${drAdded?" drmanual":""}" data-id="${n.issue_id}" role="button" tabindex="0"${o.drag?' draggable="true" title="끌어서 순서를 바꿀 수 있어요"':""}>
     <div class="rb"><div class="rt">${title(n.subject)}</div>
-    <div class="rm"><span>#${n.issue_id}</span>${c!=="기타"?`<span class="cat ${c} mini" title="${esc(n.project)}">${c}</span>`:""}${tag}${todoBadge(n)}<span class="ract">${o.hide?`<button type="button" class="rhide" data-whide="${n.issue_id}" title="${o.hide==="back"?"지켜보는 중 목록에 다시 넣어요":"지켜보는 중 목록에서 숨겨요 (새 활동이 생기면 다시 보여요)"}">${o.hide==="back"?"↩ 되돌리기":"✕ 숨기기"}</button>`:""}<button type="button" class="rcp" data-cpno="${n.issue_id}" title="‘#${n.issue_id}’ 복사" aria-label="번호 복사">${CP_NO}</button><button type="button" class="rcp" data-cpt="${n.issue_id}" title="제목 복사" aria-label="제목 복사">${CP_T}</button><button type="button" class="rstar ${n.starred?"on":""}" data-star-id="${n.issue_id}" title="${n.starred?"고정 해제":"고정: 목록 맨 위에 둬요 (즐겨찾기)"}" aria-label="고정">${n.starred?"★":"☆"}</button></span></div></div></div>`;
+    <div class="rm"><span>#${n.issue_id}</span>${c!=="기타"?`<span class="cat ${c} mini" title="${esc(n.project)}">${c}</span>`:""}${tag}${todoBadge(n)}<span class="ract">${o.hide?`<button type="button" class="rhide" data-whide="${n.issue_id}" title="${o.hide==="back"?"지켜보는 중 목록에 다시 넣어요":"지켜보는 중 목록에서 숨겨요 (새 활동이 생기면 다시 보여요)"}">${o.hide==="back"?"↩ 되돌리기":"✕ 숨기기"}</button>`:""}${canAddDr?`<button type="button" class="rcp dradd" data-dradd="${n.issue_id}" title="${drAdded?"DR 모아보기에서 빼기":"DR 모아보기에 추가"}" aria-label="${drAdded?"DR 모아보기에서 빼기":"DR 모아보기에 추가"}">${drAdded?"−":"＋"}</button>`:""}<button type="button" class="rcp" data-cpno="${n.issue_id}" title="‘#${n.issue_id}’ 복사" aria-label="번호 복사">${CP_NO}</button><button type="button" class="rcp" data-cpt="${n.issue_id}" title="제목 복사" aria-label="제목 복사">${CP_T}</button><button type="button" class="rstar ${n.starred?"on":""}" data-star-id="${n.issue_id}" title="${n.starred?"고정 해제":"고정: 목록 맨 위에 둬요 (즐겨찾기)"}" aria-label="고정">${n.starred?"★":"☆"}</button></span></div></div></div>`;
 }
 function wireRows(root){
   root.querySelectorAll(".nrow").forEach(r=>{
@@ -60,6 +61,12 @@ function wireRows(root){
   });
   root.querySelectorAll("[data-cpno]").forEach(b=>b.onclick=e=>{e.stopPropagation();copyText("#"+b.dataset.cpno,`#${b.dataset.cpno} 복사했어요`)});
   root.querySelectorAll("[data-cpt]").forEach(b=>b.onclick=e=>{e.stopPropagation();const n=all.find(x=>x.issue_id===+b.dataset.cpt);if(n)copyText(n.subject,"제목을 복사했어요")});
+  root.querySelectorAll("[data-dradd]").forEach(b=>b.onclick=e=>{
+    e.stopPropagation();const id=+b.dataset.dradd,added=drManualToggle(id),row=b.closest(".nrow");
+    if(view==="summary"){renderCenter();return}
+    b.textContent=added?"−":"＋";b.title=added?"DR 모아보기에서 빼기":"DR 모아보기에 추가";
+    b.setAttribute("aria-label",b.title);row?.classList.toggle("drmanual",added);
+  });
   wireStars(root);
 }
 /* ---------- 오늘 '지금 할 일' 정렬: 기본 · 최신순(레드마인 수정일) · 등록순(일감 번호) · 내 순서(끌어서). 고정(★)한 것은 항상 맨 위 ---------- */

@@ -11,10 +11,13 @@ const setDrF=o=>{ui.drF={...drF(),...o};saveUI()};
 const drManualMode=()=>ui.drMode==="manual";
 const drManualIds=()=>Array.isArray(ui.drManual)?ui.drManual:[];
 const drManualHas=id=>drManualIds().includes(+id);
-function drManualAdd(id){
+function drManualToggle(id){
   const exists=drManualHas(id);
-  if(!exists){ui.drManual=[...drManualIds(),+id];saveUI()}
-  toast(exists?`#${id} 는 이미 DR 모아보기에 있어요`:`#${id} 를 DR 모아보기에 추가했어요`,2400);
+  ui.drManual=exists?drManualIds().filter(x=>+x!==+id):[...drManualIds(),+id];
+  if(exists)drPick.delete(+id);
+  saveUI();
+  toast(exists?`#${id} 를 DR 모아보기에서 뺐어요`:`#${id} 를 DR 모아보기에 추가했어요`,2200);
+  return !exists;
 }
 function drPeriod(f){const t=todayStr();return f.per==="month"?[t.slice(0,8)+"01",t]:f.per==="custom"?[f.from||t,f.to||t]:[fmt(new Date(Date.now()-7*864e5)),t]}
 function drCands(){   // 기간·역할·요청자까지 적용한 목록 (상태 칩의 개수는 여기서 센다)
@@ -185,8 +188,4 @@ function renderSummary(){
       ...trIn.map(x=>`- [${x.status}] ${x.title}`)].join("\n");
     copyText(md,"요약을 복사했어요");
   };
-}
-function wireDrManualNote(n){
-  const b=$("#drManualAdd");if(!b)return;
-  b.onclick=()=>{drManualAdd(n.issue_id);b.textContent="추가됨";b.disabled=true};
 }

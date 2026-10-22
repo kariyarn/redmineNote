@@ -52,6 +52,8 @@ DB[304] = mkdeploy(304, "2001-01-02", "<p>- 요청 사유: 내가 담당자인 �
 DB[305] = mk(305); DB[305]["subject"] = "[운영서버 배포요청 / 2001-01-03] 다른 프로젝트"   # 제목만 같고 배포요청 프로젝트가 아님
 DB[302] = mk(302); DB[302]["subject"] = "[기획전] 시험 제목 검색"; DB[302]["project"] = {"id": 19, "name": "[DR] Daily Request"}
 DB[303] = mk(303); DB[303]["subject"] = "또 다른 기획전 페이지"; DB[303]["project"] = {"id": 19, "name": "[DR] Daily Request"}; DB[303]["status"] = {"id": 5, "name": "완료"}
+DB[306] = mk(306); DB[306]["subject"] = "[목록 시험] 수동 DR 추가"; DB[306]["project"] = {"id": 19, "name": "[DR] Daily Request"}
+DB[306]["updated_on"] = datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 DB[200]["attachments"] += [
     {"id": 78, "filename": "화면캡처.png", "filesize": 70, "content_type": "image/png", "description": "", "author": {"id": 60, "name": "김철수"}, "created_on": "2026-10-05T05:00:00Z", "content_url": "x"},
     {"id": 79, "filename": "본문첨부.png", "filesize": 70, "content_type": "image/png", "description": "", "author": {"id": 55, "name": "요청자"}, "created_on": "2026-10-04T01:00:00Z", "content_url": "x"}]

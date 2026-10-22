@@ -18,10 +18,14 @@ for _ in range(60):
         urllib.request.urlopen(BASE + "/api/config", timeout=2); break
     except Exception:
         time.sleep(0.3)
-for ids in ([93599, 200],):
+for ids in ([93599, 200, 306],):
     req = urllib.request.Request(BASE + "/api/fetch", data=json.dumps({"ids": ids}).encode(), method="POST",
                                  headers={"Content-Type": "application/json", "Origin": BASE})
     urllib.request.urlopen(req, timeout=60).read()
+prefs = json.dumps({"drMode": "manual", "drManual": [], "incRef": True})
+req = urllib.request.Request(BASE + "/api/settings", data=json.dumps({"ui_prefs2": prefs}).encode(), method="POST",
+                             headers={"Content-Type": "application/json", "Origin": BASE})
+urllib.request.urlopen(req, timeout=10).read()
 print("READY", BASE, home, flush=True)
 try:
     fake.wait(timeout=TTL or None)
