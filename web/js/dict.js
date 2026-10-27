@@ -1,6 +1,6 @@
 /* ---------- 용어 사전 ---------- */
 function renderDict(){
-  if(rtab()==="todo"){$("#dict").innerHTML=`${rtabsHtml()}<div class="card todocard" id="todoWrap"></div>`;wireRtabs();renderTodo();return}   // 노트를 볼 때는 할 일 탭이 먼저
+  if(rtab()==="todo"){$("#dict").innerHTML=`${rtabsHtml()}<div class="todocard todoplain" id="todoWrap"></div>`;wireRtabs();renderTodo();return}   // 노트를 볼 때는 할 일 탭이 먼저
   const form=editing?(()=>{const t=editing==="new"?{term:"",aliases:"",description:""}:terms.find(x=>x.id===editing)||{};
     return `<div class="card"><input id="fn" placeholder="용어 (예: POBA누리)" value="${esc(t.term)}">
       <input id="fa" placeholder="대체 용어 - 쉼표로 구분 (예: 포바누리, 포바)" value="${esc(t.aliases)}">
