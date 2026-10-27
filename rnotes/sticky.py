@@ -3,6 +3,7 @@ import datetime
 import json
 import re
 
+from .memoimg import clean_names
 from .storage import db
 
 
@@ -15,6 +16,10 @@ def sticky_row(r):
     out["remind_time"] = r["remind_time"] or ""
     out["wake"] = 1 if r["wake"] else 0
     out["alarm_dates"] = alarm_dates_of(r)
+    try:
+        out["imgs"] = clean_names(json.loads(r["imgs"] or "[]"))
+    except (ValueError, IndexError, KeyError):
+        out["imgs"] = []
     return out
 
 
@@ -63,6 +68,7 @@ def sticky_save(d):
             raise ValueError("알림 시각은 00:00 ~ 23:59 로 적어 주세요")
         rt = f"{int(m.group(1)):02d}:{m.group(2)}"
     wake = 1 if d.get("wake") else 0
+    imgs = json.dumps(clean_names(d.get("imgs")))
     now = datetime.datetime.now().isoformat(timespec="seconds")
     with db() as c:
         sid = d.get("id")
@@ -78,13 +84,15 @@ def sticky_save(d):
             z = int(d["z"]) if d.get("z") is not None else None
             if z is None:
                 z = (c.execute("SELECT z FROM sticky WHERE id=?", (sid,)).fetchone() or [1])[0]
-            c.execute("UPDATE sticky SET day=?, text=?, color=?, x=?, y=?, w=?, h=?, z=?, pinned=?, until=?, remind_time=?, wake=?, armed_at=?, alarm_dates=?, updated_at=? WHERE id=?",
-                      (day, text, color, x, y, w, h, z, pinned, until, rt, wake, armed, json.dumps(picks), now, sid))
+            if "imgs" not in d:   # 사진 목록을 보내지 않는 저장(예전 화면 · 고정 풀기 등)은 사진을 그대로 둔다
+                imgs = (c.execute("SELECT imgs FROM sticky WHERE id=?", (sid,)).fetchone() or ["[]"])[0] or "[]"
+            c.execute("UPDATE sticky SET day=?, text=?, color=?, x=?, y=?, w=?, h=?, z=?, pinned=?, until=?, remind_time=?, wake=?, armed_at=?, alarm_dates=?, imgs=?, updated_at=? WHERE id=?",
+                      (day, text, color, x, y, w, h, z, pinned, until, rt, wake, armed, json.dumps(picks), imgs, now, sid))
             if changed:   # 날짜·시각이 바뀌면 예전 '확인함' 기록은 의미가 없다
                 c.execute("DELETE FROM sticky_alarm WHERE sticky_id=?", (sid,))
         else:
             z = (c.execute("SELECT COALESCE(MAX(z),0)+1 FROM sticky WHERE day=?", (day,)).fetchone())[0]
-            cur = c.execute("INSERT INTO sticky (day,text,color,x,y,w,h,z,pinned,until,remind_time,wake,armed_at,alarm_dates,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                            (day, text, color, x, y, w, h, z, pinned, until, rt, wake, now if rt else "", json.dumps(clean_alarm_dates(d.get("alarm_dates"), day, until)), now, now))
+            cur = c.execute("INSERT INTO sticky (day,text,color,x,y,w,h,z,pinned,until,remind_time,wake,armed_at,alarm_dates,imgs,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                            (day, text, color, x, y, w, h, z, pinned, until, rt, wake, now if rt else "", json.dumps(clean_alarm_dates(d.get("alarm_dates"), day, until)), imgs, now, now))
             sid = cur.lastrowid
         return sticky_row(c.execute("SELECT * FROM sticky WHERE id=?", (sid,)).fetchone())

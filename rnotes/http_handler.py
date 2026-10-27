@@ -34,6 +34,7 @@ from .attention import notify as attention_notify
 from .commands import command_delete, command_list, command_reorder, command_save, var_delete, var_list, var_save
 from .trouble import trouble_row, trouble_save
 from . import gitbackup
+from . import memoimg
 
 
 # ---------- HTTP ----------
@@ -354,6 +355,12 @@ class Handler(BaseHTTPRequestHandler):
                     "Content-Disposition": f'attachment; filename="redmine-notes-github-{sha[:7]}.zip"'})
             except gitbackup.BackupError as e:
                 self.send_json({"error": str(e), "kind": e.kind}, 400)
+        elif u.path.startswith("/api/memo/img/"):
+            p = memoimg.path_of(urllib.parse.unquote(u.path[len("/api/memo/img/"):]))
+            if not p:
+                return self.send_json({"error": "이 PC에 없는 사진이에요"}, 404)
+            self.send_bytes(p.read_bytes(), memoimg.IMG_CTYPE[p.suffix],
+                            headers={"Cache-Control": "max-age=31536000, immutable"})   # 이름 = 내용의 해시라서 바뀌지 않는다
         elif u.path == "/api/fonts":
             self.send_json(font_files())
         elif u.path.startswith("/fonts/"):
@@ -495,7 +502,7 @@ class Handler(BaseHTTPRequestHandler):
                     with dst:
                         src.backup(dst)  # 쓰는 중에도 안전하게 복사
                     src.close(); dst.close()
-                    for sub in ("backups", "fonts"):
+                    for sub in ("backups", "fonts", "memo_img"):
                         if (DATA_DIR / sub).is_dir():
                             shutil.copytree(DATA_DIR / sub, new / sub, dirs_exist_ok=True)
                 POINTER_PATH.write_text(json.dumps({"data_dir": str(new)}, ensure_ascii=False), encoding="utf-8")
@@ -707,6 +714,11 @@ class Handler(BaseHTTPRequestHandler):
                         self.send_json({"error": "not found"}, 404)
                 except gitbackup.BackupError as e:
                     self.send_json({"error": str(e), "kind": e.kind}, 400)
+            elif u.path == "/api/memo/img":   # 메모에 붙여 넣은 사진 (본문 = 사진 그대로)
+                try:
+                    self.send_json({"name": memoimg.save(raw, self.headers.get("Content-Type"))})
+                except ValueError as e:
+                    self.send_json({"error": str(e)}, 400)
             elif u.path == "/api/fonts":
                 ext = Path("x" + q.get("ext", "")).suffix.lower()
                 name = re.sub(r"[^\w가-힣 .\-]", "", q.get("name", "")).strip()[:40]

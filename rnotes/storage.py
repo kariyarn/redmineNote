@@ -256,6 +256,8 @@ def init_db():
         for col, ddl in (("remind_time", "TEXT DEFAULT ''"), ("armed_at", "TEXT DEFAULT ''"), ("wake", "INTEGER DEFAULT 0"), ("alarm_dates", "TEXT DEFAULT ''")):
             if col not in scols:  # 2.8.1: 메모 알림 (시각 · 알림을 건 시각 · 창이 닫혀 있어도 앱을 다시 열지)
                 c.execute(f"ALTER TABLE sticky ADD COLUMN {col} {ddl}")
+        if "imgs" not in scols:  # 2.24.0: 붙여 넣은 사진 이름들 (JSON 목록, 파일은 데이터 폴더의 memo_img/)
+            c.execute("ALTER TABLE sticky ADD COLUMN imgs TEXT DEFAULT '[]'")
         if "until" not in scols:  # 2.7.0: 노출 기간의 종료일 (비어 있으면 그 날 하루만)
             c.execute("ALTER TABLE sticky ADD COLUMN until TEXT DEFAULT ''")
         cmd_cols = {r["name"] for r in c.execute("PRAGMA table_info(commands)")}

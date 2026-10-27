@@ -141,3 +141,14 @@
 .pgbbody{flex:1;min-height:0;overflow:auto;padding:12px}
 .cork.pgcork{margin:0;overflow:hidden}
 .pgb-day{cursor:pointer}.pgb-day:hover{background:rgba(0,0,0,.18)}
+/* ===== 2.24 : 메모에 붙인 사진(스샷). 사진이 있으면 사진이 남는 자리를 쓰고, 글 칸은 아래에 작게 ===== */
+.stk-imgs{display:flex;flex-direction:column;gap:6px;padding:2px 10px 4px;overflow:auto;min-height:0}
+.stk-imgs[hidden]{display:none}
+.stk.hasimg .stk-imgs{flex:1 1 auto}
+.stk.hasimg .stk-t.rte,.stk.hasimg .stk-v{flex:0 1 auto;min-height:2.4em;max-height:45%}
+.stk-fig{position:relative;margin:0}
+.stk-im{display:block;width:100%;height:auto;border-radius:4px;box-shadow:0 1px 3px rgba(0,0,0,.2);background:#fff;cursor:zoom-in}
+.stk-imx{position:absolute;top:4px;right:4px;opacity:0;border:0;border-radius:6px;background:rgba(0,0,0,.55);color:#fff;font-size:.72rem;padding:0 6px;line-height:1.6;cursor:pointer;transition:opacity .12s}
+.stk-fig:hover .stk-imx,.stk-imx0+.stk-imx{opacity:1}
+.stk-imx0{font-size:.8rem;color:rgba(40,30,10,.6);background:rgba(0,0,0,.06);border:1px dashed rgba(0,0,0,.2);border-radius:6px;padding:10px;text-align:center}
+.pc-imgs{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px}.pc-imgs img{max-height:90px;max-width:100%;border-radius:4px}
