@@ -8,7 +8,7 @@
 #center[data-ns=doc] .ehead h2{font-size:1.75rem;letter-spacing:-.02em}
 /* 파트 사이: 굵은 구분선 + 큰 제목 */
 #center[data-ns=doc] .notebox>.card:not(.ehead),#center[data-ns=doc] .notebox #attwrap>.card,#center[data-ns=doc] .notebox>details{border-top:2px solid color-mix(in srgb,var(--text) 22%,transparent);margin-top:30px;padding-top:20px}
-#center[data-ns=doc] .notebox .fhd>span:first-child,#center[data-ns=doc] .notebox #pgcard>label,#center[data-ns=doc] .notebox .cfhd>span:nth-child(2),#center[data-ns=doc] .notebox #sec-orig>summary{font-size:1.32rem;font-weight:800;letter-spacing:-.01em}
+#center[data-ns=doc] .notebox .fhd>span:first-child,#center[data-ns=doc] .notebox .cfhd>span:nth-child(2),#center[data-ns=doc] .notebox #sec-orig>summary{font-size:1.32rem;font-weight:800;letter-spacing:-.01em}
 #center[data-ns=doc] .notebox>.cfold.collapsed{padding-bottom:0}
 #center[data-ns=doc] .notebox #sec-orig>summary{cursor:pointer}
 /* DR 필터 */

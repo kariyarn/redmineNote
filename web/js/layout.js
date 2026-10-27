@@ -7,14 +7,16 @@ const dictVisible=()=>isNarrow()?dictOv:!ui.hr;
 function toggleDict(){
   if(todayFull()){todayWide=false;if(isNarrow())dictOv=true;else{ui.hr=false;saveUI()}renderAll();return}   // 새 디자인의 넓은 오늘 목록에서는 사전 칸이 숨어 있으니, 누르면 나란히 보기로 바꾸고 연다
   if(isNarrow())dictOv=!dictOv;else{ui.hr=!ui.hr;saveUI()}applyUI();renderDict();renderHead();renderNav();if(view==="graph")renderGraph()}
-document.addEventListener("click",e=>{if(dictOv&&isNarrow()&&!e.target.closest("#dict,[data-act=dict],[data-jump=todo],#gopenDict,.tp,.hbar")){dictOv=false;applyUI();renderNav()}});
+document.addEventListener("click",e=>{if(dictOv&&isNarrow()&&!e.target.closest("#dict,[data-act=dict],#gopenDict,.tp,.hbar")){dictOv=false;applyUI();renderNav()}});
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&dictOv){dictOv=false;applyUI();renderNav()}});
 function applyUI(){
   const vault=nav.startsWith("vault");
   const hideL=ui.hl||nav==="mine"||nav==="code"||nav==="memo"||nav==="deploy"||nav==="trouble"||nav==="queries"||nav==="commands"||vault;      // 내 기록·보관함은 가운데 화면만 넓게 쓴다
   const col=!isNarrow()&&!ui.hr&&nav!=="memo"&&nav!=="deploy"&&nav!=="trouble"&&nav!=="queries"&&nav!=="commands"&&!vault;      // 넓은 창: 사전을 오른쪽 칸으로. 좁은 창: 칸을 만들지 않고 필요할 때만 겹쳐서 연다
-  $("#main").style.gridTemplateColumns=`${hideL?0:ui.lw}px ${hideL?0:6}px minmax(0,1fr) ${col?6:0}px ${col?ui.rw:0}px`;
-  $("#listpane").style.display=$("#s1").style.display=hideL?"none":"";
+  const strip=!hideL&&listStrip();     // 노트를 연 동안 목록은 아이콘 줄로 (노트 폭을 지킨다)
+  $("#main").style.gridTemplateColumns=`${hideL?0:strip?LSTRIP_W:ui.lw}px ${hideL||strip?0:6}px minmax(0,1fr) ${col?6:0}px ${col?ui.rw:0}px`;
+  $("#listpane").style.display=hideL?"none":"";$("#s1").style.display=hideL||strip?"none":"";
+  $("#listpane").classList.toggle("strip",strip);
   $("#dict").style.display=dictVisible()&&nav!=="memo"&&nav!=="deploy"&&nav!=="trouble"&&nav!=="queries"&&nav!=="commands"&&!vault?"":"none";$("#s2").style.display=col?"":"none";
   $("#dict").classList.toggle("ov",isNarrow()&&dictOv);
   const wide=todayFull();   // 새 디자인의 오늘: 목록만 넓게 (노트 · 사전 칸은 일감을 고르면 보인다)

@@ -1,38 +1,14 @@
-/* ---------- 할 일 체크리스트: 노트를 볼 때 오른쪽 칸의 '☑ 할 일' 탭. 완료한 항목은 지우지 않고 '보관'한다 ---------- */
+/* ---------- 할 일 체크리스트: 노트 옆 칸(noteside.js)의 '☑ 할 일'. 완료한 항목은 지우지 않고 '보관'한다 ---------- */
 function buildTodoMap(){todoMap={};todos.forEach(t=>{if(t.archived_at)return;const m=todoMap[t.issue_id]||(todoMap[t.issue_id]=[0,0]);m[1]++;if(!t.done)m[0]++})}
 const todoBadge=n=>{const m=todoMap[n.issue_id];return m&&m[0]?`<span class="todobadge" title="남은 할 일 ${m[0]}건 (전체 ${m[1]}건)">☑ ${m[0]}</span>`:""};
 let todoArcOpen=false;      // 이 노트의 보관함을 펼쳐 봤는지
-function refreshJumpTodo(){   // 이동 바의 ☑ 칩 숫자 (남은 할 일)
-  const b=document.querySelector('#jumpbar [data-jump="todo"]');if(!b)return;
-  const open=todos.filter(t=>t.issue_id===cur&&!t.archived_at&&!t.done).length;let i=b.querySelector("i");
-  if(open){if(!i){i=document.createElement("i");b.appendChild(i)}i.textContent=open}else if(i)i.remove();
-}
-/* 2.25: 떠 있는 패널 대신 오른쪽 칸(주제 사전 칸)의 '☑ 할 일' 탭에 둔다. 노트를 보는 동안만 탭이 생기고, 다른 화면에서는 예전처럼 사전만.
-   칸이 닫혀 있으면 이동 바의 ☑ 할 일(또는 Alt+2)이 칸을 열고 할 일 탭으로 바꾼다. 좁은 창에서는 사전처럼 오른쪽에 겹쳐서 연다 */
-const rtabOn=()=>view==="note"&&!!cur&&!!curNote();
-const rtab=()=>rtabOn()&&ui.rtab!=="dict"?"todo":"dict";
-function rtabsHtml(){
-  if(!rtabOn())return "";
-  const open=todos.filter(t=>t.issue_id===cur&&!t.archived_at&&!t.done).length,t=rtab();
-  return `<div class="seg rtabs" role="tablist"><button type="button" role="tab" data-rtab="todo" class="${t==="todo"?"on":""}" title="이 노트의 할 일 체크리스트">☑ 할 일${open?` <i>${open}</i>`:""}</button><button type="button" role="tab" data-rtab="dict" class="${t==="dict"?"on":""}" title="용어(주제) 사전">🏷 주제 사전</button></div>`;
-}
-function wireRtabs(){document.querySelectorAll("#dict [data-rtab]").forEach(b=>b.onclick=()=>{if(ui.rtab===b.dataset.rtab)return;ui.rtab=b.dataset.rtab;saveUI();renderDict();if(ui.rtab==="todo"){const i=$("#todoNew");if(i)i.focus()}})}
-function updTodoFloat(){   // (예전 이름 그대로: 여러 곳에서 부른다) 할 일 탭이 보이면 다시 그리고, 탭의 숫자를 맞춘다
-  const b=document.querySelector('#dict [data-rtab="todo"]');
-  if(b){const open=todos.filter(t=>t.issue_id===cur&&!t.archived_at&&!t.done).length;b.innerHTML=`☑ 할 일${open?` <i>${open}</i>`:""}`}
-  if(rtab()==="todo"&&$("#todoWrap"))renderTodo();
-}
-function toggleTodoPanel(){   // 이동 바의 ☑ 할 일: 오른쪽 칸을 열고 할 일 탭으로
-  ui.rtab="todo";
-  if(!dictVisible()){if(isNarrow())dictOv=true;else ui.hr=false}
-  saveUI();applyUI();renderDict();renderNav();
-  const i=$("#todoNew");if(i)setTimeout(()=>i.focus(),0);
-}
+function refreshJumpTodo(){nsCounts()}   // (예전 이름) 남은 할 일 수 → 노트 옆 칸 단추의 숫자
+function updTodoFloat(){nsCounts();if($("#todoWrap"))renderTodo()}   // (예전 이름: 여러 곳에서 부른다) 노트 옆 칸의 할 일을 다시 그린다
 function renderTodo(){
-  const w=$("#todoWrap");if(!w||rtab()!=="todo")return;
+  const w=$("#todoWrap");if(!w||!curNote())return;
   const mine=todos.filter(t=>t.issue_id===cur),list=mine.filter(t=>!t.archived_at),arc=mine.filter(t=>t.archived_at).sort((a,b)=>(b.archived_at||"").localeCompare(a.archived_at||"")),done=list.filter(t=>t.done).length;
   const typed=($("#todoNew")||{}).value||"";
-  w.innerHTML=`<div class="fhd"><small>${list.length?`${done}/${list.length} 완료`:"이 노트의 체크리스트"}</small><span class="sp"></span>${done?`<button type="button" class="mini" id="todoArcBtn" title="완료한 항목을 보관함으로 옮겨요 (지워지지 않아요)">완료 ${done}개 보관</button>`:""}${arc.length?`<button type="button" class="mini" id="todoArcView">${todoArcOpen?"보관함 닫기":`보관함 ${arc.length}`}</button>`:""}</div>
+  w.innerHTML=`<div class="fhd"><b>☑ 할 일</b><small>${list.length?`${done}/${list.length} 완료`:"이 노트의 체크리스트"}</small><span class="sp"></span>${done?`<button type="button" class="mini" id="todoArcBtn" title="완료한 항목을 보관함으로 옮겨요 (지워지지 않아요)">완료 ${done}개 보관</button>`:""}${arc.length?`<button type="button" class="mini" id="todoArcView">${todoArcOpen?"보관함 닫기":`보관함 ${arc.length}`}</button>`:""}</div>
     ${list.length?`<div class="todo-bar"><i style="width:${Math.round(done/list.length*100)}%"></i></div>`:""}
     <div class="todo-list">${list.map(t=>`<div class="todo-i ${t.done?"done":""}" data-tid="${t.id}"><input type="checkbox" ${t.done?"checked":""}><span class="tx" title="눌러서 수정">${esc(t.text)}</span><button type="button" class="x" title="삭제">✕</button></div>`).join("")||`<div class="meta" style="padding:6px 2px">할 일을 적어 보세요</div>`}</div>
     ${todoArcOpen&&arc.length?`<div class="todo-arc"><div class="meta" style="margin-bottom:4px">보관한 항목 (${arc.length})</div>${arc.map(t=>`<div class="todo-i done" data-aid="${t.id}"><span class="tx">${esc(t.text)}</span><span class="meta">${esc((t.archived_at||"").slice(5,10))} 보관</span><button type="button" class="mini" data-ar="restore">↩ 되돌리기</button><button type="button" class="x" data-ar="del" title="영구 삭제">✕</button></div>`).join("")}</div>`:""}

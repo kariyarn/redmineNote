@@ -288,7 +288,7 @@ function renderCenter(){
   const n=all.find(x=>x.issue_id===cur);
   if(!n){edNote=null;$("#center").innerHTML=`<div class="empty" style="padding-top:12vh"><b>노트를 선택하세요</b>왼쪽 목록에서 일감을 누르면 레드마인 원문을 보고 처리·코드·이유를 기록할 수 있습니다.</div>`;return}
   const nb=neighbors(n.issue_id),s=stOf(n),sim=simInfo(n);
-  $("#center").innerHTML=`
+  $("#center").innerHTML=`<div class="notewrap ${nsRail()?"rail":""}" style="--nsw:${nsW()}px"><div class="notemain">
    <div class="notebox">
    ${jumpHtml(n,nb)}
    <div class="card ehead">
@@ -313,13 +313,6 @@ function renderCenter(){
    ${origCard(n)}${V2()?simBlock(n,sim):""}${legacyReqCard(n)}
    <div class="card qrelcard" id="qvrel" style="display:none"></div>
    <div id="attwrap"></div>
-   <div class="card" id="pgcard"><label>진행 기록 <small>같은 일감도 날짜마다 어디까지 했는지 따로 남깁니다 (저장 버튼과 별개로 바로 저장)</small></label>
-     <div class="pgnew">
-       <div class="frow" style="margin-top:0"><input type="date" id="pgday" style="flex:none;min-width:0"><button type="button" class="mini" id="pgtoday">오늘</button><button type="button" class="mini" id="pgyest">어제</button><span class="meta" id="pgrel"></span></div>
-       <div class="rte" id="pgtext" data-ph="이 날 어디까지 했는지 적으세요 (예: 쿼리 작성 완료, 테스트 서버 반영 대기)"></div>
-       <div class="row"><button type="button" class="primary" id="pgadd">기록 추가</button><span class="meta">코드는 백틱 3개 + Enter 로 코드 상자를 쓸 수 있습니다</span></div>
-     </div>
-     <div id="pglist"></div></div>
    ${nbCard(n)}
    ${cf(n,"cm","댓글 이력",`<small>레드마인 댓글 ${n.journals.length}건${(n.changes||[]).length?` · 변경 ${n.changes.length}건`:""}</small>`,cmSum(n),`<button type="button" class="mini" data-cmnew title="어디서든 바로 댓글을 쓰는 창을 엽니다 (C)">＋ 새 댓글 쓰기</button>`,
       `<div class="tl">${cmHist(n)}</div>`)}
@@ -331,7 +324,8 @@ function renderCenter(){
         return l?`<a class="rel" data-open="${x.id}"><span class="k">${relLabel(x)}</span><span class="meta">#${x.id}</span><span>${esc(l.subject)}</span></a>`
                :skipped[x.id]?`<a class="rel missing" href="${cfg.url}/issues/${x.id}" target="_blank"><span class="k">${relLabel(x)}</span><span class="meta">#${x.id}</span><span class="meta">받을 수 없음 (${esc(skipped[x.id])})</span><span class="go">레드마인에서 열기 ↗</span></a>`
                :`<a class="rel missing" data-fetch="${x.id}"><span class="k">${relLabel(x)}</span><span class="meta">#${x.id}</span><span class="meta">아직 저장되지 않은 일감</span><span class="go">눌러서 가져오기</span></a>`}).join("")||`<span class="meta">연결된 일감이 없습니다.</span>`)}
-   <div class="savebar"><button class="primary" id="save">저장</button><span class="meta" id="sv">✓ 저장된 상태 · Ctrl+S 로 저장 · 내 기록은 이 PC에만 저장됩니다</span></div>`;
+   <div class="savebar"><button class="primary" id="save">저장</button><span class="meta" id="sv">✓ 저장된 상태 · Ctrl+S 로 저장 · 내 기록은 이 PC에만 저장됩니다</span></div>
+   </div>${nsHtml(n)}</div>`;
   document.querySelectorAll("[data-open]").forEach(e=>{e.onclick=ev=>openNote(+e.dataset.open,tabOpt(ev));e.onauxclick=ev=>{if(ev.button===1){ev.preventDefault();openNote(+e.dataset.open,{bg:true})}}});
   document.querySelectorAll("[data-fetch]").forEach(e=>e.onclick=async()=>{
     const id=+e.dataset.fetch;toast(`#${id} 가져오는 중…`,0);
@@ -352,7 +346,7 @@ function renderCenter(){
   edNote=n;edBase=readEdits();edSavedAt=null;      // 편집기가 정리한 형태 그대로를 기준으로 삼아야 '바뀌었나' 판단이 정확하다
   wireNotes(n);
   document.querySelectorAll("[data-addcode]").forEach(b=>b.onclick=()=>addCodeBox($("#"+(b.dataset.addcode==="@tab"?ntabOf(n):b.dataset.addcode))));
-  initPg(n);wireRec(n);
+  initPg(n);wireNs(n);wireRec(n);
   $("#fsz").value=ui.fsz;$("#fwrap").checked=ui.wrap;$("#flnum").checked=ui.lnum;
   const refmt=()=>{ui.fsz=$("#fsz").value;ui.wrap=$("#fwrap").checked;ui.lnum=$("#flnum").checked;saveUI();["ac","cc","rs"].forEach(id=>applyFmt($("#"+id)))};
   $("#fsz").onchange=$("#fwrap").onchange=$("#flnum").onchange=refmt;

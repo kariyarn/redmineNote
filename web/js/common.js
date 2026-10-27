@@ -137,7 +137,7 @@ function toggleCm(open){
 window.addEventListener("resize",()=>{if($("#cmfab"))placeCm()});
 document.addEventListener("pointerdown",e=>{   // 팝업 바깥(노트 원문 등)을 누르면 닫는다
   if(!cmOpen)return;
-  if(e.target.closest&&e.target.closest("#cmpanel,#cmfab,#todoWrap,[data-rtab],#topfab,.popmenu,#wdlg,#modal,#toast,[data-cmnew]"))return;     // 할 일 탭을 눌러도 댓글 팝업은 그대로 (둘 다 띄워 둘 수 있다)
+  if(e.target.closest&&e.target.closest("#cmpanel,#cmfab,#todoWrap,.noteside,#topfab,.popmenu,#wdlg,#modal,#toast,[data-cmnew]"))return;     // 할 일 탭을 눌러도 댓글 팝업은 그대로 (둘 다 띄워 둘 수 있다)
   toggleCm(false);
 },true);
 document.addEventListener("keydown",e=>{

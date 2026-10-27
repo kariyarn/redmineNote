@@ -284,7 +284,48 @@ function renderSideList(){
     [nav,rangeText("graph"),rangeText("summary"),graphMode,gHub,sel.join(),$("#q").value,scopeW(),scopeR()].join("|"));
   wireRows($("#list"));wireScope();listMarkSel();
 }
+/* ---------- 목록 아이콘 줄 (2.27): 노트를 연 동안 오늘 · 이력 목록을 작업 표시줄처럼 아이콘으로 접는다 ----------
+   아이콘 = 구분(BC · DR) + #번호, 맨 아래 칸에 상태. 마우스를 올리면 제목, 누르면 그 노트로. » 로 펼치면 기존 목록, « 로 다시 접는다 (기억함) */
+const LSTRIP_W=84;
+const listStripAble=()=>view==="note"&&cur!=null&&!!curNote()&&(nav==="today"||nav==="history")&&!todayFull()&&!rmOn&&!searching();
+const listStrip=()=>listStripAble()&&!ui.listFull;
+function setListFull(full){ui.listFull=full;saveUI();applyUI();renderList();if(view==="graph")renderGraph()}
+function renderStrip(){
+  const L=$("#list"),groups=[];let g=null;
+  L.querySelectorAll(".lsec,.mon,.nrow[data-id]").forEach(el=>{
+    if(!el.classList.contains("nrow")){g={l:(el.querySelector("b")||el.firstChild||{}).textContent||"",ids:[]};groups.push(g);return}
+    if(!g){g={l:"",ids:[]};groups.push(g)}
+    const id=+el.dataset.id;if(!groups.some(x=>x.ids.includes(id)))g.ids.push(id);
+  });
+  if(cur!=null&&!groups.some(x=>x.ids.includes(cur)))groups.unshift({l:"지금 보는 노트",ids:[cur]});     // 목록(펼친 구역)에 없는 노트를 열었어도 아이콘 줄에서 보이게
+  const ic=n=>{const c=catOf(n),s=stOf(n);
+    return `<div class="ls-ic s-${s}${n.issue_id===cur?" sel":""}" data-id="${n.issue_id}" role="button" tabindex="0" aria-label="#${n.issue_id} ${esc(n.subject)}"><span class="c ${c==="기타"?"etc":c}">${c}</span><span class="no">#${n.issue_id}</span><span class="st">${s}</span>${isUnseen(n)?'<span class="dot" title="안 본 변경"></span>':""}</div>`};
+  const body=groups.filter(x=>x.ids.length).map(x=>`${x.l?`<div class="ls-lab">${esc(x.l)}</div>`:""}${x.ids.map(id=>all.find(n=>n.issue_id===id)).filter(Boolean).map(ic).join("")}`).join('<div class="ls-sep"></div>');
+  L.innerHTML=`<div class="lstrip"><button type="button" class="ls-btn" id="lsFull" title="목록 펼치기">»</button>${body||'<div class="ls-lab">목록 없음</div>'}</div>`;
+  $("#lsFull").onclick=()=>setListFull(true);
+  let tip=$("#lsTip");if(!tip){tip=document.createElement("div");tip.id="lsTip";tip.className="ls-tip";document.body.appendChild(tip)}
+  L.querySelectorAll(".ls-ic").forEach(el=>{
+    const id=+el.dataset.id,n=all.find(x=>x.issue_id===id);
+    el.onclick=e=>openNote(id,tabOpt(e));
+    el.onmousedown=e=>{if(e.button===1)e.preventDefault()};
+    el.onauxclick=e=>{if(e.button===1){e.preventDefault();openNote(id,{bg:true})}};
+    el.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();openNote(id)}};
+    el.onmouseenter=el.onfocus=()=>{tip.innerHTML=`${esc(n.subject)}<small>#${id} · ${stOf(n)}</small>`;tip.style.display="block";const r=el.getBoundingClientRect();
+      tip.style.left=(r.right+10)+"px";tip.style.top=Math.max(8,Math.min(innerHeight-tip.offsetHeight-8,r.top+r.height/2-tip.offsetHeight/2))+"px"};
+    el.onmouseleave=el.onblur=()=>{tip.style.display="none"};
+  });
+  const s=L.querySelector(".ls-ic.sel");if(s)s.scrollIntoView({block:"nearest"});
+}
 function renderList(){
+  const t=$("#lsTip");if(t)t.style.display="none";
+  renderListInner();
+  if(listStrip())renderStrip();
+  else if(listStripAble()&&$("#list")){     // 펼친 목록 위에: 다시 아이콘으로 접기
+    $("#list").insertAdjacentHTML("afterbegin",`<div class="lexp"><button type="button" class="mini" id="lsStrip" title="노트를 보는 동안 목록을 아이콘 줄로 접어요">« 아이콘으로 접기</button></div>`);
+    $("#lsStrip").onclick=()=>setListFull(false);
+  }
+}
+function renderListInner(){
   if(rmOn&&(nav==="today"||nav==="history"))return renderRmSearch();
   if(nav==="today")return renderToday();
   if(nav==="history")return renderHistory();

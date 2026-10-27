@@ -129,8 +129,12 @@ async function loadProgress(){
   pgBy.forEach(a=>a.sort((x,y)=>y.day.localeCompare(x.day)||x.id-y.id));    // 새 날짜가 위, 같은 날은 쓴 순서
 }
 const prepTerm=t=>{t._k=[t.term,...(t.aliases||"").split(",")].map(s=>s.trim().toLowerCase()).filter(Boolean)};
+/* 노트 · 연결 · 용어는 꼭 있어야 하고, 나머지(부가 기록)는 못 받아도 노트 목록은 그대로 보인다 (못 받은 것은 이전 값 · 빈 값으로 두고 알림만) */
+const optLoad=(p,keep,what)=>p.catch(e=>{console.warn(what,e);toast(`‘${what}’ 불러오기에 실패했어요 — 노트는 그대로예요. 잠시 뒤 다시 열어 보세요`,5000);return keep});
 async function loadAll(){
-  [all,links,terms,skipped,codeNotes,todos]=await Promise.all([api("/api/notes"),api("/api/links"),api("/api/terms"),api("/api/skipped"),api("/api/codenotes"),api("/api/todos"),loadProgress(),loadAnnot()]);
+  [all,links,terms,skipped,codeNotes,todos]=await Promise.all([api("/api/notes"),api("/api/links"),api("/api/terms"),
+    optLoad(api("/api/skipped"),skipped||[],"건너뛴 일감"),optLoad(api("/api/codenotes"),codeNotes||[],"코드 이름 설명"),optLoad(api("/api/todos"),todos||[],"할 일"),
+    optLoad(loadProgress(),null,"진행 기록"),optLoad(loadAnnot(),null,"원문 표시")]);
   trLoad(true);     // 트러블슈팅(코드 이력의 관련 목록용). 기다리지 않는다
   buildTodoMap();
   all.forEach(prep);terms.forEach(prepTerm);buildTokens();
