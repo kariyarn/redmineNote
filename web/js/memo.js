@@ -135,7 +135,7 @@ function drawMemo(){
   memoList.forEach(sn=>cork.appendChild(mkSticky(sn)));
   $("#corkEmpty").hidden=memoList.length>0;
   $("#mDay").textContent=`${dayLabel(memoDay)} · ${memoList.length}개${memoDay===todayStr()?" · 오늘":""}`;
-  $("#mDays").innerHTML=memoDays.length?`<span class="meta">메모가 있는 날</span>`+memoDays.slice(0,30).map(d=>`<button type="button" class="mdchip ${d.day===memoDay?"on":""}" data-md="${d.day}">${d.day.slice(5)}<small>${d.count}</small></button>`).join(""):"";
+  $("#mDays").innerHTML=memoDays.length?`<span class="meta" title="한 줄에 최근 날짜만 보여요. 지난 날짜는 📅 달력에서 찾아요">메모가 있는 날</span>`+memoDays.slice(0,30).map(d=>`<button type="button" class="mdchip ${d.day===memoDay?"on":""}" data-md="${d.day}">${d.day.slice(5)}<small>${d.count}</small></button>`).join(""):"";
   document.querySelectorAll("#mDays [data-md]").forEach(b=>b.onclick=()=>gotoMemo(b.dataset.md));
   fitCork();
 }

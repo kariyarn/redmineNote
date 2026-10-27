@@ -91,7 +91,9 @@ async function annDel(n,id,undo=true){
   if(undo)toastUndo("표시를 지웠어요",()=>annSave(n,{...a,id:null}),6000);
 }
 async function annMemoAsk(init){
-  const v=await wdlg({title:init?"메모 고치기":"메모 달기",ok:"저장",body:`<textarea id="annMemoIn" rows="4" style="width:100%" placeholder="이 부분에 대한 내 메모 (원문에는 올라가지 않아요)">${esc(init||"")}</textarea>`,collect:()=>$("#annMemoIn").value});
+  setTimeout(()=>{const t=$("#annMemoIn");if(!t)return;t.focus();t.setSelectionRange(t.value.length,t.value.length);
+    t.addEventListener("keydown",e=>{if(e.key==="Enter"&&(e.ctrlKey||e.metaKey)&&!e.isComposing){e.preventDefault();$("#wyes").click()}})},0);   // Ctrl+Enter = 저장하고 닫기
+  const v=await wdlg({title:init?"메모 고치기":"메모 달기",ok:"저장",body:`<textarea id="annMemoIn" rows="4" style="width:100%" placeholder="이 부분에 대한 내 메모 (원문에는 올라가지 않아요) · Ctrl+Enter 로 저장">${esc(init||"")}</textarea>`,collect:()=>$("#annMemoIn").value});
   return v===false||v==null?null:v.trim();
 }
 /* ---- 고르면 뜨는 도구 막대 ---- */

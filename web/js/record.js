@@ -108,17 +108,32 @@ const relDay=day=>{const k=Math.round((new Date(todayStr()+"T00:00:00")-new Date
 /* 2.27: 진행 기록은 노트 본문이 아니라 노트 옆 칸(noteside.js)에 최신 순 타임라인으로. 같은 내용을 두 군데 보이지 않는다 */
 const pgSorted=n=>[...(n._pg||[])].sort((a,b)=>b.day.localeCompare(a.day)||b.id-a.id);
 function pgEntry(p){
-  return `<div class="ns-pg ${p.day===todayStr()?"today":""}" data-pg="${p.id}"><div class="d"><span>${p.day.slice(5)} · ${relDay(p.day)}${p.updated_at&&p.updated_at!==p.created_at?" · 수정됨":""}</span><span class="sp"></span>
+  return `<div class="ns-pg" data-pg="${p.id}"><div class="d"><span>${(p.created_at||"").slice(11,16)}${p.updated_at&&p.updated_at!==p.created_at?" · 수정됨":""}</span><span class="sp"></span>
     <button type="button" class="pga" data-pgedit="${p.id}" title="수정">✎</button><button type="button" class="pga" data-pgdel="${p.id}" title="삭제">🗑</button></div>
     <div class="t ${pvClass()}">${renderMd(p.text)}</div></div>`;
 }
+/* 날짜별로 묶고, 날짜의 점(●)을 누르면 그 날을 접고 편다. 처음 열 때는 가장 최근 날짜만 펴 두고 지난 날짜는 접는다 */
+const pgFold=new Set(),pgInit=new Set();      // 접어 둔 날짜 ("일감번호|날짜") · 처음 연 노트 (화면을 열어 둔 동안만 기억)
+const pgKey=(n,d)=>`${n.issue_id}|${d}`;
+const pgPreview=t=>softNl(t).replace(/```[\s\S]*?```/g," ⟨코드⟩ ").split(/\r?\n/).map(x=>x.replace(/`/g,"").trim()).find(Boolean)||"";
 function pgListHtml(n){
   const arr=pgSorted(n);
-  return arr.length?arr.map(pgEntry).join(""):`<div class="meta ns-empty">아직 진행 기록이 없어요. 날마다 어디까지 했는지 남겨 두면 다음에 이어서 하기 쉬워요.</div>`;
+  if(!arr.length)return `<div class="meta ns-empty">아직 진행 기록이 없어요. 날마다 어디까지 했는지 남겨 두면 다음에 이어서 하기 쉬워요.</div>`;
+  const days=[...new Set(arr.map(p=>p.day))];      // 최신 날짜부터
+  if(!pgInit.has(n.issue_id)){pgInit.add(n.issue_id);days.slice(1).forEach(d=>pgFold.add(pgKey(n,d)))}
+  return days.map(d=>{
+    const es=arr.filter(p=>p.day===d),f=pgFold.has(pgKey(n,d));
+    return `<div class="ns-day${f?" folded":""}${d===todayStr()?" today":""}"><button type="button" class="ns-dot" data-pgfold="${d}" title="${f?"펼치기":"접기"}" aria-expanded="${!f}"></button>
+      <div class="ns-dh" data-pgfold="${d}">${d.slice(5)} · ${relDay(d)}${es.length>1||f?` · ${es.length}건`:""}${f?`<span class="ns-prev">${esc(pgPreview(es[0].text).slice(0,60))}</span>`:""}</div>
+      ${f?"":es.map(pgEntry).join("")}</div>`;
+  }).join("");
 }
 function wirePg(n){
   const list=$("#pglist");if(!list||cur!==n.issue_id)return;
   list.innerHTML=pgListHtml(n);wireCp(list);nsCounts();
+  list.querySelectorAll("[data-pgfold]").forEach(b=>b.onclick=()=>{
+    if(list.querySelector(".ns-pg .rte")){toast("수정 중인 기록을 먼저 저장하거나 취소해 주세요",3000);return}
+    const k=pgKey(n,b.dataset.pgfold);pgFold.has(k)?pgFold.delete(k):pgFold.add(k);wirePg(n)});
   list.querySelectorAll("[data-pgdel]").forEach(b=>b.onclick=async()=>{
     if(!await askC("이 진행 기록을 삭제할까요?"))return;
     await api("/api/progress/"+b.dataset.pgdel,{method:"DELETE"});await pgRefresh(n)});
@@ -152,7 +167,7 @@ function initPg(n){
     if(!text)return toast("어디까지 했는지 내용을 적어 주세요",2500);
     if(!day)return toast("날짜를 선택하세요",2500);
     await post("/api/progress",{issue_id:n.issue_id,day,text});
-    pgDraft.delete(n.issue_id);edInit($("#pgtext"),"");await pgRefresh(n);toast(`${day} 진행 기록을 추가했습니다`,2200);
+    pgDraft.delete(n.issue_id);edInit($("#pgtext"),"");pgFold.delete(pgKey(n,day));await pgRefresh(n);toast(`${day} 진행 기록을 추가했습니다`,2200);
     if(n.rec_mode!=="record")await setRec(n,"record",true);                  // 진행 기록을 썼으면 '기록' 모드로
   };
   $("#pgadd").onclick=add;
