@@ -199,14 +199,6 @@ table.vptab{border-collapse:collapse}table.vptab th,table.vptab td{text-align:le
 .hp-b p{margin:3px 0 0;font-size:.88rem;line-height:1.6}.hp-b .hp-s{color:var(--sub);font-size:.82rem}
 
 /* 2.11 체크리스트: 오른쪽 아래 떠 있는 패널 (💬 댓글 단추 바로 위) */
-#todofab{position:fixed;right:24px;bottom:124px;z-index:20;border-radius:999px;padding:8px 15px;font-weight:600;background:var(--surface);color:var(--text);border:1px solid var(--line);box-shadow:0 6px 18px rgba(0,0,0,.16);display:none}
-#todofab.has{border-color:var(--accent);color:var(--accent)}
-#todofab:hover{border-color:var(--accent)}
-#todopanel{position:fixed;right:24px;bottom:124px;z-index:21;width:min(330px,calc(100vw - 24px));max-height:min(64vh,540px);display:none;overflow:auto;border-radius:14px;box-shadow:0 16px 44px rgba(0,0,0,.3)}
-#todopanel .todocard{margin:0;border-radius:14px}
-#todopanel .fhd{cursor:grab;user-select:none;flex-wrap:wrap;row-gap:4px}
-#todopanel .todo-list{max-height:34vh;overflow:auto}
-#todopanel .fhd .icon{margin-left:2px}
 
 /* 2.11 내 기록: 보기 전환 · 검색 · 월 칩 · 일자별/월별 */
 .mine-h{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center}

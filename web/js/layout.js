@@ -7,7 +7,7 @@ const dictVisible=()=>isNarrow()?dictOv:!ui.hr;
 function toggleDict(){
   if(todayFull()){todayWide=false;if(isNarrow())dictOv=true;else{ui.hr=false;saveUI()}renderAll();return}   // 새 디자인의 넓은 오늘 목록에서는 사전 칸이 숨어 있으니, 누르면 나란히 보기로 바꾸고 연다
   if(isNarrow())dictOv=!dictOv;else{ui.hr=!ui.hr;saveUI()}applyUI();renderDict();renderHead();renderNav();if(view==="graph")renderGraph()}
-document.addEventListener("click",e=>{if(dictOv&&isNarrow()&&!e.target.closest("#dict,[data-act=dict],#gopenDict,.tp,.hbar")){dictOv=false;applyUI();renderNav()}});
+document.addEventListener("click",e=>{if(dictOv&&isNarrow()&&!e.target.closest("#dict,[data-act=dict],[data-jump=todo],#gopenDict,.tp,.hbar")){dictOv=false;applyUI();renderNav()}});
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&dictOv){dictOv=false;applyUI();renderNav()}});
 function applyUI(){
   const vault=nav.startsWith("vault");
@@ -21,7 +21,7 @@ function applyUI(){
   $("#listpane").classList.toggle("v2wide",wide);
   $("#center").style.display=$("#s1").style.display=wide?"none":"";
   if(wide){$("#main").style.gridTemplateColumns="minmax(0,1fr) 0 0 0 0";$("#dict").style.display=$("#s2").style.display="none"}
-  if($("#cmfab"))placeCm();if($("#todofab"))placeTodo();     // 사전 칸을 접고 펴거나 칸 너비를 바꾸면 💬 · ☑ 단추도 가운데 칸 오른쪽을 따라간다
+  if($("#cmfab"))placeCm();     // 사전 칸을 접고 펴거나 칸 너비를 바꾸면 💬 단추도 가운데 칸 오른쪽을 따라간다
 }
 function dragSplit(id,fn){
   $(id).onmousedown=e=>{e.preventDefault();document.body.style.userSelect="none";
