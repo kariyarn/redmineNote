@@ -47,7 +47,7 @@
 
 /* ===== 2.3.1 : 메모 보강 ===== */
 .cork{overflow:visible}
-.memo-h{position:sticky;z-index:60}
+.memo-h{position:sticky;z-index:40}   /* 2.28: 확인 창(#modal 50 · #wdlg 55)의 어두운 배경 아래에 (60 이면 창이 떠도 도구 줄만 밝게 남았다). 보드(isolation)보다는 위 */
 .cork{isolation:isolate}
 .memo-cal{display:none;position:absolute;top:calc(100% + 6px);left:22px;z-index:12;width:min(340px,92vw);background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:0 12px 36px rgba(0,0,0,.25);padding:10px 12px}
 .cal-h{display:flex;align-items:center;gap:6px;margin-bottom:6px}.cal-h .sp{flex:1}.cal-h button{padding:2px 8px;font-size:.85rem}
@@ -141,3 +141,8 @@
 .stk-fig:hover .stk-imx,.stk-imx0+.stk-imx{opacity:1}
 .stk-imx0{font-size:.8rem;color:rgba(40,30,10,.6);background:rgba(0,0,0,.06);border:1px dashed rgba(0,0,0,.2);border-radius:6px;padding:10px;text-align:center}
 .pc-imgs{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px}.pc-imgs img{max-height:90px;max-width:100%;border-radius:4px}
+/* ===== 2.28 : 사진 붙인 포스트잇에 스크롤 막대가 보이지 않게 (스크롤은 그대로) · 메모가 있는 날은 한 줄로 (넘치면 옆으로 넘기고, 지난 날짜는 달력에서) ===== */
+.stk-imgs,.stk .stk-t.rte,.stk-v{scrollbar-width:none}
+.stk-imgs::-webkit-scrollbar,.stk .stk-t.rte::-webkit-scrollbar,.stk-v::-webkit-scrollbar{display:none}
+.memo-days{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:thin;-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 40px),transparent);mask-image:linear-gradient(90deg,#000 calc(100% - 40px),transparent)}
+.memo-days>*{flex:none}

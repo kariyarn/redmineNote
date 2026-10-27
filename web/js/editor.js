@@ -261,11 +261,9 @@ function simBlock(n,sim){
   if(!sim.list.length)return "";
   const top=[...sim.list].sort((a,b)=>(b.updated_on||"").localeCompare(a.updated_on||"")).slice(0,3);
   const mon=x=>{const d=new Date(x.updated_on);return isNaN(d)?"":(d.getFullYear()===new Date().getFullYear()?`${d.getMonth()+1}월`:`${d.getFullYear()}.${d.getMonth()+1}`)};
-  return `<div class="card v2sim" id="sec-sim">
-    <div class="v2sim-h">${NAVICON.dict}<b>같은 주제</b>${sim.ts.map(t=>`<span class="chip" data-t="${t.id}">${esc(t.term)}</span>`).join("")}<span class="sp"></span>
-      <button type="button" class="mini" data-sim="${n.issue_id}">전체 ${sim.list.length}건 이력에서 보기</button></div>
-    ${top.map(x=>{const l=simLine(x);return `<a class="v2sim-r" data-open="${x.issue_id}"><span class="t">${esc(x.subject)}</span><span class="s s-${stOf(x)}">${stOf(x)} · ${mon(x)}</span>${l?`<span class="l">${esc(l)}</span>`:""}</a>`}).join("")}
-  </div>`;
+  return cf(n,"sim","같은 주제",`<small>${sim.list.length}건</small>`,`· ${esc(sim.ts.map(t=>t.term).join(" · "))}`,`<button type="button" class="mini" data-sim="${n.issue_id}">전체 ${sim.list.length}건 이력에서 보기</button>`,
+    `<div class="v2sim"><div class="v2sim-h">${NAVICON.dict}${sim.ts.map(t=>`<span class="chip" data-t="${t.id}">${esc(t.term)}</span>`).join("")}</div>
+    ${top.map(x=>{const l=simLine(x);return `<a class="v2sim-r" data-open="${x.issue_id}"><span class="t">${esc(x.subject)}</span><span class="s s-${stOf(x)}">${stOf(x)} · ${mon(x)}</span>${l?`<span class="l">${esc(l)}</span>`:""}</a>`}).join("")}</div>`,true);   // 2.28: 접을 수 있고, 연결된 일감 아래에 둔다
 }
 function renderCenter(){
   flushEdits();                       // 다른 노트/보기로 가기 전에, 저장하지 않은 변경이 있으면 먼저 자동 저장한다
@@ -310,7 +308,7 @@ function renderCenter(){
        return tk.length?`<div class="chips erow"><span class="meta">코드 대상</span>${tk.map(([k,ty])=>`<span class="chip tokchip" data-tok="${esc(k)}" title="${ty} · 이 이름이 나온 일감 ${tokIdx.get(k).notes.length}건의 이력 보기">${typePill(ty)}${esc(k)} ${relPill(n._rel.get(k)||"ref")} <small>${tokIdx.get(k).notes.length}</small></span>`).join("")}</div>`:"";
      })()}
    </div>
-   ${origCard(n)}${V2()?simBlock(n,sim):""}${legacyReqCard(n)}
+   ${origCard(n)}${legacyReqCard(n)}
    <div class="card qrelcard" id="qvrel" style="display:none"></div>
    <div id="attwrap"></div>
    ${nbCard(n)}
@@ -324,6 +322,7 @@ function renderCenter(){
         return l?`<a class="rel" data-open="${x.id}"><span class="k">${relLabel(x)}</span><span class="meta">#${x.id}</span><span>${esc(l.subject)}</span></a>`
                :skipped[x.id]?`<a class="rel missing" href="${cfg.url}/issues/${x.id}" target="_blank"><span class="k">${relLabel(x)}</span><span class="meta">#${x.id}</span><span class="meta">받을 수 없음 (${esc(skipped[x.id])})</span><span class="go">레드마인에서 열기 ↗</span></a>`
                :`<a class="rel missing" data-fetch="${x.id}"><span class="k">${relLabel(x)}</span><span class="meta">#${x.id}</span><span class="meta">아직 저장되지 않은 일감</span><span class="go">눌러서 가져오기</span></a>`}).join("")||`<span class="meta">연결된 일감이 없습니다.</span>`)}
+   ${V2()?simBlock(n,sim):""}
    <div class="savebar"><button class="primary" id="save">저장</button><span class="meta" id="sv">✓ 저장된 상태 · Ctrl+S 로 저장 · 내 기록은 이 PC에만 저장됩니다</span></div>
    </div>${nsHtml(n)}</div>`;
   document.querySelectorAll("[data-open]").forEach(e=>{e.onclick=ev=>openNote(+e.dataset.open,tabOpt(ev));e.onauxclick=ev=>{if(ev.button===1){ev.preventDefault();openNote(+e.dataset.open,{bg:true})}}});
