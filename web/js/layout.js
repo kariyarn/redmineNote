@@ -24,6 +24,7 @@ function applyUI(){
   $("#center").style.display=$("#s1").style.display=wide?"none":"";
   if(wide){$("#main").style.gridTemplateColumns="minmax(0,1fr) 0 0 0 0";$("#dict").style.display=$("#s2").style.display="none"}
   if($("#cmfab"))placeCm();     // 사전 칸을 접고 펴거나 칸 너비를 바꾸면 💬 단추도 가운데 칸 오른쪽을 따라간다
+  nsCenter();                   // 칸 폭이 바뀌면 노트를 다시 창 가운데로
 }
 function dragSplit(id,fn){
   $(id).onmousedown=e=>{e.preventDefault();document.body.style.userSelect="none";

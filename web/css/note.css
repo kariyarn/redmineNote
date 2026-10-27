@@ -271,9 +271,10 @@ mark.ann.m{border-bottom:2px dotted var(--accent);border-radius:0}
 .ann-lr{display:flex;align-items:center;gap:8px;padding:4px 0;flex-wrap:wrap}
 .ann-lr .sp{flex:1}.ann-lm{color:var(--sub);font-size:.86rem;overflow-wrap:anywhere}
 /* ===== 2.27 : 노트 옆 칸 (☑ 할 일 · 📝 진행 기록). 노트 폭은 그대로 두고 옆에 더한다. 손잡이로 너비를 나눠 갖는다 ===== */
-/* 2.28: 자리가 넉넉하면 노트를 가운데에, 옆 칸은 그 오른쪽에 (모자라면 옆 칸을 오른쪽 끝에 붙이고 노트가 왼쪽으로). 옆 칸은 전체의 40% 까지 */
+/* 2.28.1: 자리가 넉넉하면 노트를 '창 전체'의 가운데에 (--cx = 창 중심과 이 칸 중심의 차이, noteside.js 가 잰다), 옆 칸은 그 오른쪽에.
+   모자라면 옆 칸을 오른쪽 끝에 붙이고 노트를 왼쪽으로 (노트 폭은 지킨다). 옆 칸은 전체의 40% 까지 */
 .notewrap{--nmax:980px;--sw:min(var(--nsw,280px),40%);--gap:14px;--side:calc(var(--sw) + var(--gap));display:grid;align-items:start;
-  grid-template-columns:max(0px,min(calc((100% - var(--nmax)) / 2),calc(100% - var(--nmax) - var(--side)))) minmax(0,var(--nmax)) var(--gap) var(--sw) minmax(0,1fr)}
+  grid-template-columns:max(0px,min(calc((100% - var(--nmax)) / 2 + var(--cx,0px)),calc(100% - var(--nmax) - var(--side)))) minmax(0,var(--nmax)) var(--gap) var(--sw) minmax(0,1fr)}
 #center[data-ns=doc] .notewrap{--nmax:860px}
 .notewrap.rail{--sw:40px;--gap:10px}
 #center[data-vw=note]>.notewrap,#center[data-ns=doc][data-vw=note]>.notewrap{max-width:none}

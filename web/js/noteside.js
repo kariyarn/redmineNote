@@ -31,6 +31,12 @@ function nsCounts(){   // 단추의 숫자 (남은 할 일 · 진행 기록 수)
   const pg=n._pg||[];set("pg",pg.length);
   const c=$("#pgcnt");if(c)c.textContent=pg.length?`${pg.length}건 · ${new Set(pg.map(p=>p.day)).size}일`:"";
 }
+function nsCenter(){   // 노트를 창 전체의 가운데에: 창 중심과 노트 칸(.notewrap) 중심의 차이를 CSS 에 넘긴다 (왼쪽 메뉴 · 목록, 오른쪽 사전 칸 폭이 달라도)
+  const w=document.querySelector("#center .notewrap");if(!w)return;
+  const r=w.getBoundingClientRect();if(!r.width)return;
+  w.style.setProperty("--cx",Math.round(innerWidth/2-(r.left+r.width/2))+"px");
+}
+window.addEventListener("resize",nsCenter);
 function wireNs(n){
   const side=$("#noteside"),wrap=side&&side.closest(".notewrap");if(!side)return;
   side.querySelectorAll("[data-ns]").forEach(b=>b.onclick=()=>{
@@ -48,5 +54,5 @@ function wireNs(n){
     document.addEventListener("pointermove",mv);document.addEventListener("pointerup",up);
   });
   sp.addEventListener("dblclick",()=>{ui.nsW=NS_W;saveUI();wrap.style.setProperty("--nsw",nsW()+"px")});
-  nsCounts();
+  nsCounts();nsCenter();
 }
