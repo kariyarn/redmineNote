@@ -203,6 +203,15 @@ def init_db():
                 sticky_id INTEGER NOT NULL, date TEXT NOT NULL, acked_at TEXT, snooze_until TEXT,
                 PRIMARY KEY (sticky_id, date)
             );
+            -- 원문 꾸미기 (2.26): 레드마인 원문은 그대로 두고, 고른 글자 위에 형광펜 · 밑줄 · 굵게 · 메모를 덧입힌다.
+            -- 고른 글자(quote)와 그 앞뒤 글자(prefix · suffix)로 다시 찾는다 (원문이 조금 바뀌어도 따라가도록). start 는 찾을 때의 참고 위치
+            CREATE TABLE IF NOT EXISTS annotations (
+                id INTEGER PRIMARY KEY AUTOINCREMENT, issue_id INTEGER NOT NULL,
+                quote TEXT NOT NULL, prefix TEXT DEFAULT '', suffix TEXT DEFAULT '', start INTEGER DEFAULT 0,
+                color TEXT DEFAULT '', under INTEGER DEFAULT 0, bold INTEGER DEFAULT 0, memo TEXT DEFAULT '',
+                created_at TEXT, updated_at TEXT
+            );
+            CREATE INDEX IF NOT EXISTS idx_annotations_issue ON annotations(issue_id);
             -- 코드 이력의 이름(테이블·파일·함수)마다 내가 붙이는 설명
             CREATE TABLE IF NOT EXISTS code_notes (
                 token TEXT PRIMARY KEY, description TEXT, updated_at TEXT
@@ -245,12 +254,19 @@ def init_db():
             c.execute("ALTER TABLE queries ADD COLUMN lang TEXT DEFAULT ''")
         if "code_locs" not in q_cols:  # 2.13.0: 코드 위치(클래스 · 파일 이름 등, JSON 목록)
             c.execute("ALTER TABLE queries ADD COLUMN code_locs TEXT DEFAULT '[]'")
+        pg_cols = {r["name"] for r in c.execute("PRAGMA table_info(progress)")}
+        for col, ddl in (("x", "REAL"), ("y", "REAL"), ("w", "REAL"), ("h", "REAL"), ("z", "INTEGER DEFAULT 0"),
+                         ("color", "TEXT DEFAULT ''"), ("pinned", "INTEGER DEFAULT 0")):
+            if col not in pg_cols:  # 2.23.0: 진행 기록 보드(포스트잇)의 자리 · 크기 · 색 · 고정 (x 가 비어 있으면 아직 놓지 않은 것)
+                c.execute(f"ALTER TABLE progress ADD COLUMN {col} {ddl}")
         todo_cols = {r["name"] for r in c.execute("PRAGMA table_info(todos)")}
         if "archived_at" not in todo_cols:  # 2.8.0: 완료한 체크리스트를 지우지 않고 '보관'(숨김)
             c.execute("ALTER TABLE todos ADD COLUMN archived_at TEXT")
         for col, ddl in (("remind_time", "TEXT DEFAULT ''"), ("armed_at", "TEXT DEFAULT ''"), ("wake", "INTEGER DEFAULT 0"), ("alarm_dates", "TEXT DEFAULT ''")):
             if col not in scols:  # 2.8.1: 메모 알림 (시각 · 알림을 건 시각 · 창이 닫혀 있어도 앱을 다시 열지)
                 c.execute(f"ALTER TABLE sticky ADD COLUMN {col} {ddl}")
+        if "imgs" not in scols:  # 2.24.0: 붙여 넣은 사진 이름들 (JSON 목록, 파일은 데이터 폴더의 memo_img/)
+            c.execute("ALTER TABLE sticky ADD COLUMN imgs TEXT DEFAULT '[]'")
         if "until" not in scols:  # 2.7.0: 노출 기간의 종료일 (비어 있으면 그 날 하루만)
             c.execute("ALTER TABLE sticky ADD COLUMN until TEXT DEFAULT ''")
         cmd_cols = {r["name"] for r in c.execute("PRAGMA table_info(commands)")}

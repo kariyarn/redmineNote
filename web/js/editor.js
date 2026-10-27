@@ -361,5 +361,5 @@ function renderCenter(){
   wireCf(n);wireJump(n);wireComposer($("#sec-write"),n);loadAtt(n);fillAttImgs();
   $("#refone").onclick=()=>refreshOne(n,true);autoRefresh(n);
   document.querySelectorAll("[data-cmnew]").forEach(b=>b.onclick=ev=>{ev.stopPropagation();toggleCm(true)});
-  spy();cmNewApply(n);
+  spy();cmNewApply(n);annPaint(n);
 }

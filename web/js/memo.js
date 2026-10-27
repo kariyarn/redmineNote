@@ -7,8 +7,8 @@ const STK={yellow:"#faefb0",pink:"#f8d3df",green:"#d5ebc3",blue:"#cfe3f6",orange
 /* 보드 색: 비어 있으면 테마를 따라가고, 고르면 그 색으로 고정. 점·선·안내 글자 색은 바탕 밝기에 맞춰 자동으로 정한다 */
 const BOARD_COLORS=[["","테마 따라가기"],["#ffffff","화이트"],["#fbf4e4","크림"],["#e3f2ea","민트"],["#e1eef9","하늘"],["#ebe5f6","라벤더"],["#f8e6ec","핑크"],["#3a3f47","차콜"],["#d6ad74","코르크 갈색"]];
 const boardColor=()=>/^#[0-9a-f]{6}$/i.test(ui.memoBoardColor||"")?ui.memoBoardColor.toLowerCase():"";
-function applyBoardColor(){
-  const c=$("#cork");if(!c)return;
+function applyBoardColor(c=$("#cork")){   // c: 진행 기록 보드(#pgcork)도 같은 색을 쓴다
+  if(!c)return;
   ["background-color","border-color","--bdot","--bmaj","--bmin","--bfg"].forEach(k=>c.style.removeProperty(k));
   const col=boardColor();if(!col)return;
   const r=parseInt(col.slice(1,3),16),g=parseInt(col.slice(3,5),16),b=parseInt(col.slice(5,7),16),dark=(.299*r+.587*g+.114*b)/255<.5,ink=dark?"255,255,255":"30,30,30";
@@ -37,7 +37,7 @@ const dayLabel=d=>{const x=new Date(d+"T00:00:00");return `${d} (${WD2[x.getDay(
 const shiftDay=(d,k)=>{const x=new Date(d+"T00:00:00");x.setDate(x.getDate()+k);return fmt(x)};
 const viewW=()=>Math.max(320,($("#center").clientWidth||940)-44),viewH=()=>Math.max(360,(window.innerHeight||800)-190);   // 지금 보이는 판의 크기
 function stkSave(sn,quiet){   // 서버에 저장 (id 가 없으면 새로 만든다). 같은 포스트잇은 줄을 세워서 저장한다
-  const body={id:sn.id,day:sn.day,until:sn.until||"",text:sn.text,color:sn.color,x:sn.x,y:sn.y,w:sn.w,h:sn.h,z:sn.z,pinned:sn.pinned?1:0,remind_time:sn.remind_time||"",wake:sn.wake?1:0,alarm_dates:sn.alarm_dates||[]};
+  const body={id:sn.id,day:sn.day,until:sn.until||"",text:sn.text,color:sn.color,x:sn.x,y:sn.y,w:sn.w,h:sn.h,z:sn.z,pinned:sn.pinned?1:0,remind_time:sn.remind_time||"",wake:sn.wake?1:0,alarm_dates:sn.alarm_dates||[],imgs:sn.imgs||[]};
   const run=(stkQ.get(sn)||Promise.resolve()).catch(()=>{}).then(async()=>{
     try{const r=await post("/api/sticky",{...body,id:sn.id});sn.id=r.id;sn.remind_time=r.remind_time;sn.wake=r.wake;sn.alarm_dates=r.alarm_dates||[];sbcRefresh()}
     catch(e){if(!quiet)toast("메모를 저장하지 못했어요: "+e.message,6000)}
@@ -176,8 +176,12 @@ function mkSticky(sn){
       <button type="button" data-a="chk" title="체크 항목 추가 ([ ] 로 시작하는 줄이 체크박스가 돼요)">☑</button>
       <button type="button" data-a="pin" class="pinb" title="고정 (맨 위에 두고, 자동 배치에서 움직이지 않아요)">📌</button>
       <button type="button" data-a="range" title="노출 기간 정하기: 시작일~종료일의 매일 보드에 계속 보여요">📅</button><button type="button" data-a="alarm" title="알림 설정: 정한 날짜(기간이면 매일) 그 시각에 알려요 · 메모를 사이드바 달력으로 끌어다 놓아도 돼요">🔔</button>${sn.day!==todayStr()&&!(sn.until&&sn.until>=todayStr()&&sn.day<=todayStr())?`<button type="button" data-a="today" title="오늘 보드로 옮기기">→오늘</button>`:""}<button type="button" data-a="del" title="삭제 (바로 되돌릴 수 있어요)">✕</button></div>
-    <div class="stk-v" hidden></div><div class="rte stk-t" data-ph="메모"></div><div class="stk-rs" title="끌어서 크기 바꾸기"></div>`;
+    <div class="stk-imgs"></div><div class="stk-v" hidden></div><div class="rte stk-t" data-ph="메모 (스샷은 Ctrl+V 로 붙여요)"></div><div class="stk-rs" title="끌어서 크기 바꾸기"></div>`;
   place();el._sn=sn;el._place=place;
+  stkImgs(sn,el);
+  el.addEventListener("paste",e=>{const f=clipImg(e.clipboardData);if(!f)return;e.preventDefault();e.stopPropagation();stkAddImg(sn,f,el)},true);   // 사진이 든 붙여넣기만 가로챈다 (글은 편집기가 그대로)
+  el.addEventListener("dragover",e=>{if(dropImg(e.dataTransfer,true)){e.preventDefault();e.stopPropagation()}});
+  el.addEventListener("drop",e=>{const f=dropImg(e.dataTransfer);if(!f)return;e.preventDefault();e.stopPropagation();stkAddImg(sn,f,el)});
   const ed=el.querySelector(".stk-t"),vw=el.querySelector(".stk-v");edInit(ed,sn.text);
   const showView=()=>{   // 체크 줄이 있으면, 편집 중이 아닐 때 체크박스로 보여 준다
     if(hasChk(sn.text)){vw.innerHTML=chkHtml(sn.text);vw.hidden=false;ed.hidden=true}else{vw.hidden=true;ed.hidden=false}
@@ -233,12 +237,12 @@ function mkSticky(sn){
   el.querySelector('[data-a="chk"]').onclick=()=>{   // 새 줄에 [ ] 를 넣고 바로 쓰게 한다
     showEdit();document.execCommand("insertText",false,(edGet(ed).trim()?"\n":"")+"[ ] ");sn.text=edGet(ed);stkLater(sn)};
   el.querySelector('[data-a="del"]').onclick=async()=>{   // 내용이 있으면 확인 창 한 번 + 삭제 뒤 '되돌리기' (6초). 빈 메모는 바로 삭제
-    if(sn.text.trim()){const pv=sn.text.replace(/\s+/g," ").trim().slice(0,60);
+    if(sn.text.trim()||(sn.imgs||[]).length){const pv=sn.text.replace(/\s+/g," ").trim().slice(0,60)||`사진 ${sn.imgs.length}장`;
       if(!await askC(`이 포스트잇을 삭제할까요?\n\n“${pv}${sn.text.trim().length>60?"…":""}”`,{title:"포스트잇 삭제",ok:"삭제"}))return}
     const snap={...sn};
     if(sn.id)await api("/api/sticky/"+sn.id,{method:"DELETE"}).catch(e=>toast("삭제하지 못했어요: "+e.message,5000));
     memoList=memoList.filter(x=>x!==sn);memoDays=await api("/api/sticky/days").catch(()=>memoDays);drawMemo();sbcRefresh();
-    if(!snap.text.trim())return;
+    if(!snap.text.trim()&&!(snap.imgs||[]).length)return;
     toastUndo("포스트잇을 삭제했어요",async()=>{const re={...snap,id:null};memoList.push(re);await stkSave(re,true);memoDays=await api("/api/sticky/days").catch(()=>memoDays);drawMemo()},6000);
   };
   el.querySelector('[data-a="range"]').onclick=async()=>{
@@ -261,8 +265,8 @@ function toastUndo(msg,fn,ms=6000){   // 되돌리기 단추가 있는 알림
 function overlapOf(x,y,w,h,o){const ox=Math.min(x+w,o.x+o.w)-Math.max(x,o.x),oy=Math.min(y+h,o.y+o.h)-Math.max(y,o.y);return ox>0&&oy>0?ox*oy:0}
 const shuffled=a=>[...a].sort(()=>Math.random()-.5);
 /* 새 자리: 보드 안 무작위로 안 겹치는 곳. 보드가 가득 차서 빈 곳이 없으면 가장 덜 겹치는 곳(free:false). */
-function freeSpot(W,H,others){
-  const vw=viewW(),vh=viewH();let best=null,bestA=Infinity;
+function freeSpot(W,H,others,vw=viewW(),vh=viewH()){   // vw · vh: 진행 기록 보드처럼 크기가 다른 판
+  let best=null,bestA=Infinity;
   for(let k=0;k<500;k++){
     const x=Math.round(8+Math.random()*Math.max(0,vw-W-16)),y=Math.round(8+Math.random()*Math.max(0,vh-H-16));
     let a=0;for(const o of others)a+=overlapOf(x,y,W,H,o);
@@ -338,7 +342,64 @@ async function newSticky(opts={}){
   memoDays=await api("/api/sticky/days").catch(()=>memoDays);drawMemo();
   const el=$("#cork").querySelector(`.stk[data-id="${sn.id}"]`)||[...document.querySelectorAll("#cork .stk")].pop();
   const tb=el&&el.querySelector(".tb");if(tb){tb.focus();el.scrollIntoView({block:"nearest",behavior:"smooth"})}
+  return sn;
 }
+/* ---- 사진(스샷) 붙이기 (2.24) ----
+   포스트잇에서 Ctrl+V(또는 사진 파일을 끌어다 놓기)하면 사진이 붙고, 보드의 빈 곳에서 하면 새 포스트잇에 붙는다.
+   사진은 노트 DB 가 아니라 데이터 폴더의 memo_img/ 에 파일로 저장한다 → 깃허브 백업 · 로컬 백업에는 들어가지 않는다.
+   그래서 백업으로 복원하거나 다른 PC 에서는 사진 자리에 '이 PC에 없는 사진'이라고 보인다. 큰 사진은 줄여서(긴 쪽 1920px, webp) 저장한다. */
+const IMG_MAXPX=1920;
+const clipImg=dt=>{if(!dt)return null;for(const it of dt.items||[])if(it.kind==="file"&&/^image\//.test(it.type))return it.getAsFile();return null};
+const dropImg=(dt,peek)=>{if(!dt)return null;if(peek)return [...(dt.items||[])].some(it=>it.kind==="file"&&/^image\//.test(it.type));return [...(dt.files||[])].find(f=>/^image\//.test(f.type))||null};
+async function shrinkImg(f){   // 긴 쪽 1920px 넘으면 줄이고 webp 로. 더 커지면 원본 그대로 (gif 는 움직임을 지키려고 그대로)
+  if(f.type==="image/gif")return {blob:f};
+  try{
+    const bm=await createImageBitmap(f),k=Math.min(1,IMG_MAXPX/Math.max(bm.width,bm.height)),w=Math.round(bm.width*k),h=Math.round(bm.height*k);
+    const cv=document.createElement("canvas");cv.width=w;cv.height=h;cv.getContext("2d").drawImage(bm,0,0,w,h);bm.close&&bm.close();
+    const b=await new Promise(r=>cv.toBlob(r,"image/webp",.86));
+    return {blob:b&&b.type==="image/webp"&&(k<1||b.size<f.size)?b:f,w,h};
+  }catch(e){return {blob:f}}
+}
+async function stkAddImg(sn,f,el){
+  if(!sn.id)await stkSave(sn,true);
+  toast("사진을 붙이는 중…",1500);
+  const {blob,w,h}=await shrinkImg(f);
+  let r;try{r=await api("/api/memo/img",{method:"POST",headers:{"Content-Type":blob.type||"image/png"},body:blob})}
+  catch(e){toast("사진을 붙이지 못했어요: "+e.message,5000);return}
+  sn.imgs=[...(sn.imgs||[]).filter(x=>x!==r.name),r.name];
+  if(w&&h){   // 사진이 보이게 포스트잇을 키운다 (보드 밖으로는 안 나가게)
+    sn.w=Math.max(sn.w,Math.min(420,viewW()-16));
+    sn.h=Math.max(sn.h,Math.min(viewH()-16,Math.round((sn.w-20)*h/w)+(edGet(el.querySelector(".stk-t")).trim()?110:70)));
+    clampSn(sn);el._place&&el._place();
+  }
+  stkImgs(sn,el);await stkSave(sn);toast("사진을 붙였어요 ✓ (백업에는 들어가지 않아요)",2200);
+}
+function stkImgs(sn,el){
+  const box=el.querySelector(".stk-imgs");if(!box)return;
+  const L=sn.imgs||[];box.hidden=!L.length;el.classList.toggle("hasimg",L.length>0);
+  box.innerHTML=L.map(nm=>`<figure class="stk-fig"><img class="stk-im" src="/api/memo/img/${nm}" alt="붙인 사진" title="누르면 크게 봐요" loading="lazy" draggable="false"><button type="button" class="stk-imx" data-rmimg="${nm}" title="이 사진 빼기 (바로 되돌릴 수 있어요)">✕</button></figure>`).join("");
+  box.querySelectorAll("img.stk-im").forEach(im=>{
+    im.onerror=()=>{const d=document.createElement("div");d.className="stk-imx0";d.title="사진은 백업에 넣지 않아서, 백업으로 복원했거나 다른 PC 에서는 보이지 않아요 (✕ 로 뺄 수 있어요)";d.textContent="🖼 이 PC에 없는 사진이에요";im.replaceWith(d)};   // ✕ 단추는 남겨서 뺄 수 있게
+    im.onclick=()=>openLbox(im.src);
+  });
+  box.querySelectorAll("[data-rmimg]").forEach(b=>b.onclick=e=>{
+    e.stopPropagation();const nm=b.dataset.rmimg,before=[...L];
+    sn.imgs=L.filter(x=>x!==nm);stkImgs(sn,el);stkSave(sn);
+    toastUndo("사진을 뺐어요",()=>{sn.imgs=before;stkImgs(sn,el);stkSave(sn)},6000);
+  });
+}
+document.addEventListener("paste",e=>{   // 메모 보드에서 포스트잇 밖(편집 중이 아닐 때) 붙여넣기 = 사진이 든 새 포스트잇
+  if(nav!=="memo"||!$("#cork")||e.defaultPrevented)return;
+  const a=document.activeElement;if(a&&a!==document.body&&(a.isContentEditable||/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)))return;
+  const f=clipImg(e.clipboardData);if(!f)return;e.preventDefault();
+  newSticky({from:memoDay}).then(sn=>{const el=sn&&$("#cork").querySelector(`.stk[data-id="${sn.id}"]`);if(el)stkAddImg(sn,f,el)});
+});
+document.addEventListener("dragover",e=>{if(nav==="memo"&&e.target&&e.target.id==="cork"&&dropImg(e.dataTransfer,true))e.preventDefault()});
+document.addEventListener("drop",e=>{   // 빈 보드에 사진 파일을 끌어다 놓으면 그 자리에 새 포스트잇
+  if(nav!=="memo"||!e.target||e.target.id!=="cork")return;const f=dropImg(e.dataTransfer);if(!f)return;e.preventDefault();
+  const r=e.target.getBoundingClientRect();
+  newSticky({from:memoDay,at:{x:e.clientX-r.left,y:e.clientY-r.top}}).then(sn=>{const el=sn&&$("#cork").querySelector(`.stk[data-id="${sn.id}"]`);if(el)stkAddImg(sn,f,el)});
+});
 /* ---- 달력 · 검색 · 내보내기 ---- */
 async function toggleCal(){
   memoCal.open=!memoCal.open;
@@ -375,7 +436,7 @@ async function drawPins(noload){
   if(!noload)await loadPins();
   const body=t=>{t=t||"";return t.trim()?(hasChk(t)?chkHtml(t):renderMd(t)):`<span class="meta">(빈 메모)</span>`};
   box.innerHTML=`<div class="memo-pins"><div class="mp-h"><b>📌 고정한 포스트잇</b><span class="meta">${memoPins.length}개 · 날짜와 상관없이 모아 봐요 · 최근 날짜 순</span><span class="sp"></span><button type="button" class="mini" id="mPinX">닫기</button></div>
-    <div class="mp-g">${memoPins.map(r=>`<div class="pincard" style="--sc:${STK[r.color]||STK.yellow}" data-pid="${r.id}"><div class="pc-h"><b>${r.day}</b>${r.until?`<span class="stk-until" title="노출 기간 ${r.day} ~ ${r.until}">~${r.until.slice(5)}</span>`:""}<span class="sp"></span><button type="button" data-pgo="${r.day}" title="그 날 보드로 이동">이 날 보드로</button><button type="button" data-pun="${r.id}" title="고정을 풀어요 (포스트잇은 그대로 남아요)">고정 해제</button></div><div class="pc-b">${body(r.text)}</div></div>`).join("")
+    <div class="mp-g">${memoPins.map(r=>`<div class="pincard" style="--sc:${STK[r.color]||STK.yellow}" data-pid="${r.id}"><div class="pc-h"><b>${r.day}</b>${r.until?`<span class="stk-until" title="노출 기간 ${r.day} ~ ${r.until}">~${r.until.slice(5)}</span>`:""}<span class="sp"></span><button type="button" data-pgo="${r.day}" title="그 날 보드로 이동">이 날 보드로</button><button type="button" data-pun="${r.id}" title="고정을 풀어요 (포스트잇은 그대로 남아요)">고정 해제</button></div><div class="pc-b">${(r.imgs||[]).length?`<div class="pc-imgs">${r.imgs.map(nm=>`<img src="/api/memo/img/${nm}" alt="붙인 사진" loading="lazy" onerror="this.replaceWith('🖼')">`).join("")}</div>`:""}${(r.text||"").trim()||!(r.imgs||[]).length?body(r.text):""}</div></div>`).join("")
       ||`<div class="meta" style="padding:8px 2px">고정한 포스트잇이 없어요. 포스트잇 위쪽의 📌 를 누르면 여기에 모여요.</div>`}</div></div>`;
   $("#mPinX").onclick=()=>{memoPinsOpen=false;drawPins()};
   box.querySelectorAll("[data-pgo]").forEach(x=>x.onclick=()=>{memoPinsOpen=false;gotoMemo(x.dataset.pgo)});
@@ -402,14 +463,14 @@ async function exportMemo(){
       <div class="meta">이 기간의 포스트잇을 날짜별로 한 파일에 담아요. (📌 고정한 것은 날짜 안에서 먼저)</div>`});
   if(!v||!v.f||!v.t)return;
   let rows;try{rows=await api(`/api/sticky/range?from=${v.f}&to=${v.t}`)}catch(e){toast("내보내지 못했어요: "+e.message,5000);return}
-  rows=rows.filter(r=>(r.text||"").trim());   // 빈 포스트잇은 내보내지 않는다
+  rows=rows.filter(r=>(r.text||"").trim()||(r.imgs||[]).length);   // 빈 포스트잇은 내보내지 않는다 (사진은 파일에 담지 않고 장수만 적는다)
   if(!rows.length){toast("이 기간에는 내용이 있는 포스트잇이 없어요",2500);return}
   const md=v.k==="md",byDay=new Map();rows.forEach(r=>{(byDay.get(r.day)||byDay.set(r.day,[]).get(r.day)).push(r)});
   const out=[md?`# 메모 ${v.f} ~ ${v.t}`:`메모 ${v.f} ~ ${v.t}`,""];
   for(const [day,list] of byDay){
     out.push(md?`## ${dayLabel(day)}`:`[${dayLabel(day)}]`,"");
     list.forEach(r=>{
-      const lines=((r.pinned?"📌 ":"")+(r.text||"(빈 메모)")).split("\n");
+      const lines=((r.pinned?"📌 ":"")+((r.text||"").trim()?r.text:"")+((r.imgs||[]).length?`${(r.text||"").trim()?"\n":""}[사진 ${r.imgs.length}장]`:"")||"(빈 메모)").split("\n");
       if(md)lines.forEach((ln,i)=>out.push((i?"  ":"- ")+ln));else{out.push(...lines,"---")}
       if(md)out.push("");
     });

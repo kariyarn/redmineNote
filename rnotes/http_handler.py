@@ -34,12 +34,27 @@ from .attention import notify as attention_notify
 from .commands import command_delete, command_list, command_reorder, command_save, var_delete, var_list, var_save
 from .trouble import trouble_row, trouble_save
 from . import gitbackup
+from . import memoimg
 
 
 # ---------- HTTP ----------
 ALLOWED_HOSTS = {f"127.0.0.1:{PORT}", f"localhost:{PORT}"}
 ALLOWED_ORIGINS = {f"http://{h}" for h in ALLOWED_HOSTS}
 STATIC_TYPES = {".css": "text/css; charset=utf-8", ".js": "text/javascript; charset=utf-8"}
+ANNOT_COLORS = ("yellow", "green", "blue", "red")
+PG_COLORS = ("yellow", "pink", "green", "blue", "orange", "purple")
+
+
+def _pg_layout(d):
+    """진행 기록 보드의 자리 · 크기 · 색 · 고정. x 가 없으면 아직 보드에 놓지 않은 것(None)으로 둔다."""
+    def num(k):
+        try:
+            return round(float(d[k]), 1) if d.get(k) is not None else None
+        except (TypeError, ValueError):
+            return None
+    x, y, w, h = num("x"), num("y"), num("w"), num("h")
+    return {"x": x, "y": y, "w": w, "h": h, "z": int(num("z") or 0),
+            "color": d.get("color") if d.get("color") in PG_COLORS else "", "pinned": 1 if d.get("pinned") else 0}
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -140,6 +155,9 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_json(
                     [dict(r) for r in c.execute("SELECT * FROM progress ORDER BY day DESC, id ASC")]
                 )
+        elif u.path == "/api/annot":
+            with db() as c:
+                self.send_json([dict(r) for r in c.execute("SELECT * FROM annotations ORDER BY issue_id, start, id")])
         elif u.path == "/api/skipped":
             with db() as c:
                 self.send_json({r["issue_id"]: r["reason"] for r in c.execute("SELECT * FROM skipped")})
@@ -341,6 +359,12 @@ class Handler(BaseHTTPRequestHandler):
                     "Content-Disposition": f'attachment; filename="redmine-notes-github-{sha[:7]}.zip"'})
             except gitbackup.BackupError as e:
                 self.send_json({"error": str(e), "kind": e.kind}, 400)
+        elif u.path.startswith("/api/memo/img/"):
+            p = memoimg.path_of(urllib.parse.unquote(u.path[len("/api/memo/img/"):]))
+            if not p:
+                return self.send_json({"error": "이 PC에 없는 사진이에요"}, 404)
+            self.send_bytes(p.read_bytes(), memoimg.IMG_CTYPE[p.suffix],
+                            headers={"Cache-Control": "max-age=31536000, immutable"})   # 이름 = 내용의 해시라서 바뀌지 않는다
         elif u.path == "/api/fonts":
             self.send_json(font_files())
         elif u.path.startswith("/fonts/"):
@@ -400,13 +424,42 @@ class Handler(BaseHTTPRequestHandler):
                         )
                         pid = d["id"]
                     else:
+                        lay = _pg_layout(d)
                         cur = c.execute(
-                            "INSERT INTO progress (issue_id, day, text, created_at, updated_at)"
-                            " VALUES (?,?,?,?,?)",
-                            (d["issue_id"], day, text, now, now),
+                            "INSERT INTO progress (issue_id, day, text, created_at, updated_at, x, y, w, h, z, color, pinned)"
+                            " VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                            (d["issue_id"], day, text, now, now) + tuple(lay.values()),
                         )
                         pid = cur.lastrowid
                 self.send_json({"ok": True, "id": pid})
+            elif u.path == "/api/annot":   # 원문 꾸미기 만들기/고치기 (레드마인 원문은 건드리지 않는다)
+                quote = str(d.get("quote") or "")[:4000]
+                if not quote.strip() or not d.get("issue_id"):
+                    return self.send_json({"error": "표시할 글자가 필요합니다"}, 400)
+                v = (str(d.get("prefix") or "")[-64:], str(d.get("suffix") or "")[:64], int(d.get("start") or 0),
+                     d.get("color") if d.get("color") in ANNOT_COLORS else "", 1 if d.get("under") else 0,
+                     1 if d.get("bold") else 0, str(d.get("memo") or "")[:5000])
+                now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                with db() as c:
+                    if d.get("id"):
+                        c.execute("UPDATE annotations SET prefix=?, suffix=?, start=?, color=?, under=?, bold=?, memo=?, updated_at=? WHERE id=?",
+                                  v + (now, d["id"]))
+                        aid = d["id"]
+                    else:
+                        aid = c.execute("INSERT INTO annotations (issue_id, quote, prefix, suffix, start, color, under, bold, memo, created_at, updated_at)"
+                                        " VALUES (?,?,?,?,?,?,?,?,?,?,?)", (int(d["issue_id"]), quote) + v + (now, now)).lastrowid
+                    self.send_json(dict(c.execute("SELECT * FROM annotations WHERE id=?", (aid,)).fetchone()))
+            elif u.path == "/api/progress/layout":
+                # 보드에서 옮기기 · 크기 · 색 · 고정만 바꾼다 (글 · 수정 시각은 그대로: 옮겼다고 '수정됨'이 되지 않게)
+                if not d.get("id"):
+                    return self.send_json({"error": "id 가 필요합니다"}, 400)
+                lay = _pg_layout(d)
+                with db() as c:
+                    c.execute(
+                        "UPDATE progress SET " + ", ".join(f"{k}=?" for k in lay) + " WHERE id=?",
+                        tuple(lay.values()) + (d["id"],),
+                    )
+                self.send_json({"ok": True})
             elif u.path == "/api/recmode":
                 mode = d.get("rec_mode")
                 if mode not in ("none", "record"):
@@ -470,7 +523,7 @@ class Handler(BaseHTTPRequestHandler):
                     with dst:
                         src.backup(dst)  # 쓰는 중에도 안전하게 복사
                     src.close(); dst.close()
-                    for sub in ("backups", "fonts"):
+                    for sub in ("backups", "fonts", "memo_img"):
                         if (DATA_DIR / sub).is_dir():
                             shutil.copytree(DATA_DIR / sub, new / sub, dirs_exist_ok=True)
                 POINTER_PATH.write_text(json.dumps({"data_dir": str(new)}, ensure_ascii=False), encoding="utf-8")
@@ -682,6 +735,11 @@ class Handler(BaseHTTPRequestHandler):
                         self.send_json({"error": "not found"}, 404)
                 except gitbackup.BackupError as e:
                     self.send_json({"error": str(e), "kind": e.kind}, 400)
+            elif u.path == "/api/memo/img":   # 메모에 붙여 넣은 사진 (본문 = 사진 그대로)
+                try:
+                    self.send_json({"name": memoimg.save(raw, self.headers.get("Content-Type"))})
+                except ValueError as e:
+                    self.send_json({"error": str(e)}, 400)
             elif u.path == "/api/fonts":
                 ext = Path("x" + q.get("ext", "")).suffix.lower()
                 name = re.sub(r"[^\w가-힣 .\-]", "", q.get("name", "")).strip()[:40]
@@ -705,6 +763,10 @@ class Handler(BaseHTTPRequestHandler):
         if u.path.startswith("/api/terms/"):
             with db() as c:
                 c.execute("DELETE FROM terms WHERE id=?", (name,))
+            self.send_json({"ok": True})
+        elif u.path.startswith("/api/annot/"):
+            with db() as c:
+                c.execute("DELETE FROM annotations WHERE id=?", (name,))
             self.send_json({"ok": True})
         elif u.path.startswith("/api/progress/"):
             with db() as c:

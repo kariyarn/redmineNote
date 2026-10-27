@@ -199,14 +199,6 @@ table.vptab{border-collapse:collapse}table.vptab th,table.vptab td{text-align:le
 .hp-b p{margin:3px 0 0;font-size:.88rem;line-height:1.6}.hp-b .hp-s{color:var(--sub);font-size:.82rem}
 
 /* 2.11 체크리스트: 오른쪽 아래 떠 있는 패널 (💬 댓글 단추 바로 위) */
-#todofab{position:fixed;right:24px;bottom:124px;z-index:20;border-radius:999px;padding:8px 15px;font-weight:600;background:var(--surface);color:var(--text);border:1px solid var(--line);box-shadow:0 6px 18px rgba(0,0,0,.16);display:none}
-#todofab.has{border-color:var(--accent);color:var(--accent)}
-#todofab:hover{border-color:var(--accent)}
-#todopanel{position:fixed;right:24px;bottom:124px;z-index:21;width:min(330px,calc(100vw - 24px));max-height:min(64vh,540px);display:none;overflow:auto;border-radius:14px;box-shadow:0 16px 44px rgba(0,0,0,.3)}
-#todopanel .todocard{margin:0;border-radius:14px}
-#todopanel .fhd{cursor:grab;user-select:none;flex-wrap:wrap;row-gap:4px}
-#todopanel .todo-list{max-height:34vh;overflow:auto}
-#todopanel .fhd .icon{margin-left:2px}
 
 /* 2.11 내 기록: 보기 전환 · 검색 · 월 칩 · 일자별/월별 */
 .mine-h{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center}
@@ -255,3 +247,26 @@ body{display:flex;flex-direction:column}
 .cm-newhd{display:flex;align-items:center;gap:8px;margin:0 0 10px;font-size:.84rem;color:var(--sub)}.cm-newhd b{color:var(--text)}
 @keyframes cmNewIn{0%{box-shadow:0 0 0 10px color-mix(in srgb,var(--warn) 35%,transparent)}100%{box-shadow:0 0 0 0 transparent}}
 .cm-newtag{display:inline-block;padding:0 6px;border-radius:999px;background:var(--warn);color:#fff;color:light-dark(#fff,#1d1606);font-size:.7rem;font-weight:800;letter-spacing:.04em;vertical-align:1px}
+/* ===== 2.26 : 원문 꾸미기 (형광펜 · 밑줄 · 굵게 · 메모). 원문 위에 덧입힐 뿐 레드마인 원문은 그대로 ===== */
+mark.ann{background:none;color:inherit;padding:0 1px;border-radius:3px;cursor:pointer;-webkit-box-decoration-break:clone;box-decoration-break:clone}
+mark.ann.c-yellow,.ann-dot i.c-yellow{background:rgba(255,212,0,.45)}
+mark.ann.c-green,.ann-dot i.c-green{background:rgba(60,200,110,.33)}
+mark.ann.c-blue,.ann-dot i.c-blue{background:rgba(70,150,255,.30)}
+mark.ann.c-red,.ann-dot i.c-red{background:rgba(255,80,80,.30)}
+mark.ann.u{text-decoration:underline;text-decoration-color:#e5484d;text-decoration-thickness:2px;text-underline-offset:3px}
+mark.ann.b{font-weight:700}
+mark.ann.m{border-bottom:2px dotted var(--accent);border-radius:0}
+.ann-m{cursor:pointer;font-size:.72em;margin:0 1px;user-select:none}
+.ann-hd{display:inline-flex;align-items:center;gap:6px;margin-left:8px}
+.ann-tb{position:fixed;z-index:45;display:none;align-items:center;gap:2px;flex-wrap:wrap;max-width:min(360px,92vw);padding:4px;background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.2)}
+#annPop{flex-direction:column;align-items:stretch}
+.ann-tb .ann-row{display:flex;align-items:center;gap:2px}
+.ann-tb button{border:0;background:transparent;color:var(--text);border-radius:7px;min-width:28px;height:28px;padding:0 6px;cursor:pointer;font-size:.9rem}
+.ann-tb button:hover{background:var(--surface2)}
+.ann-tb button.on{background:var(--accent-soft);box-shadow:inset 0 0 0 1px var(--accent)}
+.ann-dot i{display:inline-block;width:16px;height:16px;border-radius:50%;border:1px solid rgba(0,0,0,.18);vertical-align:middle}
+.ann-sep{width:1px;height:18px;background:var(--line);margin:0 3px}
+.ann-pm{max-width:340px;padding:6px 8px 4px;font-size:.88rem;white-space:pre-wrap;overflow-wrap:anywhere;border-bottom:1px solid var(--line);margin-bottom:4px}
+.ann-lost{margin-top:10px;padding:8px 10px;border:1px dashed var(--line);border-radius:10px}
+.ann-lr{display:flex;align-items:center;gap:8px;padding:4px 0;flex-wrap:wrap}
+.ann-lr .sp{flex:1}.ann-lm{color:var(--sub);font-size:.86rem;overflow-wrap:anywhere}

@@ -94,14 +94,11 @@ function placeCm(){
   $("#cmpanel").style.right=base+"px";$("#cmpanel").style.width=Math.min(440,Math.max(300,r.width-48))+"px";
   placeFabRow(base);
 }
-/* 오른쪽 아래 단추 줄: 💬 댓글 → (댓글 팝업이 열려 있으면 ☑ 할 일) → ↑ 맨 위로 를 오른쪽부터 나란히 놓아 서로 겹치지 않게 한다.
-   댓글 팝업이 닫혀 있으면 ☑ 할 일은 예전처럼 💬 위에 둔다 */
+/* 오른쪽 아래 단추 줄: 💬 댓글 → ↑ 맨 위로 를 오른쪽부터 나란히 놓아 서로 겹치지 않게 한다 (할 일은 2.25 부터 오른쪽 칸의 탭) */
 function placeFabRow(base){
   let x=base;
   const put=el=>{if(!el||el.style.display==="none")return;el.style.right=x+"px";x+=el.offsetWidth+10};
   put($("#cmfab"));
-  const tf=$("#todofab");
-  if(tf){if(cmOpen){put(tf);tf.style.bottom="76px"}else{tf.style.right=base+"px";tf.style.bottom=""}}
   put($("#topfab"));
 }
 function updTopFab(){   // 노트를 아래로 내렸을 때만 ↑ 맨 위로 단추를 보인다
@@ -140,7 +137,7 @@ function toggleCm(open){
 window.addEventListener("resize",()=>{if($("#cmfab"))placeCm()});
 document.addEventListener("pointerdown",e=>{   // 팝업 바깥(노트 원문 등)을 누르면 닫는다
   if(!cmOpen)return;
-  if(e.target.closest&&e.target.closest("#cmpanel,#cmfab,#todopanel,#todofab,#topfab,.popmenu,#wdlg,#modal,#toast,[data-cmnew]"))return;     // 할 일 패널을 눌러도 댓글 팝업은 그대로 (둘 다 띄워 둘 수 있다)
+  if(e.target.closest&&e.target.closest("#cmpanel,#cmfab,#todoWrap,[data-rtab],#topfab,.popmenu,#wdlg,#modal,#toast,[data-cmnew]"))return;     // 할 일 탭을 눌러도 댓글 팝업은 그대로 (둘 다 띄워 둘 수 있다)
   toggleCm(false);
 },true);
 document.addEventListener("keydown",e=>{

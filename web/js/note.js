@@ -96,7 +96,7 @@ function jumpHtml(n,nb){
   return `<div id="jumpbar" role="navigation" aria-label="이 일감 안에서 이동">${peeking()?`<button type="button" id="jback" class="jback" title="${NAVLABEL[nav]} 화면으로 돌아가요 (Alt+←)">← 돌아가기 · ${NAVLABEL[nav]}</button>`:""}${JUMPS.map(([k,l,ic],i)=>`<button type="button" data-jump="${k}" title="${l} 로 이동 (Alt+${i+1})"><span class="ji">${ic}</span>${l}${c[k]?`<i>${c[k]}</i>`:""}</button>`).join("")}<span class="sp"></span><button type="button" id="jtop" title="맨 위로">↑</button></div>`;
 }
 function jumpTo(n,k){
-  if(k==="todo"){toggleTodoPanel();return}      // 할 일은 떠 있는 패널: 이동 대신 열고 닫는다
+  if(k==="todo"){toggleTodoPanel();return}      // 할 일은 오른쪽 칸의 탭: 칸을 열고 그 탭으로
   const el=jumpEl(k);if(!el)return;
   if(el.classList.contains("collapsed")&&el.dataset.cf)setCf(n,el,true)   // 접혀 있으면 펼친 뒤 이동
   if(k==="orig")el.open=true;

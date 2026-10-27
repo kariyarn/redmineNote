@@ -195,3 +195,22 @@ input,select,textarea{border-color:var(--line);border-radius:10px}
 .sortbar{padding:2px 12px 6px}.sorthint{padding:0;cursor:help}
 .okbox{margin:2px 12px 4px;padding:12px 14px;font-size:.92rem}
 .trow{margin:0 4px}
+/* ===== 2.25 : 노트를 볼 때 오른쪽 칸 = ☑ 할 일 | 🏷 주제 사전 탭 (할 일은 더 이상 떠 있지 않는다) ===== */
+#dict .rtabs{display:flex;width:100%;margin:0 0 12px}
+#dict .rtabs button{flex:1;padding:5px 8px;font-weight:600;white-space:nowrap}
+#dict .rtabs i{font-style:normal;font-size:.75rem;font-weight:700;margin-left:4px;padding:0 6px;border-radius:999px;background:var(--accent);color:var(--accent-ink)}
+#dict .todocard{margin-top:0}
+#dict .todocard .todo-i input[type=checkbox]{width:15px;margin:3px 0 0}     /* 사전 칸의 입력칸 규칙(width:100%)이 체크박스까지 늘리지 않게 */
+#dict .todocard input{margin-bottom:0}
+/* 2.25.1 : 할 일 탭은 카드 없이 단순한 목록 (탭이 제목을 대신한다) */
+#dict .todoplain{background:none;border:0;box-shadow:none;padding:0;margin:0}
+#dict .todoplain .fhd{display:flex;align-items:center;gap:6px;margin:0 0 4px;min-height:24px}
+#dict .todoplain .fhd small{color:var(--sub)}
+#dict .todoplain .todo-bar{margin:0 0 6px;height:2px}
+#dict .todoplain .todo-list{padding:0}
+#dict .todoplain .todo-i{padding:6px 2px;border-radius:0;border-bottom:1px solid color-mix(in srgb,var(--line) 60%,transparent)}
+#dict .todoplain .todo-i:hover{background:none}
+#dict .todoplain .todo-add{border:0;padding:8px 0 0;margin:0}
+#dict .todoplain .todo-add input{background:transparent;border:0;border-bottom:1px dashed var(--line);border-radius:0;padding:6px 2px}
+#dict .todoplain .todo-add input:focus{border-bottom-color:var(--accent);outline:0;box-shadow:none}
+#dict .todoplain .todo-arc{background:none;padding:8px 0 0;border-top:1px solid var(--line);border-radius:0}

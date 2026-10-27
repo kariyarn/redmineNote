@@ -31,6 +31,7 @@ const today={open:{}};                              // 오늘 화면에서 펼�
 let mineSub="notes",fresh={},onlyFresh=false,starOnly=false,staleOnly=false,needOnly=false;
 let edNote=null,edBase=null,edSavedAt=null,edSaveN=0;                               // 지금 편집 중인 노트 / 마지막으로 저장(또는 불러온) 시점의 내용
 const pgDraft=new Map();                                                // 입력 중인 새 진행 기록(저장 전) 임시 보관
+let annBy=new Map();                                                         // 일감별 원문 꾸미기 (형광펜 · 밑줄 · 굵게 · 메모)
 let pgBy=new Map();                                                          // 일감별 진행 기록 (일자별)
 let todos=[],todoMap={};      // 할 일 체크리스트(전체) / {일감번호: [남은 수, 전체 수]}
 let codeNotes={},codeEd=false;      // 이름별 내 설명 {이름: 설명} / 설명 편집 중인지
@@ -116,7 +117,11 @@ function prep(n){
   n._d=fmt(new Date(n.updated_on));
   n._t=`${n.subject} #${n.issue_id} ${n.issue_id}`.toLowerCase();       // 제목 · 번호 검색용
   n._pg=pgBy.get(n.issue_id)||[];                      // 진행 기록: 날짜 내림차순
-  n._h=[n.subject,n.description,n.requirement,n.action,n.code_change,n.reason,...n._pg.map(p=>p.text),...n.journals.map(j=>j.notes)].join("\n").toLowerCase();
+  n._h=[n.subject,n.description,n.requirement,n.action,n.code_change,n.reason,...n._pg.map(p=>p.text),...(annBy.get(n.issue_id)||[]).map(a=>a.memo),...n.journals.map(j=>j.notes)].join("\n").toLowerCase();
+}
+async function loadAnnot(){
+  const rows=await api("/api/annot");annBy=new Map();
+  rows.forEach(r=>{if(!annBy.has(r.issue_id))annBy.set(r.issue_id,[]);annBy.get(r.issue_id).push(r)});
 }
 async function loadProgress(){
   const rows=await api("/api/progress");pgBy=new Map();
@@ -125,7 +130,7 @@ async function loadProgress(){
 }
 const prepTerm=t=>{t._k=[t.term,...(t.aliases||"").split(",")].map(s=>s.trim().toLowerCase()).filter(Boolean)};
 async function loadAll(){
-  [all,links,terms,skipped,codeNotes,todos]=await Promise.all([api("/api/notes"),api("/api/links"),api("/api/terms"),api("/api/skipped"),api("/api/codenotes"),api("/api/todos"),loadProgress()]);
+  [all,links,terms,skipped,codeNotes,todos]=await Promise.all([api("/api/notes"),api("/api/links"),api("/api/terms"),api("/api/skipped"),api("/api/codenotes"),api("/api/todos"),loadProgress(),loadAnnot()]);
   trLoad(true);     // 트러블슈팅(코드 이력의 관련 목록용). 기다리지 않는다
   buildTodoMap();
   all.forEach(prep);terms.forEach(prepTerm);buildTokens();
