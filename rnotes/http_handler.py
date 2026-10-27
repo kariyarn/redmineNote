@@ -41,6 +41,7 @@ from . import memoimg
 ALLOWED_HOSTS = {f"127.0.0.1:{PORT}", f"localhost:{PORT}"}
 ALLOWED_ORIGINS = {f"http://{h}" for h in ALLOWED_HOSTS}
 STATIC_TYPES = {".css": "text/css; charset=utf-8", ".js": "text/javascript; charset=utf-8"}
+ANNOT_COLORS = ("yellow", "green", "blue", "red")
 PG_COLORS = ("yellow", "pink", "green", "blue", "orange", "purple")
 
 
@@ -154,6 +155,9 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_json(
                     [dict(r) for r in c.execute("SELECT * FROM progress ORDER BY day DESC, id ASC")]
                 )
+        elif u.path == "/api/annot":
+            with db() as c:
+                self.send_json([dict(r) for r in c.execute("SELECT * FROM annotations ORDER BY issue_id, start, id")])
         elif u.path == "/api/skipped":
             with db() as c:
                 self.send_json({r["issue_id"]: r["reason"] for r in c.execute("SELECT * FROM skipped")})
@@ -428,6 +432,23 @@ class Handler(BaseHTTPRequestHandler):
                         )
                         pid = cur.lastrowid
                 self.send_json({"ok": True, "id": pid})
+            elif u.path == "/api/annot":   # 원문 꾸미기 만들기/고치기 (레드마인 원문은 건드리지 않는다)
+                quote = str(d.get("quote") or "")[:4000]
+                if not quote.strip() or not d.get("issue_id"):
+                    return self.send_json({"error": "표시할 글자가 필요합니다"}, 400)
+                v = (str(d.get("prefix") or "")[-64:], str(d.get("suffix") or "")[:64], int(d.get("start") or 0),
+                     d.get("color") if d.get("color") in ANNOT_COLORS else "", 1 if d.get("under") else 0,
+                     1 if d.get("bold") else 0, str(d.get("memo") or "")[:5000])
+                now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                with db() as c:
+                    if d.get("id"):
+                        c.execute("UPDATE annotations SET prefix=?, suffix=?, start=?, color=?, under=?, bold=?, memo=?, updated_at=? WHERE id=?",
+                                  v + (now, d["id"]))
+                        aid = d["id"]
+                    else:
+                        aid = c.execute("INSERT INTO annotations (issue_id, quote, prefix, suffix, start, color, under, bold, memo, created_at, updated_at)"
+                                        " VALUES (?,?,?,?,?,?,?,?,?,?,?)", (int(d["issue_id"]), quote) + v + (now, now)).lastrowid
+                    self.send_json(dict(c.execute("SELECT * FROM annotations WHERE id=?", (aid,)).fetchone()))
             elif u.path == "/api/progress/layout":
                 # 보드에서 옮기기 · 크기 · 색 · 고정만 바꾼다 (글 · 수정 시각은 그대로: 옮겼다고 '수정됨'이 되지 않게)
                 if not d.get("id"):
@@ -742,6 +763,10 @@ class Handler(BaseHTTPRequestHandler):
         if u.path.startswith("/api/terms/"):
             with db() as c:
                 c.execute("DELETE FROM terms WHERE id=?", (name,))
+            self.send_json({"ok": True})
+        elif u.path.startswith("/api/annot/"):
+            with db() as c:
+                c.execute("DELETE FROM annotations WHERE id=?", (name,))
             self.send_json({"ok": True})
         elif u.path.startswith("/api/progress/"):
             with db() as c:

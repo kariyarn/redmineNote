@@ -203,6 +203,15 @@ def init_db():
                 sticky_id INTEGER NOT NULL, date TEXT NOT NULL, acked_at TEXT, snooze_until TEXT,
                 PRIMARY KEY (sticky_id, date)
             );
+            -- 원문 꾸미기 (2.26): 레드마인 원문은 그대로 두고, 고른 글자 위에 형광펜 · 밑줄 · 굵게 · 메모를 덧입힌다.
+            -- 고른 글자(quote)와 그 앞뒤 글자(prefix · suffix)로 다시 찾는다 (원문이 조금 바뀌어도 따라가도록). start 는 찾을 때의 참고 위치
+            CREATE TABLE IF NOT EXISTS annotations (
+                id INTEGER PRIMARY KEY AUTOINCREMENT, issue_id INTEGER NOT NULL,
+                quote TEXT NOT NULL, prefix TEXT DEFAULT '', suffix TEXT DEFAULT '', start INTEGER DEFAULT 0,
+                color TEXT DEFAULT '', under INTEGER DEFAULT 0, bold INTEGER DEFAULT 0, memo TEXT DEFAULT '',
+                created_at TEXT, updated_at TEXT
+            );
+            CREATE INDEX IF NOT EXISTS idx_annotations_issue ON annotations(issue_id);
             -- 코드 이력의 이름(테이블·파일·함수)마다 내가 붙이는 설명
             CREATE TABLE IF NOT EXISTS code_notes (
                 token TEXT PRIMARY KEY, description TEXT, updated_at TEXT
