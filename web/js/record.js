@@ -105,85 +105,58 @@ async function setRec(n,mode,auto){
 const todayStr=()=>fmt(new Date());
 const dayAgo=k=>{const d=new Date();d.setDate(d.getDate()-k);return fmt(d)};
 const relDay=day=>{const k=Math.round((new Date(todayStr()+"T00:00:00")-new Date(day+"T00:00:00"))/864e5);return k===0?"오늘":k===1?"어제":k>1?`${k}일 전`:`${-k}일 후`};
+/* 2.27: 진행 기록은 노트 본문이 아니라 노트 옆 칸(noteside.js)에 최신 순 타임라인으로. 같은 내용을 두 군데 보이지 않는다 */
+const pgSorted=n=>[...(n._pg||[])].sort((a,b)=>b.day.localeCompare(a.day)||b.id-a.id);
 function pgEntry(p){
-  return `<div class="pge" data-pg="${p.id}"><div class="pgh"><span class="meta">${(p.created_at||"").slice(11,16)} 작성${p.updated_at&&p.updated_at!==p.created_at?" · 수정됨":""}</span><span class="sp"></span>
-    <button type="button" class="mini" data-pgedit="${p.id}">수정</button><button type="button" class="mini danger" data-pgdel="${p.id}">삭제</button></div>
-    <div class="${pvClass()}">${renderMd(p.text)}</div></div>`;
+  return `<div class="ns-pg ${p.day===todayStr()?"today":""}" data-pg="${p.id}"><div class="d"><span>${p.day.slice(5)} · ${relDay(p.day)}${p.updated_at&&p.updated_at!==p.created_at?" · 수정됨":""}</span><span class="sp"></span>
+    <button type="button" class="pga" data-pgedit="${p.id}" title="수정">✎</button><button type="button" class="pga" data-pgdel="${p.id}" title="삭제">🗑</button></div>
+    <div class="t ${pvClass()}">${renderMd(p.text)}</div></div>`;
 }
-const pgFold=new Set();      // 접어 둔 날짜 ("일감번호|날짜"). 화면을 열어 둔 동안만 기억한다
-const pgInit=new Set();      // 처음 연 노트: 오늘(없으면 가장 최근 날짜)만 펼치고 나머지 날짜는 접어서 시작한다
-const pgKey=(n,d)=>`${n.issue_id}|${d}`;
-const pgPreview=t=>softNl(t).replace(/```[\s\S]*?```/g," ⟨코드⟩ ").split(/\r?\n/).map(x=>x.replace(/[​`]/g,"").trim()).find(Boolean)||"";
 function pgListHtml(n){
-  const arr=n._pg||[];
-  if(!arr.length)return `<div class="meta">아직 진행 기록이 없습니다. 날마다 어디까지 했는지 남겨 두면 다음에 이어서 하기 쉽습니다.</div>`;
-  const asc=!!ui.pgAsc;      // 시간 순서: 오름차(오래된 것이 위) / 내림차(최신이 위, 기본)
-  const days=[...new Set(arr.map(p=>p.day))].sort((a,b)=>asc?a.localeCompare(b):b.localeCompare(a));
-  const entries=d=>arr.filter(p=>p.day===d).sort((a,b)=>asc?a.id-b.id:b.id-a.id);
-  if(!pgInit.has(n.issue_id)){pgInit.add(n.issue_id);const t=todayStr(),openDay=days.includes(t)?t:days.reduce((m,d)=>d>m?d:m,"");days.forEach(d=>{if(d!==openDay)pgFold.add(pgKey(n,d))})}
-  const allFolded=days.every(d=>pgFold.has(pgKey(n,d)));
-  const bar=`<div class="pgbar"><span class="meta">${arr.length}건 · ${days.length}일</span><span class="sp"></span>
-    <button type="button" class="mini" id="pgboard" title="진행 기록을 포스트잇 보드로 크게 봐요 (메모처럼 끌어서 옮기기 · 색 · 고정). Esc · 바깥 누르기로 닫혀요">📌 보드로 보기</button>
-    <button type="button" class="mini" id="pgsort" title="날짜와 같은 날 안의 기록을 모두 이 순서로 보여 줍니다">${asc?"오래된 순 ↑":"최신 순 ↓"}</button>
-    <button type="button" class="mini" id="pgfoldall">${allFolded?"전체 펼치기":"전체 접기"}</button></div>`;
-  return bar+days.map(d=>{
-    const es=entries(d),folded=pgFold.has(pgKey(n,d));
-    return `<div class="pgdayh ${folded?"folded":""}" data-pgfold="${d}" role="button" tabindex="0" title="${folded?"눌러서 펼치기":"눌러서 접기"}">${chev(!folded)}<b>${d}</b> <span class="meta">${relDay(d)} · ${es.length}건</span>${folded?`<span class="pgprev">${esc(pgPreview((asc?es[0]:es[es.length-1]).text).slice(0,70))}</span>`:""}</div>${folded?"":es.map(pgEntry).join("")}`;
-  }).join("");
+  const arr=pgSorted(n);
+  return arr.length?arr.map(pgEntry).join(""):`<div class="meta ns-empty">아직 진행 기록이 없어요. 날마다 어디까지 했는지 남겨 두면 다음에 이어서 하기 쉬워요.</div>`;
 }
 function wirePg(n){
   const list=$("#pglist");if(!list||cur!==n.issue_id)return;
-  list.innerHTML=pgListHtml(n);wireCp(list);
-  const busy=()=>{if(list.querySelector(".rte")){toast("수정 중인 기록이 있습니다. 저장하거나 취소한 뒤에 접고 펼 수 있습니다",3500);return true}return false};
-  if($("#pgboard"))$("#pgboard").onclick=()=>{if(!busy())pgbOpen(n)};
-  const days=[...new Set((n._pg||[]).map(p=>p.day))];
-  list.querySelectorAll("[data-pgfold]").forEach(h=>{
-    const go=()=>{if(busy())return;const k=pgKey(n,h.dataset.pgfold);pgFold.has(k)?pgFold.delete(k):pgFold.add(k);wirePg(n)};
-    h.onclick=go;h.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();go()}};
-  });
-  if($("#pgsort"))$("#pgsort").onclick=()=>{if(busy())return;ui.pgAsc=!ui.pgAsc;saveUI();wirePg(n)};
-  if($("#pgfoldall"))$("#pgfoldall").onclick=()=>{
-    if(busy())return;
-    const all=days.every(d=>pgFold.has(pgKey(n,d)));
-    days.forEach(d=>all?pgFold.delete(pgKey(n,d)):pgFold.add(pgKey(n,d)));wirePg(n)};
+  list.innerHTML=pgListHtml(n);wireCp(list);nsCounts();
   list.querySelectorAll("[data-pgdel]").forEach(b=>b.onclick=async()=>{
     if(!await askC("이 진행 기록을 삭제할까요?"))return;
     await api("/api/progress/"+b.dataset.pgdel,{method:"DELETE"});await pgRefresh(n)});
-  list.querySelectorAll("[data-pgedit]").forEach(b=>b.onclick=()=>pgEdit(n,+b.dataset.pgedit));
+  list.querySelectorAll("[data-pgedit]").forEach(b=>b.onclick=()=>{if(list.querySelector(".ns-pg .rte")){toast("수정 중인 기록을 먼저 저장하거나 취소해 주세요",3000);return}pgEdit(n,+b.dataset.pgedit)});
 }
 async function pgRefresh(n){   // 이 일감의 진행 기록만 다시 그린다 (위의 입력 중인 칸은 건드리지 않는다)
-  await loadProgress();prep(n);buildTokens();wirePg(n);wireRec(n);renderTabs();renderList();refreshJumpPg(n);
-}
-function refreshJumpPg(n){   // 이동 바의 📝 칩 숫자 (진행 기록 수)
-  const b=document.querySelector('#jumpbar [data-jump="pg"]');if(!b||cur!==n.issue_id)return;
-  const k=(n._pg||[]).length;let i=b.querySelector("i");
-  if(k){if(!i){i=document.createElement("i");b.appendChild(i)}i.textContent=k}else if(i)i.remove();
+  await loadProgress();prep(n);buildTokens();wirePg(n);wireRec(n);renderTabs();renderList();
 }
 function pgEdit(n,id){
   const p=(n._pg||[]).find(x=>x.id===id),el=document.querySelector(`[data-pg="${id}"]`);if(!p||!el)return;
-  el.innerHTML=`<div class="frow" style="margin-top:0"><input type="date" id="pgd-${id}" value="${p.day}" style="flex:none;min-width:0"></div><div class="rte" id="pgt-${id}"></div>
-    <div class="row"><button type="button" class="primary" id="pgs-${id}" title="Ctrl+Enter 또는 Ctrl+S">저장</button><button type="button" id="pgc-${id}">취소</button></div>`;
+  el.innerHTML=`<div class="row2"><input type="date" id="pgd-${id}" value="${p.day}" class="nday"></div><div class="rte" id="pgt-${id}"></div>
+    <div class="row3"><span class="sp"></span><button type="button" class="mini" id="pgc-${id}">취소</button><button type="button" class="mini primary" id="pgs-${id}" title="Ctrl+Enter">저장</button></div>`;
   edInit($("#pgt-"+id),p.text);
-  $("#pgs-"+id).onclick=async()=>{
+  const save=async()=>{
     const text=edGet($("#pgt-"+id)).trim(),day=$("#pgd-"+id).value;
     if(!text||!day)return toast("날짜와 내용을 입력하세요",2500);
     await post("/api/progress",{id,issue_id:n.issue_id,day,text});await pgRefresh(n);toast("수정했습니다",1800)};
-  $("#pgc-"+id).onclick=()=>wirePg(n);
+  $("#pgs-"+id).onclick=save;$("#pgc-"+id).onclick=()=>wirePg(n);
+  $("#pgt-"+id).addEventListener("keydown",e=>{if(e.key==="Enter"&&(e.ctrlKey||e.metaKey)){e.preventDefault();e.stopPropagation();save()}},true);
+  const tb=el.querySelector(".tb");if(tb)focusTb(tb,true);
 }
 function initPg(n){
   edInit($("#pgtext"),pgDraft.get(n.issue_id)||"");      // 다른 곳에 갔다 와도 입력 중이던 글이 남는다
-  const setDay=d=>{$("#pgday").value=d;$("#pgrel").textContent=relDay(d)};
+  const setDay=d=>{$("#pgday").value=d;$("#pgrel").textContent=d===todayStr()||d===dayAgo(1)?"":relDay(d);
+    $("#pgtoday").classList.toggle("on",d===todayStr());$("#pgyest").classList.toggle("on",d===dayAgo(1))};
   setDay(todayStr());
-  $("#pgday").onchange=e=>{$("#pgrel").textContent=e.target.value?relDay(e.target.value):""};
+  $("#pgday").onchange=e=>{if(e.target.value)setDay(e.target.value)};
   $("#pgtoday").onclick=()=>setDay(todayStr());$("#pgyest").onclick=()=>setDay(dayAgo(1));
-  $("#pgadd").onclick=async()=>{
+  const add=async()=>{
     const text=edGet($("#pgtext")).trim(),day=$("#pgday").value;
     if(!text)return toast("어디까지 했는지 내용을 적어 주세요",2500);
     if(!day)return toast("날짜를 선택하세요",2500);
     await post("/api/progress",{issue_id:n.issue_id,day,text});
-    pgDraft.delete(n.issue_id);edInit($("#pgtext"),"");pgFold.delete(pgKey(n,day));await pgRefresh(n);toast(`${day} 진행 기록을 추가했습니다`,2200);
+    pgDraft.delete(n.issue_id);edInit($("#pgtext"),"");await pgRefresh(n);toast(`${day} 진행 기록을 추가했습니다`,2200);
     if(n.rec_mode!=="record")await setRec(n,"record",true);                  // 진행 기록을 썼으면 '기록' 모드로
   };
+  $("#pgadd").onclick=add;
+  $("#pgtext").addEventListener("keydown",e=>{if(e.key==="Enter"&&(e.ctrlKey||e.metaKey)&&!e.target.closest(".cbk")){e.preventDefault();e.stopPropagation();add()}},true);   // 코드 상자 안의 Ctrl+Enter 는 상자 나가기
   wirePg(n);
 }
 const REL={relates:"연관",blocks:"선행",blocked:"후행",duplicates:"중복",duplicated:"중복",precedes:"선행",follows:"후행",copied_to:"복사",copied_from:"복사"};

@@ -42,19 +42,6 @@ ALLOWED_HOSTS = {f"127.0.0.1:{PORT}", f"localhost:{PORT}"}
 ALLOWED_ORIGINS = {f"http://{h}" for h in ALLOWED_HOSTS}
 STATIC_TYPES = {".css": "text/css; charset=utf-8", ".js": "text/javascript; charset=utf-8"}
 ANNOT_COLORS = ("yellow", "green", "blue", "red")
-PG_COLORS = ("yellow", "pink", "green", "blue", "orange", "purple")
-
-
-def _pg_layout(d):
-    """진행 기록 보드의 자리 · 크기 · 색 · 고정. x 가 없으면 아직 보드에 놓지 않은 것(None)으로 둔다."""
-    def num(k):
-        try:
-            return round(float(d[k]), 1) if d.get(k) is not None else None
-        except (TypeError, ValueError):
-            return None
-    x, y, w, h = num("x"), num("y"), num("w"), num("h")
-    return {"x": x, "y": y, "w": w, "h": h, "z": int(num("z") or 0),
-            "color": d.get("color") if d.get("color") in PG_COLORS else "", "pinned": 1 if d.get("pinned") else 0}
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -424,11 +411,10 @@ class Handler(BaseHTTPRequestHandler):
                         )
                         pid = d["id"]
                     else:
-                        lay = _pg_layout(d)
                         cur = c.execute(
-                            "INSERT INTO progress (issue_id, day, text, created_at, updated_at, x, y, w, h, z, color, pinned)"
-                            " VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
-                            (d["issue_id"], day, text, now, now) + tuple(lay.values()),
+                            "INSERT INTO progress (issue_id, day, text, created_at, updated_at)"
+                            " VALUES (?,?,?,?,?)",
+                            (d["issue_id"], day, text, now, now),
                         )
                         pid = cur.lastrowid
                 self.send_json({"ok": True, "id": pid})
@@ -449,17 +435,6 @@ class Handler(BaseHTTPRequestHandler):
                         aid = c.execute("INSERT INTO annotations (issue_id, quote, prefix, suffix, start, color, under, bold, memo, created_at, updated_at)"
                                         " VALUES (?,?,?,?,?,?,?,?,?,?,?)", (int(d["issue_id"]), quote) + v + (now, now)).lastrowid
                     self.send_json(dict(c.execute("SELECT * FROM annotations WHERE id=?", (aid,)).fetchone()))
-            elif u.path == "/api/progress/layout":
-                # 보드에서 옮기기 · 크기 · 색 · 고정만 바꾼다 (글 · 수정 시각은 그대로: 옮겼다고 '수정됨'이 되지 않게)
-                if not d.get("id"):
-                    return self.send_json({"error": "id 가 필요합니다"}, 400)
-                lay = _pg_layout(d)
-                with db() as c:
-                    c.execute(
-                        "UPDATE progress SET " + ", ".join(f"{k}=?" for k in lay) + " WHERE id=?",
-                        tuple(lay.values()) + (d["id"],),
-                    )
-                self.send_json({"ok": True})
             elif u.path == "/api/recmode":
                 mode = d.get("rec_mode")
                 if mode not in ("none", "record"):

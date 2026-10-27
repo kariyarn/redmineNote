@@ -88,15 +88,14 @@ function wireNotes(n){
   updNotes();
 }
 /* ---------- 2.1 : 일감 안에서 이동 · 접는 카드 ---------- */
-const JUMPS=[["orig","원문","📄"],["todo","할 일","☑"],["pg","진행 기록","📝"],["notes","정리 기록","🗂"],["cm","댓글 이력","💬"],["rel","연결된 일감 ↓","🔗"]];
-const jumpEl=k=>({pg:()=>$("#pgcard"),notes:()=>$("#sec-notes"),
+const JUMPS=[["orig","원문","📄"],["notes","정리 기록","🗂"],["cm","댓글 이력","💬"],["rel","연결된 일감 ↓","🔗"]];   // 할 일 · 진행 기록은 노트 옆 칸에 있어서 이동 바에 두지 않는다 (2.27)
+const jumpEl=k=>({notes:()=>$("#sec-notes"),
   cm:()=>$("#sec-cm"),rel:()=>$("#sec-rel"),orig:()=>$("#sec-orig")}[k]||(()=>null))();
 function jumpHtml(n,nb){
-  const c={pg:n._pg.length,cm:n.journals.length,rel:nb.length,todo:todos.filter(t=>t.issue_id===n.issue_id&&!t.archived_at&&!t.done).length};
+  const c={cm:n.journals.length,rel:nb.length};
   return `<div id="jumpbar" role="navigation" aria-label="이 일감 안에서 이동">${peeking()?`<button type="button" id="jback" class="jback" title="${NAVLABEL[nav]} 화면으로 돌아가요 (Alt+←)">← 돌아가기 · ${NAVLABEL[nav]}</button>`:""}${JUMPS.map(([k,l,ic],i)=>`<button type="button" data-jump="${k}" title="${l} 로 이동 (Alt+${i+1})"><span class="ji">${ic}</span>${l}${c[k]?`<i>${c[k]}</i>`:""}</button>`).join("")}<span class="sp"></span><button type="button" id="jtop" title="맨 위로">↑</button></div>`;
 }
 function jumpTo(n,k){
-  if(k==="todo"){toggleTodoPanel();return}      // 할 일은 오른쪽 칸의 탭: 칸을 열고 그 탭으로
   const el=jumpEl(k);if(!el)return;
   if(el.classList.contains("collapsed")&&el.dataset.cf)setCf(n,el,true)   // 접혀 있으면 펼친 뒤 이동
   if(k==="orig")el.open=true;
@@ -124,7 +123,7 @@ function spy(){   // 지금 보고 있는 위치에 맞춰 이동 바 강조
 }
 let spyT=0,jumpLock=null;$("#center").addEventListener("scroll",()=>{if(!spyT)spyT=setTimeout(()=>{spyT=0;spy()},60)},{passive:true});
 document.addEventListener("keydown",e=>{
-  if(!e.altKey||e.ctrlKey||e.metaKey||view!=="note"||!/^Digit[1-6]$/.test(e.code||""))return;
+  if(!e.altKey||e.ctrlKey||e.metaKey||view!=="note"||!/^Digit\d$/.test(e.code||"")||!JUMPS[+e.code.slice(5)-1])return;
   const n=all.find(x=>x.issue_id===cur);if(!n||!$("#jumpbar")||$("#modal").classList.contains("show"))return;
   e.preventDefault();jumpTo(n,JUMPS[+e.code.slice(5)-1][0]);
 });

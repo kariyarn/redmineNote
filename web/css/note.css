@@ -270,3 +270,79 @@ mark.ann.m{border-bottom:2px dotted var(--accent);border-radius:0}
 .ann-lost{margin-top:10px;padding:8px 10px;border:1px dashed var(--line);border-radius:10px}
 .ann-lr{display:flex;align-items:center;gap:8px;padding:4px 0;flex-wrap:wrap}
 .ann-lr .sp{flex:1}.ann-lm{color:var(--sub);font-size:.86rem;overflow-wrap:anywhere}
+/* ===== 2.27 : 노트 옆 칸 (☑ 할 일 · 📝 진행 기록). 노트 폭은 그대로 두고 옆에 더한다. 손잡이로 너비를 나눠 갖는다 ===== */
+.notewrap{--side:calc(var(--nsw,280px) + 14px);display:grid;grid-template-columns:minmax(0,1fr) 14px min(var(--nsw,280px),40%);align-items:start}   /* 옆 칸은 전체의 40% 까지: 목록을 펼치거나 창이 좁아도 노트가 너무 좁아지지 않게 */
+.notewrap.rail{--side:50px;grid-template-columns:minmax(0,1fr) 10px 40px}
+#center[data-vw=note]>.notewrap{max-width:calc(980px + var(--side))}
+#center[data-ns=doc][data-vw=note]>.notewrap{max-width:calc(860px + var(--side))}
+.notemain{min-width:0}
+.notemain .savebar{margin-left:0;margin-right:0}
+.ns-split{align-self:stretch;cursor:col-resize;position:relative;touch-action:none}
+.ns-split::after{content:"";position:sticky;top:42%;display:block;margin:0 auto;width:4px;height:44px;border-radius:3px;background:var(--line);transition:background .12s}
+.ns-split:hover::after,.ns-split.drag::after{background:var(--accent)}
+.rail .ns-split{cursor:default}.rail .ns-split::after{display:none}
+.noteside{position:sticky;top:0;display:flex;flex-direction:column;gap:14px;padding:6px 0 24px;max-height:calc(100vh - 30px);overflow:auto;min-width:0}
+.ns-top{display:flex;gap:6px;flex-wrap:wrap}
+.ns-pill{border:1px solid var(--line);background:var(--surface);color:var(--sub);border-radius:999px;padding:3px 10px;font-size:.82rem;font-weight:600;cursor:pointer;white-space:nowrap}
+.ns-pill.on{color:var(--text);border-color:color-mix(in srgb,var(--accent) 55%,var(--line));background:var(--accent-soft)}
+.ns-pill i{font-style:normal;font-size:.72rem;margin-left:5px;padding:0 6px;border-radius:999px;background:var(--accent);color:var(--accent-ink)}
+.ns-pill i[hidden]{display:none}
+.rail .noteside{align-items:center;overflow:visible}
+.rail .ns-top{flex-direction:column}
+.rail .ns-pill{width:36px;height:36px;padding:0;display:flex;align-items:center;justify-content:center;font-size:1rem;position:relative}
+.rail .ns-pill .l{display:none}
+.rail .ns-pill i{position:absolute;top:-4px;right:-6px;margin:0}
+.ns-sec{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 12px 10px;min-width:0}
+.ns-sec[hidden]{display:none}
+.ns-h{display:flex;align-items:center;gap:6px;font-weight:700;font-size:.95rem;margin-bottom:8px}
+.ns-h small{font-weight:500;color:var(--sub)}
+/* 할 일 (todo.js 가 그린다): 카드 없이 단순한 목록 */
+.todoplain .fhd{display:flex;align-items:center;gap:6px;margin:0 0 4px;min-height:24px;flex-wrap:wrap}
+.todoplain .fhd b{font-size:.95rem}.todoplain .fhd small{color:var(--sub)}
+.todoplain .todo-bar{margin:0 0 6px;height:2px}
+.todoplain .todo-list{max-height:none;padding:0}
+.todoplain .todo-i{padding:6px 2px;border-radius:0;border-bottom:1px solid color-mix(in srgb,var(--line) 60%,transparent)}
+.todoplain .todo-i:hover{background:none}
+.todoplain .todo-i input[type=checkbox]{width:15px;margin:3px 0 0}
+.todoplain .todo-add{border:0;padding:8px 0 0;margin:0}
+.todoplain .todo-add input{width:100%;box-sizing:border-box;background:transparent;border:0;border-bottom:1px dashed var(--line);border-radius:0;padding:6px 2px;margin:0}
+.todoplain .todo-add input:focus{border-bottom-color:var(--accent);outline:0;box-shadow:none}
+.todoplain .todo-arc{background:none;padding:8px 0 0;border-top:1px solid var(--line);border-radius:0}
+/* 진행 기록: 쓰는 칸 + 최신 순 타임라인 */
+.ns-new{display:flex;flex-direction:column;gap:6px}
+.ns-new .rte,.ns-pg .rte{min-height:56px;background:var(--bg)}
+.noteside .row2{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.noteside .row3{display:flex;gap:6px;align-items:center}.noteside .row3 .sp,.ns-pg .d .sp{flex:1}
+.nchip{font-size:.78rem;border:1px solid var(--line);background:none;border-radius:999px;padding:1px 9px;color:var(--sub);cursor:pointer}
+.nchip.on{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
+.nday{font-size:.78rem;padding:1px 4px;width:auto;max-width:9.5rem}
+.ns-tl{position:relative;margin:14px 0 0 6px;padding-left:14px;border-left:2px solid var(--line)}
+.ns-empty{margin-left:-8px}
+.ns-pg{position:relative;padding:2px 0 12px}
+.ns-pg::before{content:"";position:absolute;left:-20px;top:6px;width:10px;height:10px;border-radius:50%;background:var(--surface);border:2px solid var(--accent)}
+.ns-pg.today::before{background:var(--accent)}
+.ns-pg .d{display:flex;align-items:center;gap:2px;font-size:.78rem;color:var(--sub);font-weight:600}
+.ns-pg .pga{border:0;background:none;padding:0 4px;cursor:pointer;opacity:0;font-size:.8rem;color:var(--sub)}
+.ns-pg:hover .pga,.ns-pg .pga:focus{opacity:1}
+.ns-pg .t{font-size:.9rem;line-height:1.45;margin-top:1px;overflow-wrap:anywhere}
+.ns-pg .t.pv{padding:0;background:none;border:0}
+/* ===== 2.27 : 목록 아이콘 줄 (노트를 연 동안 오늘 · 이력 목록을 접는다) ===== */
+#listpane.strip #listhead{display:none}
+#listpane.strip{padding:0}
+.lstrip{display:flex;flex-direction:column;align-items:center;gap:8px;padding:12px 0 20px}
+.ls-btn{flex:none;width:44px;height:30px;border:1px solid var(--line);border-radius:9px;background:var(--surface);color:var(--sub);cursor:pointer;font-size:.95rem}
+.ls-btn:hover{color:var(--text);border-color:var(--accent)}
+.ls-sep{flex:none;width:44px;height:1px;background:var(--line);margin:2px 0}
+.ls-lab{flex:none;max-width:72px;text-align:center;font-size:.62rem;line-height:1.25;color:var(--sub);font-weight:700}
+.ls-ic{flex:none;position:relative;width:62px;border-radius:10px;display:flex;flex-direction:column;align-items:stretch;cursor:pointer;background:none;border:1px solid var(--line);color:var(--text);overflow:hidden;text-align:center}
+.ls-ic .c{font-size:.8rem;font-weight:800;padding:5px 0 1px;letter-spacing:.02em}
+.ls-ic .c.BC{color:#d6336c}.ls-ic .c.DR{color:#0ca678}.ls-ic .c.etc{color:var(--sub);font-weight:700;font-size:.72rem}
+.ls-ic .no{font-size:.66rem;color:var(--sub);padding:0 0 5px;font-variant-numeric:tabular-nums}
+.ls-ic .st{font-size:.62rem;font-weight:700;padding:2px 0;border-top:1px solid var(--line);color:var(--st,var(--sub));background:color-mix(in srgb,var(--st,var(--sub)) 12%,transparent)}
+.ls-ic.s-진행{--st:#3b82f6}.ls-ic.s-대기{--st:#d97706}.ls-ic.s-완료{--st:#9ca3af}.ls-ic.s-중단{--st:#a855f7}
+.ls-ic:hover,.ls-ic:focus-visible{border-color:color-mix(in srgb,var(--accent) 50%,var(--line));outline:0}
+.ls-ic.sel{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
+.ls-ic .dot{position:absolute;top:4px;right:4px;width:7px;height:7px;border-radius:50%;background:#ef4444}
+.ls-tip{position:fixed;z-index:60;display:none;max-width:min(420px,60vw);background:var(--text);color:var(--bg);border-radius:8px;padding:6px 10px;font-size:.85rem;box-shadow:0 6px 18px rgba(0,0,0,.25);pointer-events:none}
+.ls-tip small{opacity:.7;margin-left:6px;white-space:nowrap}
+.lexp{display:flex;justify-content:flex-end;margin:0 0 6px}

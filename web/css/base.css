@@ -139,8 +139,6 @@ input.secret:not(.shown){-webkit-text-security:disc}
 .star{border:0;background:none;padding:0 4px;font-size:1.2rem;line-height:1;color:var(--ext);cursor:pointer}
 .star:hover,.star.on,.starmark{color:#f5b301}
 /* 진행 기록 */
-.pgnew{background:var(--surface2);border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:12px}
-.pgnew .rte{background:var(--surface);min-height:90px;margin-top:8px}
 .pgday{margin:14px 0 6px;display:flex;gap:8px;align-items:baseline}
 .pgbar{display:flex;align-items:center;gap:6px;margin:2px 0 4px}
 .pgbar .sp{flex:1}

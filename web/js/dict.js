@@ -1,6 +1,5 @@
 /* ---------- 용어 사전 ---------- */
 function renderDict(){
-  if(rtab()==="todo"){$("#dict").innerHTML=`${rtabsHtml()}<div class="todocard todoplain" id="todoWrap"></div>`;wireRtabs();renderTodo();return}   // 노트를 볼 때는 할 일 탭이 먼저
   const form=editing?(()=>{const t=editing==="new"?{term:"",aliases:"",description:""}:terms.find(x=>x.id===editing)||{};
     return `<div class="card"><input id="fn" placeholder="용어 (예: POBA누리)" value="${esc(t.term)}">
       <input id="fa" placeholder="대체 용어 - 쉼표로 구분 (예: 포바누리, 포바)" value="${esc(t.aliases)}">
@@ -22,12 +21,11 @@ function renderDict(){
     return `<div class="card v2gl"><div class="meta">고른 주제의 일감 <b>${l.length}건</b>${picked.length>1?` · ${selMode==="or"?"하나라도 포함":"모두 포함"}`:""}</div>
       ${top.map(n=>`<a class="v2gl-r" data-gopen="${n.issue_id}" title="눌러서 노트 열기 (← 돌아가기로 그래프에 돌아와요)"><span class="d s-${stOf(n)}"></span><span class="t">${esc(n.subject)}</span><span class="m">#${n.issue_id} · ${stOf(n)} · ${n._d}</span></a>`).join("")||`<span class="meta">이 기간에는 없어요</span>`}
       ${l.length?`<button type="button" class="mini" data-ghist>이력에서 ${l.length}건 모두 보기</button>`:""}</div>`})():"";
-  $("#dict").innerHTML=`${rtabsHtml()}<div class="top2"><h3>용어 사전</h3>${editing?"":`<button class="primary" id="fnew">+ 용어 추가</button>`}</div>${form}
+  $("#dict").innerHTML=`<div class="top2"><h3>용어 사전</h3>${editing?"":`<button class="primary" id="fnew">+ 용어 추가</button>`}</div>${form}
     ${editing||!terms.length?"":`<div class="meta" style="margin:-2px 0 6px">숫자 = <b>${esc(searching()&&rk!=="graph"?"전체 기간":rangeText(rk))}</b> · <b>${scopeText()}</b> 일감 수</div><div class="dscope">${scopeChecks()}</div>`}
     ${picked.length||editing||!terms.length?"":`<div class="meta" style="margin-bottom:-4px">누르면 선택, 다시 누르면 취소 · 여러 개를 누르면 모두 포함한 노트만 찾습니다</div>`}
     <div id="dchips">${terms.map(t=>{const on=sel.includes(t.id),c=on?baseSet.length:baseSet.filter(n=>has(n,t)).length;
       return `<span class="dc ${on?"on":""} ${!on&&picked.length&&!c?"dim":""}" data-t="${t.id}" title="${esc(t.description||"")}"><b>${esc(t.term)}</b><span class="n">${c}</span></span>`}).join("")||`<span class="meta">아직 등록된 용어가 없습니다. 오른쪽 위 '+ 용어 추가'로 시작하세요.</span>`}</div>${detail}${gl}`;
-  wireRtabs();
   document.querySelectorAll("#dict [data-gopen]").forEach(a=>a.onclick=()=>openNote(+a.dataset.gopen));
   document.querySelectorAll("#dict [data-ghist]").forEach(b=>b.onclick=()=>setNav("history",{keepSel:true}));
   document.querySelectorAll(".dc").forEach(a=>a.onclick=()=>toggleTerm(terms.find(x=>x.id==a.dataset.t)));
