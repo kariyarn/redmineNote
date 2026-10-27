@@ -123,6 +123,7 @@ function pgListHtml(n){
   if(!pgInit.has(n.issue_id)){pgInit.add(n.issue_id);const t=todayStr(),openDay=days.includes(t)?t:days.reduce((m,d)=>d>m?d:m,"");days.forEach(d=>{if(d!==openDay)pgFold.add(pgKey(n,d))})}
   const allFolded=days.every(d=>pgFold.has(pgKey(n,d)));
   const bar=`<div class="pgbar"><span class="meta">${arr.length}건 · ${days.length}일</span><span class="sp"></span>
+    <button type="button" class="mini" id="pgboard" title="진행 기록을 포스트잇 보드로 크게 봐요 (메모처럼 끌어서 옮기기 · 색 · 고정). Esc · 바깥 누르기로 닫혀요">📌 보드로 보기</button>
     <button type="button" class="mini" id="pgsort" title="날짜와 같은 날 안의 기록을 모두 이 순서로 보여 줍니다">${asc?"오래된 순 ↑":"최신 순 ↓"}</button>
     <button type="button" class="mini" id="pgfoldall">${allFolded?"전체 펼치기":"전체 접기"}</button></div>`;
   return bar+days.map(d=>{
@@ -134,6 +135,7 @@ function wirePg(n){
   const list=$("#pglist");if(!list||cur!==n.issue_id)return;
   list.innerHTML=pgListHtml(n);wireCp(list);
   const busy=()=>{if(list.querySelector(".rte")){toast("수정 중인 기록이 있습니다. 저장하거나 취소한 뒤에 접고 펼 수 있습니다",3500);return true}return false};
+  if($("#pgboard"))$("#pgboard").onclick=()=>{if(!busy())pgbOpen(n)};
   const days=[...new Set((n._pg||[]).map(p=>p.day))];
   list.querySelectorAll("[data-pgfold]").forEach(h=>{
     const go=()=>{if(busy())return;const k=pgKey(n,h.dataset.pgfold);pgFold.has(k)?pgFold.delete(k):pgFold.add(k);wirePg(n)};
@@ -150,7 +152,12 @@ function wirePg(n){
   list.querySelectorAll("[data-pgedit]").forEach(b=>b.onclick=()=>pgEdit(n,+b.dataset.pgedit));
 }
 async function pgRefresh(n){   // 이 일감의 진행 기록만 다시 그린다 (위의 입력 중인 칸은 건드리지 않는다)
-  await loadProgress();prep(n);buildTokens();wirePg(n);wireRec(n);renderTabs();renderList();
+  await loadProgress();prep(n);buildTokens();wirePg(n);wireRec(n);renderTabs();renderList();refreshJumpPg(n);
+}
+function refreshJumpPg(n){   // 이동 바의 📝 칩 숫자 (진행 기록 수)
+  const b=document.querySelector('#jumpbar [data-jump="pg"]');if(!b||cur!==n.issue_id)return;
+  const k=(n._pg||[]).length;let i=b.querySelector("i");
+  if(k){if(!i){i=document.createElement("i");b.appendChild(i)}i.textContent=k}else if(i)i.remove();
 }
 function pgEdit(n,id){
   const p=(n._pg||[]).find(x=>x.id===id),el=document.querySelector(`[data-pg="${id}"]`);if(!p||!el)return;

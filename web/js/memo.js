@@ -7,8 +7,8 @@ const STK={yellow:"#faefb0",pink:"#f8d3df",green:"#d5ebc3",blue:"#cfe3f6",orange
 /* 보드 색: 비어 있으면 테마를 따라가고, 고르면 그 색으로 고정. 점·선·안내 글자 색은 바탕 밝기에 맞춰 자동으로 정한다 */
 const BOARD_COLORS=[["","테마 따라가기"],["#ffffff","화이트"],["#fbf4e4","크림"],["#e3f2ea","민트"],["#e1eef9","하늘"],["#ebe5f6","라벤더"],["#f8e6ec","핑크"],["#3a3f47","차콜"],["#d6ad74","코르크 갈색"]];
 const boardColor=()=>/^#[0-9a-f]{6}$/i.test(ui.memoBoardColor||"")?ui.memoBoardColor.toLowerCase():"";
-function applyBoardColor(){
-  const c=$("#cork");if(!c)return;
+function applyBoardColor(c=$("#cork")){   // c: 진행 기록 보드(#pgcork)도 같은 색을 쓴다
+  if(!c)return;
   ["background-color","border-color","--bdot","--bmaj","--bmin","--bfg"].forEach(k=>c.style.removeProperty(k));
   const col=boardColor();if(!col)return;
   const r=parseInt(col.slice(1,3),16),g=parseInt(col.slice(3,5),16),b=parseInt(col.slice(5,7),16),dark=(.299*r+.587*g+.114*b)/255<.5,ink=dark?"255,255,255":"30,30,30";
@@ -261,8 +261,8 @@ function toastUndo(msg,fn,ms=6000){   // 되돌리기 단추가 있는 알림
 function overlapOf(x,y,w,h,o){const ox=Math.min(x+w,o.x+o.w)-Math.max(x,o.x),oy=Math.min(y+h,o.y+o.h)-Math.max(y,o.y);return ox>0&&oy>0?ox*oy:0}
 const shuffled=a=>[...a].sort(()=>Math.random()-.5);
 /* 새 자리: 보드 안 무작위로 안 겹치는 곳. 보드가 가득 차서 빈 곳이 없으면 가장 덜 겹치는 곳(free:false). */
-function freeSpot(W,H,others){
-  const vw=viewW(),vh=viewH();let best=null,bestA=Infinity;
+function freeSpot(W,H,others,vw=viewW(),vh=viewH()){   // vw · vh: 진행 기록 보드처럼 크기가 다른 판
+  let best=null,bestA=Infinity;
   for(let k=0;k<500;k++){
     const x=Math.round(8+Math.random()*Math.max(0,vw-W-16)),y=Math.round(8+Math.random()*Math.max(0,vh-H-16));
     let a=0;for(const o of others)a+=overlapOf(x,y,W,H,o);

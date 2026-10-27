@@ -245,6 +245,11 @@ def init_db():
             c.execute("ALTER TABLE queries ADD COLUMN lang TEXT DEFAULT ''")
         if "code_locs" not in q_cols:  # 2.13.0: 코드 위치(클래스 · 파일 이름 등, JSON 목록)
             c.execute("ALTER TABLE queries ADD COLUMN code_locs TEXT DEFAULT '[]'")
+        pg_cols = {r["name"] for r in c.execute("PRAGMA table_info(progress)")}
+        for col, ddl in (("x", "REAL"), ("y", "REAL"), ("w", "REAL"), ("h", "REAL"), ("z", "INTEGER DEFAULT 0"),
+                         ("color", "TEXT DEFAULT ''"), ("pinned", "INTEGER DEFAULT 0")):
+            if col not in pg_cols:  # 2.23.0: 진행 기록 보드(포스트잇)의 자리 · 크기 · 색 · 고정 (x 가 비어 있으면 아직 놓지 않은 것)
+                c.execute(f"ALTER TABLE progress ADD COLUMN {col} {ddl}")
         todo_cols = {r["name"] for r in c.execute("PRAGMA table_info(todos)")}
         if "archived_at" not in todo_cols:  # 2.8.0: 완료한 체크리스트를 지우지 않고 '보관'(숨김)
             c.execute("ALTER TABLE todos ADD COLUMN archived_at TEXT")
