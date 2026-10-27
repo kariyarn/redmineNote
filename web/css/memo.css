@@ -47,7 +47,7 @@
 
 /* ===== 2.3.1 : 메모 보강 ===== */
 .cork{overflow:visible}
-.memo-h{position:sticky;z-index:60}
+.memo-h{position:sticky;z-index:40}   /* 2.28: 확인 창(#modal 50 · #wdlg 55)의 어두운 배경 아래에 (60 이면 창이 떠도 도구 줄만 밝게 남았다). 보드(isolation)보다는 위 */
 .cork{isolation:isolate}
 .memo-cal{display:none;position:absolute;top:calc(100% + 6px);left:22px;z-index:12;width:min(340px,92vw);background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:0 12px 36px rgba(0,0,0,.25);padding:10px 12px}
 .cal-h{display:flex;align-items:center;gap:6px;margin-bottom:6px}.cal-h .sp{flex:1}.cal-h button{padding:2px 8px;font-size:.85rem}
