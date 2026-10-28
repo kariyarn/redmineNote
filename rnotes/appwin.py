@@ -12,7 +12,7 @@ import threading
 import time
 from ctypes import wintypes
 
-from .config import APP_TITLE, BETA
+from .config import APP_DIR, APP_TITLE, BETA, HOME_DIR
 
 TITLE = APP_TITLE   # 화면 <title> 과 같아야 앱 창을 찾을 수 있다. 1.x("레드마인 노트") · 베타("레드마인 노트 2 (베타)")와 구분된다
 CHROME_CLASS = "Chrome_WidgetWin_1"  # 크롬과 엣지 창의 공통 클래스 이름
@@ -276,18 +276,41 @@ def maximize_new():
                 pass
 
 
+_icon = {}
+
+
+def stable_icon(exe):
+    """작업 표시줄 아이콘으로 쓸 .ico 파일: 데이터 폴더의 app-icon.ico (업데이트 · 재설치에도 자리가 바뀌지 않는다).
+    exe 안의 아이콘(exe,0)을 가리키면 업데이트로 exe 가 바뀌거나 아이콘 캐시가 어긋날 때 고정한 아이콘이 빈 문서 모양으로 깨진다.
+    복사하지 못하면 예전처럼 exe 의 아이콘. 켜져 있는 동안 한 번만 확인한다 (표식 감시는 1초마다 돈다)."""
+    if exe in _icon:
+        return _icon[exe]
+    src, dst = APP_DIR / "icon.ico", HOME_DIR / "app-icon.ico"
+    try:
+        data = src.read_bytes()
+        if not dst.exists() or dst.read_bytes() != data:
+            tmp = dst.with_suffix(".tmp")
+            tmp.write_bytes(data)
+            os.replace(tmp, dst)
+        _icon[exe] = f"{dst},0"
+    except OSError:
+        _icon[exe] = f"{exe},0"
+    return _icon[exe]
+
+
 def tag_windows(exe):
     """아직 표식이 없는 앱 창에 표식을 붙인다. 새로 붙인 창 수를 돌려준다."""
-    n = 0
+    n, icon = 0, stable_icon(exe)
     for h in windows():
         # 크롬이 나중에 자기 앱 ID 로 덮어쓰면 작업 표시줄 버튼이 둘로 갈라진다 → 이미 붙인 창도 다시 확인해서 달라졌으면 다시 붙인다
         try:
-            if get_window_prop(h, PID_ID) == AUMID and get_window_prop(h, PID_RELAUNCH_COMMAND) == f'"{exe}"':
+            if (get_window_prop(h, PID_ID) == AUMID and get_window_prop(h, PID_RELAUNCH_COMMAND) == f'"{exe}"'
+                    and get_window_prop(h, PID_RELAUNCH_ICON) == icon):
                 continue
         except Exception:
             pass
         if set_window_props(h, [(PID_ID, AUMID), (PID_RELAUNCH_COMMAND, f'"{exe}"'),
-                                (PID_RELAUNCH_ICON, f"{exe},0"), (PID_RELAUNCH_NAME, TITLE)]):
+                                (PID_RELAUNCH_ICON, icon), (PID_RELAUNCH_NAME, TITLE)]):
             _tagged.add(h)
             n += 1
     return n
