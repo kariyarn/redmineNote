@@ -10,7 +10,7 @@ function toggleDict(){
 document.addEventListener("click",e=>{if(dictOv&&isNarrow()&&!e.target.closest("#dict,[data-act=dict],#gopenDict,.tp,.hbar")){dictOv=false;applyUI();renderNav()}});
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&dictOv){dictOv=false;applyUI();renderNav()}});
 /* 노트 크게 보기: 왼쪽 메뉴 · 목록(2단)과 오른쪽 사전 칸을 숨기고 노트 본문을 창 폭에 맞춰 넓게 (노트 위쪽 이동 바의 ☐ 단추). 노트 화면에서만 */
-const noteMax=()=>!!ui.noteMax&&view==="note"&&cur!=null;
+const noteMax=()=>!!ui.noteMax&&view==="note"&&cur!=null&&!todayFull();   // 새 디자인의 넓은 오늘 목록(노트 칸이 숨음)일 때는 최대화하지 않는다 — 둘이 겹치면 모든 칸이 숨어 빈 화면이 됐다
 const maxBtnHtml=()=>`<button type="button" id="jmax" class="jmax" title="${ui.noteMax?"왼쪽 메뉴 · 목록을 다시 보여요":"왼쪽 메뉴 · 목록을 숨기고 노트를 창 가득 넓게 봐요"}" aria-pressed="${!!ui.noteMax}">${ui.noteMax?"원래대로":"최대화"}</button>`;
 function toggleNoteMax(){
   ui.noteMax=!ui.noteMax;saveUI();applyUI();
