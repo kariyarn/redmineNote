@@ -9,7 +9,7 @@ function toggleDict(){
   if(isNarrow())dictOv=!dictOv;else{ui.hr=!ui.hr;saveUI()}applyUI();renderDict();renderHead();renderNav();if(view==="graph")renderGraph()}
 document.addEventListener("click",e=>{if(dictOv&&isNarrow()&&!e.target.closest("#dict,[data-act=dict],#gopenDict,.tp,.hbar")){dictOv=false;applyUI();renderNav()}});
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&dictOv){dictOv=false;applyUI();renderNav()}});
-/* 노트 크게 보기: 왼쪽 메뉴 · 목록(2단)과 오른쪽 사전 칸을 숨기고 노트만 창 가득 (노트 위쪽 이동 바의 ☐ 단추). 노트 화면에서만 */
+/* 노트 크게 보기: 왼쪽 메뉴 · 목록(2단)과 오른쪽 사전 칸을 숨기고 노트 본문을 창 폭에 맞춰 넓게 (노트 위쪽 이동 바의 ☐ 단추). 노트 화면에서만 */
 const noteMax=()=>!!ui.noteMax&&view==="note"&&cur!=null;
 const MAX_IC='<svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><rect x="2.5" y="2.5" width="11" height="11"/></svg>';
 const RESTORE_IC='<svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><rect x="2.5" y="5.5" width="8" height="8"/><path d="M5.5 5.5V2.5h8v8h-3"/></svg>';
@@ -21,7 +21,7 @@ function toggleNoteMax(){
 }
 function applyUI(){
   const vault=nav.startsWith("vault"),max=noteMax();
-  $("#nav").style.display=max?"none":"";
+  $("#nav").style.display=max?"none":"";$("#center").classList.toggle("nmax",max);
   const hideL=max||ui.hl||nav==="mine"||nav==="code"||nav==="memo"||nav==="deploy"||nav==="trouble"||nav==="queries"||nav==="commands"||vault;      // 내 기록·보관함은 가운데 화면만 넓게 쓴다
   const col=!max&&!isNarrow()&&!ui.hr&&nav!=="memo"&&nav!=="deploy"&&nav!=="trouble"&&nav!=="queries"&&nav!=="commands"&&!vault;      // 넓은 창: 사전을 오른쪽 칸으로. 좁은 창: 칸을 만들지 않고 필요할 때만 겹쳐서 연다
   const strip=!hideL&&listStrip();     // 노트를 연 동안 목록은 아이콘 줄로 (노트 폭을 지킨다)
