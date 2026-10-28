@@ -9,15 +9,24 @@ function toggleDict(){
   if(isNarrow())dictOv=!dictOv;else{ui.hr=!ui.hr;saveUI()}applyUI();renderDict();renderHead();renderNav();if(view==="graph")renderGraph()}
 document.addEventListener("click",e=>{if(dictOv&&isNarrow()&&!e.target.closest("#dict,[data-act=dict],#gopenDict,.tp,.hbar")){dictOv=false;applyUI();renderNav()}});
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&dictOv){dictOv=false;applyUI();renderNav()}});
+/* 노트 크게 보기: 왼쪽 메뉴 · 목록(2단)과 오른쪽 사전 칸을 숨기고 노트 본문을 창 폭에 맞춰 넓게 (노트 위쪽 이동 바의 ☐ 단추). 노트 화면에서만 */
+const noteMax=()=>!!ui.noteMax&&view==="note"&&cur!=null;
+const maxBtnHtml=()=>`<button type="button" id="jmax" class="jmax" title="${ui.noteMax?"왼쪽 메뉴 · 목록을 다시 보여요":"왼쪽 메뉴 · 목록을 숨기고 노트를 창 가득 넓게 봐요"}" aria-pressed="${!!ui.noteMax}">${ui.noteMax?"원래대로":"최대화"}</button>`;
+function toggleNoteMax(){
+  ui.noteMax=!ui.noteMax;saveUI();applyUI();
+  const b=$("#jmax");if(b){b.outerHTML=maxBtnHtml();$("#jmax").onclick=toggleNoteMax}
+  if(view==="graph")renderGraph();
+}
 function applyUI(){
-  const vault=nav.startsWith("vault");
-  const hideL=ui.hl||nav==="mine"||nav==="code"||nav==="memo"||nav==="deploy"||nav==="trouble"||nav==="queries"||nav==="commands"||vault;      // 내 기록·보관함은 가운데 화면만 넓게 쓴다
-  const col=!isNarrow()&&!ui.hr&&nav!=="memo"&&nav!=="deploy"&&nav!=="trouble"&&nav!=="queries"&&nav!=="commands"&&!vault;      // 넓은 창: 사전을 오른쪽 칸으로. 좁은 창: 칸을 만들지 않고 필요할 때만 겹쳐서 연다
+  const vault=nav.startsWith("vault"),max=noteMax();
+  $("#nav").style.display=max?"none":"";$("#center").classList.toggle("nmax",max);
+  const hideL=max||ui.hl||nav==="mine"||nav==="code"||nav==="memo"||nav==="deploy"||nav==="trouble"||nav==="queries"||nav==="commands"||vault;      // 내 기록·보관함은 가운데 화면만 넓게 쓴다
+  const col=!max&&!isNarrow()&&!ui.hr&&nav!=="memo"&&nav!=="deploy"&&nav!=="trouble"&&nav!=="queries"&&nav!=="commands"&&!vault;      // 넓은 창: 사전을 오른쪽 칸으로. 좁은 창: 칸을 만들지 않고 필요할 때만 겹쳐서 연다
   const strip=!hideL&&listStrip();     // 노트를 연 동안 목록은 아이콘 줄로 (노트 폭을 지킨다)
   $("#main").style.gridTemplateColumns=`${hideL?0:strip?LSTRIP_W:ui.lw}px ${hideL||strip?0:6}px minmax(0,1fr) ${col?6:0}px ${col?ui.rw:0}px`;
   $("#listpane").style.display=hideL?"none":"";$("#s1").style.display=hideL||strip?"none":"";
   $("#listpane").classList.toggle("strip",strip);
-  $("#dict").style.display=dictVisible()&&nav!=="memo"&&nav!=="deploy"&&nav!=="trouble"&&nav!=="queries"&&nav!=="commands"&&!vault?"":"none";$("#s2").style.display=col?"":"none";
+  $("#dict").style.display=!max&&dictVisible()&&nav!=="memo"&&nav!=="deploy"&&nav!=="trouble"&&nav!=="queries"&&nav!=="commands"&&!vault?"":"none";$("#s2").style.display=col?"":"none";
   $("#dict").classList.toggle("ov",isNarrow()&&dictOv);
   const wide=todayFull();   // 새 디자인의 오늘: 목록만 넓게 (노트 · 사전 칸은 일감을 고르면 보인다)
   $("#listpane").classList.toggle("v2wide",wide);

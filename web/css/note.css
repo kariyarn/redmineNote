@@ -8,6 +8,9 @@
 #jumpbar button.on{background:var(--accent-soft);color:var(--accent);font-weight:600}
 #jumpbar button i{font-style:normal;font-size:.75rem;opacity:.75;margin-left:2px}
 #jumpbar .sp{flex:1}
+#jumpbar .jmax{border:1px solid var(--line);background:var(--surface);color:var(--text);font-weight:600}
+#jumpbar .jmax:hover{border-color:var(--accent);color:var(--accent);background:var(--surface)}
+#jumpbar .jmax[aria-pressed=true]{background:var(--accent-soft);color:var(--accent);border-color:transparent}
 #center.todo-on #jumpbar{padding-right:276px}
 .cfold>.cfhd{display:flex;align-items:baseline;gap:8px;font-weight:700;cursor:pointer;user-select:none;margin-bottom:10px}
 .cfold>.cfhd:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:6px}
@@ -277,6 +280,8 @@ mark.ann.m{border-bottom:2px dotted var(--accent);border-radius:0}
   grid-template-columns:max(0px,min(calc((100% - var(--nmax)) / 2 + var(--cx,0px)),calc(100% - var(--nmax) - var(--side)))) minmax(0,var(--nmax)) var(--gap) var(--sw) minmax(0,1fr)}
 #center[data-ns=doc] .notewrap{--nmax:860px}
 .notewrap.rail{--sw:40px;--gap:10px}
+/* 노트만 크게(2.28.2): 메뉴 · 목록을 숨긴 만큼 본문도 넓힌다 — 옆 칸을 뺀 나머지를 거의 다 쓴다(양쪽 여백 16px 남짓) */
+#center.nmax[data-vw=note] .notewrap{--nmax:calc(100% - var(--side) - 32px)}
 #center[data-vw=note]>.notewrap,#center[data-ns=doc][data-vw=note]>.notewrap{max-width:none}
 .notewrap>.notemain{grid-column:2}.notewrap>.ns-split{grid-column:3}.notewrap>.noteside{grid-column:4}
 .notemain{min-width:0}
