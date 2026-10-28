@@ -8,8 +8,9 @@
 #jumpbar button.on{background:var(--accent-soft);color:var(--accent);font-weight:600}
 #jumpbar button i{font-style:normal;font-size:.75rem;opacity:.75;margin-left:2px}
 #jumpbar .sp{flex:1}
-#jumpbar .jmax{display:inline-flex;align-items:center;justify-content:center;padding:4px 9px}
-#jumpbar .jmax[aria-pressed=true]{color:var(--accent)}
+#jumpbar .jmax{border:1px solid var(--line);background:var(--surface);color:var(--text);font-weight:600}
+#jumpbar .jmax:hover{border-color:var(--accent);color:var(--accent);background:var(--surface)}
+#jumpbar .jmax[aria-pressed=true]{background:var(--accent-soft);color:var(--accent);border-color:transparent}
 #center.todo-on #jumpbar{padding-right:276px}
 .cfold>.cfhd{display:flex;align-items:baseline;gap:8px;font-weight:700;cursor:pointer;user-select:none;margin-bottom:10px}
 .cfold>.cfhd:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:6px}

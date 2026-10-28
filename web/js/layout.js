@@ -11,9 +11,7 @@ document.addEventListener("click",e=>{if(dictOv&&isNarrow()&&!e.target.closest("
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&dictOv){dictOv=false;applyUI();renderNav()}});
 /* 노트 크게 보기: 왼쪽 메뉴 · 목록(2단)과 오른쪽 사전 칸을 숨기고 노트 본문을 창 폭에 맞춰 넓게 (노트 위쪽 이동 바의 ☐ 단추). 노트 화면에서만 */
 const noteMax=()=>!!ui.noteMax&&view==="note"&&cur!=null;
-const MAX_IC='<svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><rect x="2.5" y="2.5" width="11" height="11"/></svg>';
-const RESTORE_IC='<svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><rect x="2.5" y="5.5" width="8" height="8"/><path d="M5.5 5.5V2.5h8v8h-3"/></svg>';
-const maxBtnHtml=()=>`<button type="button" id="jmax" class="jmax" title="${ui.noteMax?"원래대로 (왼쪽 메뉴 · 목록 다시 보기)":"노트만 크게 (왼쪽 메뉴 · 목록 숨기기)"}" aria-pressed="${!!ui.noteMax}">${ui.noteMax?RESTORE_IC:MAX_IC}</button>`;
+const maxBtnHtml=()=>`<button type="button" id="jmax" class="jmax" title="${ui.noteMax?"왼쪽 메뉴 · 목록을 다시 보여요":"왼쪽 메뉴 · 목록을 숨기고 노트를 창 가득 넓게 봐요"}" aria-pressed="${!!ui.noteMax}">${ui.noteMax?"원래대로":"최대화"}</button>`;
 function toggleNoteMax(){
   ui.noteMax=!ui.noteMax;saveUI();applyUI();
   const b=$("#jmax");if(b){b.outerHTML=maxBtnHtml();$("#jmax").onclick=toggleNoteMax}

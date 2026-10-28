@@ -93,7 +93,7 @@ const jumpEl=k=>({notes:()=>$("#sec-notes"),
   cm:()=>$("#sec-cm"),rel:()=>$("#sec-rel"),orig:()=>$("#sec-orig")}[k]||(()=>null))();
 function jumpHtml(n,nb){
   const c={cm:n.journals.length,rel:nb.length};
-  return `<div id="jumpbar" role="navigation" aria-label="이 일감 안에서 이동">${peeking()?`<button type="button" id="jback" class="jback" title="${NAVLABEL[nav]} 화면으로 돌아가요 (Alt+←)">← 돌아가기 · ${NAVLABEL[nav]}</button>`:""}${JUMPS.map(([k,l,ic],i)=>`<button type="button" data-jump="${k}" title="${l} 로 이동 (Alt+${i+1})"><span class="ji">${ic}</span>${l}${c[k]?`<i>${c[k]}</i>`:""}</button>`).join("")}<span class="sp"></span>${maxBtnHtml()}<button type="button" id="jtop" title="맨 위로">↑</button></div>`;
+  return `<div id="jumpbar" role="navigation" aria-label="이 일감 안에서 이동">${peeking()?`<button type="button" id="jback" class="jback" title="${NAVLABEL[nav]} 화면으로 돌아가요 (Alt+←)">← 돌아가기 · ${NAVLABEL[nav]}</button>`:""}${JUMPS.map(([k,l,ic],i)=>`<button type="button" data-jump="${k}" title="${l} 로 이동 (Alt+${i+1})"><span class="ji">${ic}</span>${l}${c[k]?`<i>${c[k]}</i>`:""}</button>`).join("")}<span class="sp"></span>${maxBtnHtml()}</div>`;
 }
 function jumpTo(n,k){
   const el=jumpEl(k);if(!el)return;
@@ -105,7 +105,6 @@ function jumpTo(n,k){
 }
 function wireJump(n){
   document.querySelectorAll("#jumpbar [data-jump]").forEach(b=>b.onclick=()=>jumpTo(n,b.dataset.jump));
-  $("#jtop").onclick=()=>$("#center").scrollTo({top:0,behavior:"smooth"});
   $("#jmax").onclick=toggleNoteMax;
   if($("#jback"))$("#jback").onclick=closePeek;
 }
