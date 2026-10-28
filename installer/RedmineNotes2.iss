@@ -16,12 +16,14 @@
   #define AppExe "RedmineNotes2-Beta.exe"
   #define AppDirName "RedmineNotes2-Beta"
   #define SetupBase "RedmineNotes2-Beta-Setup-"
+  #define AumId "RedmineNotes2.App.Beta"
 #else
   #define AppIdGuid "{{8C1F5A52-6E2B-4C1E-9B53-2D7A1E4F9A10}"
   #define AppTitle "레드마인 노트"
   #define AppExe "RedmineNotes2.exe"
   #define AppDirName "RedmineNotes2"
   #define SetupBase "RedmineNotes2-Setup-"
+  #define AumId "RedmineNotes2.App"
 #endif
 
 [Setup]
@@ -59,8 +61,9 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 Source: "..\dist\{#AppExe}"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
-Name: "{autoprograms}\{#AppTitle}"; Filename: "{app}\{#AppExe}"
-Name: "{autodesktop}\{#AppTitle}"; Filename: "{app}\{#AppExe}"; Tasks: desktopicon
+; AppUserModelID: 앱 창(rnotes/appwin.py 의 AUMID)과 같은 앱 ID — 작업 표시줄이 이 바로가기(설치할 때마다 다시 만든다)로 창을 묶고 아이콘을 찾는다
+Name: "{autoprograms}\{#AppTitle}"; Filename: "{app}\{#AppExe}"; AppUserModelID: "{#AumId}"
+Name: "{autodesktop}\{#AppTitle}"; Filename: "{app}\{#AppExe}"; AppUserModelID: "{#AumId}"; Tasks: desktopicon
 
 [Run]
 Filename: "{app}\{#AppExe}"; Description: "{cm:LaunchProgram,{#AppTitle}}"; Flags: nowait postinstall skipifsilent
