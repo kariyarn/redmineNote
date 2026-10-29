@@ -68,6 +68,7 @@ async function renderSettings(){
    ${sec("view","화면 구성","",`
      <div class="srow"><span class="sl">디자인</span><div class="sc"><div class="seg"><button type="button" id="dsOld" class="${V2()?"":"on"}">기존 디자인</button><button type="button" id="dsV2" class="${V2()?"on":""}">새 디자인</button></div></div></div>
      <div class="srow"><span class="sl">노트 모양</span><div class="sc"><div class="seg"><button type="button" id="nsDoc" class="${ui.noteStyle==="card"?"":"on"}">문서 스타일</button><button type="button" id="nsCard" class="${ui.noteStyle==="card"?"on":""}">카드</button></div></div></div>
+     <div class="srow"><span class="sl">노트 배치</span><div class="sc"><button type="button" class="mini" id="nlReset">기본 배치로 되돌리기</button><span class="hint">블록(원문 · 댓글 · 할 일 …)의 자리 · 숨기기 · 기본 접기는 노트 위쪽 이동 바의 <b>🧩 배치</b>에서 바꿔요. 모든 노트에 같이 적용돼요</span></div></div>
      <div class="srow"><span class="sl">DR 제목 모아보기</span><div class="sc"><div class="seg"><button type="button" id="drAutoMode" class="${ui.drMode==="manual"?"":"on"}">자동</button><button type="button" id="drManualMode" class="${ui.drMode==="manual"?"on":""}">수동</button></div><span class="hint">자동은 기존 조건으로 일감을 모으고, 수동은 노트에서 직접 추가한 일감만 보여요.</span></div></div>
      <div class="srow"><span class="sl">메뉴 줄 간격</span><div class="sc"><div class="seg"><button type="button" id="ndNorm" class="${ui.navDense?"":"on"}">보통</button><button type="button" id="ndDense" class="${ui.navDense?"on":""}">촘촘</button></div></div></div>
      <div class="srow"><span class="sl">메뉴에 보일 항목</span><div class="sc navopt">${NAV_OPT.map(([k,l])=>`<label class="chk"><input type="checkbox" data-navopt="${k}" ${(ui.navHide||[]).includes(k)?"":"checked"}> ${l}</label>`).join("")}<span class="hint">끈 항목은 왼쪽 메뉴에서 숨겨요 · <b>오늘</b>과 지금 보는 화면은 늘 보여요</span></div></div>
@@ -129,6 +130,7 @@ async function renderSettings(){
   document.querySelectorAll("#modal [data-th]").forEach(b=>b.onclick=()=>setTh(b.dataset.th));
   const setNs=v=>{ui.noteStyle=v;saveUI();renderSettings();if(view==="note")renderCenter()};
   q("#nsDoc").onclick=()=>setNs("doc");q("#nsCard").onclick=()=>setNs("card");
+  q("#nlReset").onclick=()=>{delete ui.nl;ui.ns={};nlEdit=null;saveUI();if(view==="note")renderCenter();toast("노트 배치를 기본으로 되돌렸어요",2400)};
   const setDrMode=v=>{ui.drMode=v;saveUI();renderSettings();if(view==="summary")renderCenter()};
   q("#drAutoMode").onclick=()=>setDrMode("auto");q("#drManualMode").onclick=()=>setDrMode("manual");
   const setDs=v=>{ui.design=v;saveUI();applyTheme();if(v!=="v2")eiRestore();renderAll();renderSettings()};

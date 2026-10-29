@@ -267,7 +267,7 @@ function simBlock(n,sim){
 }
 function renderCenter(){
   flushEdits();                       // 다른 노트/보기로 가기 전에, 저장하지 않은 변경이 있으면 먼저 자동 저장한다
-  if(view!=="note")edNote=null;
+  if(view!=="note"){edNote=null;nlEdit=null}      // 노트를 떠나면 배치 편집은 취소
   else if(cur!=null&&cur===seenOpen){const sn=all.find(x=>x.issue_id===cur);cmNewMark(sn);markSeen(sn)}     // 내가 연 노트는 본 것으로 (자동으로 오른쪽에 열린 것은 빼고). 그 전에 새 댓글을 기억해 둔다
   $("#center").classList.remove("todo-on");
   updFab();
@@ -285,8 +285,27 @@ function renderCenter(){
   if(view==="summary")return renderSummary();
   const n=all.find(x=>x.issue_id===cur);
   if(!n){edNote=null;$("#center").innerHTML=`<div class="empty" style="padding-top:12vh"><b>노트를 선택하세요</b>왼쪽 목록에서 일감을 누르면 레드마인 원문을 보고 처리·코드·이유를 기록할 수 있습니다.</div>`;return}
+  if(nlEdit)return renderNlEdit(n);     // 배치 편집 중: 블록 대신 이름표를 그린다 (notelayout.js)
   const nb=neighbors(n.issue_id),s=stOf(n),sim=simInfo(n);
-  $("#center").innerHTML=`<div class="notewrap ${nsRail()?"rail":""}" style="--nsw:${nsW()}px"><div class="notemain">
+  /* 2.29: 노트의 블록. 배치(notelayout.js)대로 본문 · 옆 칸 · 숨김에 나눠 놓는다. 숨긴 블록도 그려 두고 가리기만 한다 */
+  const B={
+    orig:`${origCard(n)}${legacyReqCard(n)}<div class="card qrelcard" id="qvrel" style="display:none"></div>`,
+    att:attBlock(n),
+    notes:nbCard(n),
+    cm:`${cf(n,"cm","댓글 이력",`<small>레드마인 댓글 ${n.journals.length}건${(n.changes||[]).length?` · 변경 ${n.changes.length}건`:""}</small>`,cmSum(n),`<button type="button" class="mini" data-cmnew title="어디서든 바로 댓글을 쓰는 창을 엽니다 (C)">＋ 새 댓글 쓰기</button>`,
+      `<div class="tl">${cmHist(n)}</div>`,nlOpen("cm",n.journals.length))}
+   <div class="card" id="sec-write"><div class="fhd"><span>댓글 쓰기</span> <small>레드마인에 바로 올립니다</small></div>${composerHtml("b",n)}</div>`,
+    rel:cf(n,"rel","연결된 일감",`<small>${nb.length}건</small>`,nb.length?"":"· 없음","",
+      nb.map(x=>{const l=all.find(a=>a.issue_id===x.id);
+        return l?`<a class="rel" data-open="${x.id}"><span class="k">${relLabel(x)}</span><span class="meta">#${x.id}</span><span>${esc(l.subject)}</span></a>`
+               :skipped[x.id]?`<a class="rel missing" href="${cfg.url}/issues/${x.id}" target="_blank"><span class="k">${relLabel(x)}</span><span class="meta">#${x.id}</span><span class="meta">받을 수 없음 (${esc(skipped[x.id])})</span><span class="go">레드마인에서 열기 ↗</span></a>`
+               :`<a class="rel missing" data-fetch="${x.id}"><span class="k">${relLabel(x)}</span><span class="meta">#${x.id}</span><span class="meta">아직 저장되지 않은 일감</span><span class="go">눌러서 가져오기</span></a>`}).join("")||`<span class="meta">연결된 일감이 없습니다.</span>`,nlOpen("rel",nb.length)),
+    sim:V2()?simBlock(n,sim):"",
+    todo:todoBlock(n),
+    pg:pgBlock(n)
+  };
+  const P=nlPlace(B);
+  $("#center").innerHTML=`<div class="notewrap ${P.side.length?nsRail(P.side)?"rail":"":"noside"}" style="--nsw:${nsW()}px"><div class="notemain">
    <div class="notebox">
    ${jumpHtml(n,nb)}
    <div class="card ehead">
@@ -308,23 +327,11 @@ function renderCenter(){
        return tk.length?`<div class="chips erow"><span class="meta">코드 대상</span>${tk.map(([k,ty])=>`<span class="chip tokchip" data-tok="${esc(k)}" title="${ty} · 이 이름이 나온 일감 ${tokIdx.get(k).notes.length}건의 이력 보기">${typePill(ty)}${esc(k)} ${relPill(n._rel.get(k)||"ref")} <small>${tokIdx.get(k).notes.length}</small></span>`).join("")}</div>`:"";
      })()}
    </div>
-   ${origCard(n)}${legacyReqCard(n)}
-   <div class="card qrelcard" id="qvrel" style="display:none"></div>
-   <div id="attwrap"></div>
-   ${nbCard(n)}
-   ${cf(n,"cm","댓글 이력",`<small>레드마인 댓글 ${n.journals.length}건${(n.changes||[]).length?` · 변경 ${n.changes.length}건`:""}</small>`,cmSum(n),`<button type="button" class="mini" data-cmnew title="어디서든 바로 댓글을 쓰는 창을 엽니다 (C)">＋ 새 댓글 쓰기</button>`,
-      `<div class="tl">${cmHist(n)}</div>`)}
-
-   <div class="card" id="sec-write"><div class="fhd"><span>댓글 쓰기</span> <small>레드마인에 바로 올립니다</small></div>${composerHtml("b",n)}</div>
+   ${P.main}
+   <div class="nl-hidden" hidden>${P.hidden}</div>
    </div>
-   ${cf(n,"rel","연결된 일감",`<small>${nb.length}건</small>`,nb.length?"":"· 없음","",
-      nb.map(x=>{const l=all.find(a=>a.issue_id===x.id);
-        return l?`<a class="rel" data-open="${x.id}"><span class="k">${relLabel(x)}</span><span class="meta">#${x.id}</span><span>${esc(l.subject)}</span></a>`
-               :skipped[x.id]?`<a class="rel missing" href="${cfg.url}/issues/${x.id}" target="_blank"><span class="k">${relLabel(x)}</span><span class="meta">#${x.id}</span><span class="meta">받을 수 없음 (${esc(skipped[x.id])})</span><span class="go">레드마인에서 열기 ↗</span></a>`
-               :`<a class="rel missing" data-fetch="${x.id}"><span class="k">${relLabel(x)}</span><span class="meta">#${x.id}</span><span class="meta">아직 저장되지 않은 일감</span><span class="go">눌러서 가져오기</span></a>`}).join("")||`<span class="meta">연결된 일감이 없습니다.</span>`)}
-   ${V2()?simBlock(n,sim):""}
    <div class="savebar"><button class="primary" id="save">저장</button><span class="meta" id="sv">✓ 저장된 상태 · Ctrl+S 로 저장 · 내 기록은 이 PC에만 저장됩니다</span></div>
-   </div>${nsHtml(n)}</div>`;
+   </div>${nsHtml(n,P.side,B)}</div>`;
   document.querySelectorAll("[data-open]").forEach(e=>{e.onclick=ev=>openNote(+e.dataset.open,tabOpt(ev));e.onauxclick=ev=>{if(ev.button===1){ev.preventDefault();openNote(+e.dataset.open,{bg:true})}}});
   document.querySelectorAll("[data-fetch]").forEach(e=>e.onclick=async()=>{
     const id=+e.dataset.fetch;toast(`#${id} 가져오는 중…`,0);
