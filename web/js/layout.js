@@ -35,11 +35,11 @@ function applyUI(){
   if($("#cmfab"))placeCm();     // 사전 칸을 접고 펴거나 칸 너비를 바꾸면 💬 단추도 가운데 칸 오른쪽을 따라간다
   nsCenter();                   // 칸 폭이 바뀌면 노트를 다시 창 가운데로
 }
-function dragSplit(id,fn){
-  $(id).onmousedown=e=>{e.preventDefault();document.body.style.userSelect="none";
-    const mv=ev=>{fn(ev.clientX);applyUI()};
-    const up=()=>{document.removeEventListener("mousemove",mv);document.removeEventListener("mouseup",up);document.body.style.userSelect="";saveUI();if(view==="graph")renderGraph()};
-    document.addEventListener("mousemove",mv);document.addEventListener("mouseup",up)};
+function dragSplit(id,fn){   // 2.29.1: 포인터를 손잡이에 붙잡아(setPointerCapture) 끄는 동안 다른 칸 위로 지나가도 놓치지 않는다
+  const el=$(id);
+  el.onpointerdown=e=>{if(e.button!==0)return;e.preventDefault();el.setPointerCapture(e.pointerId);el.classList.add("drag");document.body.style.userSelect="none";
+    el.onpointermove=ev=>{fn(ev.clientX);applyUI()};
+    el.onpointerup=el.onpointercancel=()=>{el.onpointermove=el.onpointerup=el.onpointercancel=null;el.classList.remove("drag");document.body.style.userSelect="";saveUI();if(view==="graph")renderGraph()}};
 }
 dragSplit("#s1",x=>ui.lw=Math.max(260,Math.min(640,x-NAVW)));
 dragSplit("#s2",x=>ui.rw=Math.max(220,Math.min(600,innerWidth-x)));

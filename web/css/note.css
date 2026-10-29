@@ -291,7 +291,7 @@ mark.ann.m{border-bottom:2px dotted var(--accent);border-radius:0}
 .ns-split:hover::after,.ns-split.drag::after{background:var(--accent)}
 .rail .ns-split{cursor:default}.rail .ns-split::after{display:none}
 .noteside{position:sticky;top:0;display:flex;flex-direction:column;gap:14px;padding:6px 0 24px;max-height:calc(100vh - 30px);overflow:auto;min-width:0}
-.ns-top{display:flex;gap:6px;flex-wrap:wrap}
+.ns-top{display:flex;gap:6px;flex-wrap:wrap;position:sticky;top:-6px;z-index:3;margin-top:-6px;padding:6px 0 8px;background:var(--bg)}   /* 2.29.1: 옆 칸을 내려도 단추는 위에 붙어 있다 */
 .ns-pill{border:1px solid var(--line);background:var(--surface);color:var(--sub);border-radius:999px;padding:3px 10px;font-size:.82rem;font-weight:600;cursor:pointer;white-space:nowrap}
 .ns-pill.on{color:var(--text);border-color:color-mix(in srgb,var(--accent) 55%,var(--line));background:var(--accent-soft)}
 .ns-pill i{font-style:normal;font-size:.72rem;margin-left:5px;padding:0 6px;border-radius:999px;background:var(--accent);color:var(--accent-ink)}
