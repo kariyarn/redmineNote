@@ -1,0 +1,119 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="__APP__/static/css/theme.css"><link rel="stylesheet" href="__APP__/static/css/base.css"><link rel="stylesheet" href="__APP__/static/css/note.css"><link rel="stylesheet" href="__APP__/static/css/features.css"><link rel="stylesheet" href="__APP__/static/css/v2.css"><link rel="stylesheet" href="__APP__/static/css/comment_editor.css"></head>
+<body><div id="attachmentcases" class="attcard"><div class="attitem has-delete"><a class="attrow attmain" href="#download" download="fixture.txt"><span class="ai">📎</span><span class="an">아주긴첨부파일이름_한국어_abcdefghijkl.txt</span><span class="am">1 KB · 작성자 · 2026-10-30</span><span class="dl">⬇ 다운로드</span></a><button type="button" class="mini attdelete"><svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none"><path d="M4 6h16M6 6l1 15h10l1-15"/></svg><span class="attdelete-label">삭제</span></button></div><div class="attitem"><a class="attrow attmain" href="#download" download="fixture.txt"><span class="ai">📎</span><span class="an">아주긴첨부파일이름_한국어_abcdefghijkl.txt</span><span class="am">1 KB · 작성자 · 2026-10-30</span><span class="dl">⬇ 다운로드</span></a></div><div class="attitem has-delete"><a class="attrow attmain img" href="#download" download="fixture.png"><img class="rimg athumb" src="/api/rm/attachment?id=78&amp;name=fixture.png" alt="그림"><span class="an">아주긴첨부파일이름_한국어_abcdefghijkl.png</span><span class="am">1 KB · 작성자 · 2026-10-30</span><span class="dl">⬇ 다운로드</span></a><button type="button" class="mini attdelete"><svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none"><path d="M4 6h16M6 6l1 15h10l1-15"/></svg><span class="attdelete-label">삭제</span></button></div><div class="attitem"><a class="attrow attmain img" href="#download" download="fixture.png"><img class="rimg athumb" src="/api/rm/attachment?id=78&amp;name=fixture.png" alt="그림"><span class="an">아주긴첨부파일이름_한국어_abcdefghijkl.png</span><span class="am">1 KB · 작성자 · 2026-10-30</span><span class="dl">⬇ 다운로드</span></a></div></div><div id="one" class="rte cmta"></div><div id="two" class="rte cmta"></div><pre id="result">pending</pre>
+<script>const cfg={url:location.origin},ui={fsz:"m",lnum:false},esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])),toast=()=>{},askC=async()=>true,notices=[];window.onerror=(m)=>{document.querySelector('#result').textContent=JSON.stringify({ok:false,error:String(m)})};</script>
+<script src="__APP__/static/js/editor.js"></script><script src="__APP__/static/js/comment_editor.js"></script>
+<script>
+(async()=>{
+  const result=document.querySelector('#result'),checks=[];
+  const assert=(name,condition)=>{if(!condition)throw Error(name);checks.push(name)};
+  try{
+    // 프록시 차단 사전 검증 뒤에만 편집기 검사를 시작한다. 외부 요청은 전달하지 않는다.
+    const violations=[];document.addEventListener('securitypolicyviolation',e=>violations.push(e.blockedURI));
+    let denied=false;try{await fetch('https://outside.invalid/browser-preflight')}catch{denied=true}
+    await new Promise(resolve=>setTimeout(resolve,0));assert('loopback-only browser CSP preflight',denied&&violations.some(x=>x.startsWith('https://outside.invalid')));
+    document.documentElement.dataset.design=new URLSearchParams(location.search).get('design')==='v2'?'v2':'classic';
+    const root=document.querySelector('#one'),peer=document.querySelector('#two');
+    const a=new CommentEditor(root,{value:'<p>한국어 첫 줄</p><p>둘째 줄</p>',format:'html',issueId:93599});
+    const b=new CommentEditor(peer,{value:a.getRaw(),format:'html',issueId:93599});
+    a.onChange=value=>b.setPeer(value,a.format);
+    const choose=(node,start=0,end=node.textContent.length)=>{let t=node.nodeType===3?node:node.firstChild;const range=document.createRange();range.setStart(t,start);range.setEnd(t,end);const s=getSelection();s.removeAllRanges();s.addRange(range);a.remember()};
+    assert('original HTML is not rewritten on mount',a.getRaw()==='<p>한국어 첫 줄</p><p>둘째 줄</p>');
+    choose(a.visual.querySelector('p'));await a.command('bold');assert('bold visual command',/<b>|<strong>/.test(a.getRaw()));
+    await a.command('italic');assert('italic visual command',/<i>|<em>/.test(a.getRaw()));
+    await a.command('underline');assert('underline visual command',/<u>/.test(a.getRaw()));
+    await a.command('strikeThrough');assert('strike visual command',/<strike>|<s>/.test(a.getRaw()));
+    assert('peer contents remain shared',b.getRaw()===a.getRaw());
+    const before=a.getRaw();await a.command('undo');assert('undo changes snapshot',a.getRaw()!==before);await a.command('redo');assert('redo restores snapshot',a.getRaw()===before);
+    a.setRaw('<p>선택한 글자</p>');choose(a.visual.querySelector('p'));a.wrapStyle('font-size','24px');assert('font size',a.getRaw().includes('font-size:24px'));
+    choose(a.visual.querySelector('p'));a.wrapStyle('color','#ff0000');assert('font color',/color:(?:#ff0000|rgb\(255, 0, 0\))/.test(a.getRaw()));
+    a.setRaw('<p>제목</p>');choose(a.visual.querySelector('p'));root.querySelector('.cestyle').value='h2';root.querySelector('.cestyle').dispatchEvent(new Event('change'));assert('heading style',a.getRaw().includes('<h2>'));
+    a.setRaw('<p>첫째</p><p>둘째</p>');choose(a.visual.querySelector('p'));await a.command('insertUnorderedList');assert('bulleted list',a.getRaw().includes('<ul>'));await a.command('indent');assert('indent native command available',document.queryCommandSupported('indent'));await a.command('outdent');
+    a.setRaw('<p>번호</p>');choose(a.visual.querySelector('p'));await a.command('insertOrderedList');assert('numbered list',a.getRaw().includes('<ol>'));
+    a.setRaw('<p>정렬</p>');choose(a.visual.querySelector('p'));await a.command('justifyCenter');assert('paragraph alignment',a.getRaw().includes('text-align:center'));
+    let prompts=['https://example.invalid/path?a=1&b=2'];window.prompt=()=>prompts.shift();a.setRaw('<p>링크 글자</p>');choose(a.visual.querySelector('p'));await a.command('link');assert('link insertion',a.getRaw().includes('href="https://example.invalid/path?a=1&amp;b=2"'));
+    prompts=['https://example.invalid/edited'];choose(a.visual.querySelector('a'));await a.command('link');assert('link editing',a.getRaw().includes('/edited'));
+    a.setRaw('<p>표</p>');choose(a.visual.querySelector('p'));prompts=['2x2'];await a.command('table');assert('table insertion',a.visual.querySelectorAll('td').length===4);
+    choose(a.visual.querySelector('td'),0,0);await a.command('row');assert('table add row',a.visual.querySelectorAll('tr').length===3);
+    choose(a.visual.querySelector('td'),0,0);await a.command('column');assert('table add column',a.visual.querySelectorAll('td').length===9);
+    choose(a.visual.querySelector('td'),0,0);await a.command('removeColumn');assert('table remove column',a.visual.querySelectorAll('td').length===6);
+    choose(a.visual.querySelector('td'),0,0);await a.command('removeRow');assert('table remove row',a.visual.querySelectorAll('tr').length===2);
+    a.setRaw('<p>코드 앞</p>');choose(a.visual.querySelector('p'));await a.command('code');assert('code block',a.visual.querySelector('pre code'));
+    a.setRaw('<p>before</p>');choose(a.visual.querySelector('p'));const attack='<b>안전한 글</b><script>window.PWNED=1<\/script><img src="https://outside.invalid/track" onerror="window.PWNED=1"><a href="javascript:alert(1)">bad</a><svg onload="window.PWNED=1"></svg>';
+    const clipboard={getData:type=>type==='text/html'?attack:'안전한 글'};a.paste({preventDefault(){},stopPropagation(){},clipboardData:clipboard},a.visual);
+    assert('HTML paste removes scripts events dangerous URLs and remote images',!window.PWNED&&!/script|onerror|javascript:|outside.invalid/.test(a.getRaw())&&a.getRaw().includes('안전한 글'));
+    a.setRaw('<p>한국어</p>');const original=a.getRaw();a.composing=true;a.visual.querySelector('p').textContent='한국어 입력\n다음 줄';a.changed(a.visual);assert('IME does not publish incomplete composition',a.getRaw()===original);a.visual.dispatchEvent(new CompositionEvent('compositionend',{bubbles:true}));assert('Korean composition commits without loss',a.getRaw().includes('한국어 입력\n다음 줄'));
+    await a.command('source');a.source.value='<p>소스\n편집</p>';a.source.dispatchEvent(new Event('input',{bubbles:true}));assert('source edit preserved exactly',a.getRaw()==='<p>소스\n편집</p>');await a.command('source');assert('source visual toggle preserves raw',a.getRaw()==='<p>소스\n편집</p>');
+    const unsupported='<p data-original="keep">서식 <span style="position:fixed">원문</span></p>';a.setRaw(unsupported);assert('unsupported original HTML stays in source without rewriting',a.sourceMode&&a.getRaw()===unsupported);
+    for(const mode of ['markdown','textile']){
+      a.format=mode;a.sourceMode=false;a.setRaw('한국어\n둘째');choose(a.visual.querySelector('p'));await a.command('bold');assert(mode+' formatted serialization',a.getRaw().includes(mode==='markdown'?'**한국어**':'*한국어*'));
+      assert(mode+' hides unsupported font and alignment controls',!a.tools.querySelector('.cecolor')&&!a.tools.querySelector('[data-ce="justifyCenter"]'));
+    }
+    const unsafe=CommentCodec.clean('<iframe src="https://outside.invalid"></iframe><a href="java&#x73;cript:alert(1)">x</a><div style="background:url(https://outside.invalid)">text</div>');assert('display sanitizer rejects encoded URLs and CSS',!unsafe.html.includes('javascript')&&!unsafe.html.includes('outside.invalid'));
+    const md=CommentCodec.parse('[link](https://example.invalid?a=1&b=2)','markdown');assert('link query string is not double encoded',md.node.querySelector('a').getAttribute('href')==='https://example.invalid?a=1&b=2');
+    a.setDisabled(true);assert('busy disables editor and toolbar',a.source.disabled&&a.visual.contentEditable==='false'&&root.querySelector('.ceformat').disabled);a.setDisabled(false);
+    const button=document.querySelector('.attdelete'),style=getComputedStyle(button);button.focus();assert('delete label always visible',button.textContent.includes('삭제')&&style.display!=='none');
+    assert('delete keyboard focus',document.activeElement===button);assert('delete button minimum hit area',button.getBoundingClientRect().height>=34);
+    let downloads=0,deletes=0;document.querySelector('.attmain').onclick=e=>{downloads++;e.preventDefault()};button.onclick=e=>{deletes++;e.preventDefault();e.stopPropagation()};button.click();assert('delete button is never inside download link and does not download',!button.closest('a')&&downloads===0&&deletes===1);
+    a.format='html';a.sourceMode=false;a.setRaw('<p>이미지 앞</p><p>이미지 뒤</p>');choose(a.visual.querySelector('p'),0,0);
+    const attachment={id:78,filename:'첨부.png',content_url:cfg.url+'/attachments/download/78/attachment.png'};
+    window.api=async()=>[attachment];await a.command('image');assert('image chooser has preview and real ID choices',a.images.querySelector('[data-image-id="78"] img'));
+    a.images.querySelector('[data-image-id="78"]').click();assert('image insertion saves Redmine content URL without local API URL',a.getRaw().includes(attachment.content_url)&&!a.getRaw().includes('/api/rm/'));
+    await a.visual.querySelector('img').decode();assert('inserted proxy image actually decodes',a.visual.querySelector('img').naturalWidth>0);
+    a.visual.querySelector('img').click();prompts=['240'];await a.command('imageSize');assert('native selected image resize is saved',a.getRaw().includes('width="240"'));
+    const imageRaw=a.getRaw();await a.command('source');await a.command('source');assert('image source visual roundtrip preserves exact raw',a.getRaw()===imageRaw);
+    a.visual.querySelector('img').click();await a.command('imageAfter');assert('native image reposition preserves address',a.getRaw().includes(attachment.content_url));await a.command('imageRemove');assert('native image removal does not delete attachment',!a.getRaw().includes('<img'));await a.command('undo');assert('native undo restores image',a.getRaw().includes('<img'));
+    const imageState={};a.imageState=()=>imageState;a.onImageUpload=async()=>{imageState.message='가짜 실패: 파일 유지'};await a.command('image');
+    const hex='89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000d49444154789c63f8cfc0f01f00050001ff89993d1d0000000049454e44ae426082';
+    const imageFile=new File([Uint8Array.from(hex.match(/../g),x=>parseInt(x,16))],'new.png',{type:'image/png'}),dt=new DataTransfer();dt.items.add(imageFile);a.images.querySelector('.ceimagefile').files=dt.files;await a.images.querySelector('.ceimagefile').onchange();assert('new file preview never becomes a saved blob URL',a.images.querySelector('.ceimagepreview img').src.startsWith('blob:')&&!a.getRaw().includes('blob:'));await a.images.querySelector('.ceimagepreview img').decode();assert('selected new image actually decodes locally',a.images.querySelector('.ceimagepreview img').naturalWidth>0);
+    await a.uploadImage();assert('failed new image upload preserves chosen File and raw',imageState.file===imageFile&&a.getRaw().includes(attachment.content_url));a.closeImages();
+    const cases=document.querySelector('#attachmentcases');
+    for(const width of [640,320,180]){
+      cases.style.width=width+'px';
+      const items=[...cases.querySelectorAll('.attitem')],outer=items[0].getBoundingClientRect().width;
+      assert('equal outer widths at '+width,items.every(item=>Math.abs(item.getBoundingClientRect().width-outer)<1));
+      for(const item of items){const box=item.querySelector('.attrow'),del=item.querySelector('.attdelete'),r=item.getBoundingClientRect(),b=box.getBoundingClientRect();
+        if(del){const d=del.getBoundingClientRect();assert('delete is outside file border with 8px gap at '+width,!del.closest('.attrow')&&Math.abs(d.left-b.right-8)<1);assert('file and delete heights align at '+width,Math.abs(d.top-b.top)<1&&Math.abs(d.height-b.height)<1);assert('remaining width equals file plus gap and delete at '+width,Math.abs(b.width+8+d.width-r.width)<1)}
+        else assert('foreign attachment uses entire width at '+width,Math.abs(b.width-r.width)<1);
+        assert('no horizontal file or outer overflow at '+width,item.scrollWidth<=item.clientWidth+1&&box.scrollWidth<=box.clientWidth+1);
+      }
+    }
+    cases.style.width='100%';
+    assert('HTML editor has no Markdown Textile or format menu',!root.querySelector('select.ceformat')&&a.tools.querySelector('[data-ce="bold"]').getAttribute('aria-label')==='굵게');
+    const legacy=document.createElement('div');legacy.className='bubble';legacy.innerHTML=commentSafeDisplay('<p style="margin:0;padding:0">앞 문단</p>\n<p><img data-rich-file-id="42" src="/system/rich/a%20b.png"></p>\n<div>중간<br>다음</div><table><tr><td><img src="/system/attachments/a.png"></td></tr></table><p>뒤 문단</p>','source');document.body.appendChild(legacy);
+    for(const img of legacy.querySelectorAll('img'))await img.decode();assert('CKEditor images decode in historical display',legacy.querySelectorAll('img').length===2&&[...legacy.querySelectorAll('img')].every(i=>i.naturalWidth>0));
+    assert('historical paragraphs do not inherit pre-wrap or double default margins',getComputedStyle(legacy.querySelector('.remote-html')).whiteSpace==='normal'&&parseFloat(getComputedStyle(legacy.querySelector('p')).marginTop)===0);
+    for(const theme of ['light','dark','nord','mocha','cyberpunk','terminal','kotori','emerald','lavender','hcl']){document.documentElement.dataset.theme=theme;const label=button.querySelector('.attdelete-label'),box=document.querySelector('.attrow');assert('theme '+theme+' matches adjacent file box with red icon and label',!!label&&getComputedStyle(label).color===getComputedStyle(button).color&&getComputedStyle(button).backgroundColor===getComputedStyle(box).backgroundColor&&getComputedStyle(button).borderTopColor===getComputedStyle(box).borderTopColor&&getComputedStyle(button).borderRadius===getComputedStyle(box).borderRadius)}
+    a.format='html';a.sourceMode=false;a.setRaw('<p>이미지 커서 위치</p>');choose(a.visual.querySelector('p'),0,0);await a.command('image');a.images.querySelector('[data-image-id="78"]').click();document.execCommand('insertText',false,'이미지 뒤 한국어');a.changed(a.visual);assert('native caret allows text after image insertion',a.getRaw().includes('<img')&&a.getRaw().includes('이미지 뒤 한국어'));
+    a.format='html';a.sourceMode=false;a.setRaw('<p>첫 번째 문단두 번째 문단</p>');choose(a.visual.querySelector('p'),7,7);
+    const key=(shift=false)=>a.visual.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',shiftKey:shift,bubbles:true,cancelable:true}));
+    key();assert('Enter produces sibling p paragraphs',a.visual.querySelectorAll('p').length===2&&a.getRaw()==='<p>첫 번째 문단</p><p>두 번째 문단</p>');
+    choose(a.visual.querySelectorAll('p')[1],0,0);key();key();assert('repeated Enter preserves empty paragraphs',a.visual.querySelectorAll('p').length===4);
+    a.setRaw('<p>첫 번째 줄두 번째 줄</p>');choose(a.visual.querySelector('p'),6,6);key(true);assert('Shift Enter stays in one p and inserts br',a.visual.querySelectorAll('p').length===1&&a.getRaw()==='<p>첫 번째 줄<br>두 번째 줄</p>');
+    const lineRaw=a.getRaw();await a.command('source');await a.command('source');assert('paragraph HTML survives source roundtrip',a.getRaw()===lineRaw);
+    a.setRaw('<p><strong>현재 위치</strong></p>');choose(a.visual.querySelector('strong'),1,1);assert('caret breadcrumb tracks inline formatting',a.path.textContent==='body > p > strong');assert('current paragraph has edit-only dotted outline',getComputedStyle(a.visual.querySelector('p')).outlineStyle==='dashed');assert('editing markers never enter source',!CommentCodec.serialize(a.visual.innerHTML,'html').includes('data-ce-current')&&!a.getRaw().includes('cepath'));
+    a.setRaw('<ul><li>목록</li></ul>');choose(a.visual.querySelector('li'),1,1);assert('list has no paragraph marker',!a.visual.querySelector('[data-ce-current]'));document.execCommand('insertParagraph');a.changed(a.visual);assert('native list Enter preserves list structure',a.visual.querySelectorAll('li').length===2);
+    a.setRaw('<table><tbody><tr><td><p>표 안</p></td></tr></tbody></table>');choose(a.visual.querySelector('p'),1,1);assert('table cell has no paragraph marker',!a.visual.querySelector('[data-ce-current]'));document.execCommand('insertParagraph');a.changed(a.visual);assert('native table Enter stays inside original cell',a.visual.querySelectorAll('td').length===1&&a.visual.querySelectorAll('tr').length===1);
+    a.setRaw('<pre><code>코드</code></pre>');choose(a.visual.querySelector('code'),2,2);key();assert('code Enter inserts newline without p',a.getRaw()==='<pre><code>코드\n</code></pre>'&&!a.visual.querySelector('p'));
+    a.setRaw('<p><img src="'+attachment.content_url+'">이미지 뒤</p>');choose(a.visual.querySelector('p').lastChild,0,0);key();assert('Enter alongside image keeps the image',a.visual.querySelectorAll('img').length===1&&a.visual.querySelectorAll('p').length===2);
+    // Native DOM command checks. Hardware Backspace/IME remain a separate manual check.
+    a.setRaw('<p>첫 문단</p><p>둘째 문단</p><p><br></p>');choose(a.visual.querySelectorAll('p')[0],0,0);
+    const marked=()=>[...a.visual.children].every(p=>getComputedStyle(p).outlineStyle==='dashed'&&getComputedStyle(p,'::before').content==='"P"');
+    assert('all ordinary paragraphs including empty p show CSS markers',marked());choose(a.visual.querySelectorAll('p')[1],1,1);
+    assert('caret movement preserves other markers and highlights only one paragraph',marked()&&a.visual.querySelectorAll('[data-ce-current]').length===1&&!a.visual.children[0].hasAttribute('data-ce-current'));
+    for(const theme of ['light','dark','nord','mocha','cyberpunk','terminal','kotori','emerald','lavender','hcl']){document.documentElement.dataset.theme=theme;assert('persistent markers with transparent backgrounds and outline-only emphasis in '+theme,marked()&&[...a.visual.children].every(p=>getComputedStyle(p).backgroundColor==='rgba(0, 0, 0, 0)')&&getComputedStyle(a.visual.children[1]).outlineColor!==getComputedStyle(a.visual.children[0]).outlineColor)}
+    const nativeDelete=(forward=false)=>{a.visual.dispatchEvent(new InputEvent('beforeinput',{inputType:forward?'deleteContentForward':'deleteContentBackward',bubbles:true}));document.execCommand(forward?'forwardDelete':'delete');a.visual.dispatchEvent(new InputEvent('input',{inputType:forward?'deleteContentForward':'deleteContentBackward',bubbles:true}))};
+    a.setRaw('<p>처음</p>');choose(a.visual.querySelector('p'),0,0);nativeDelete();assert('native first paragraph start Backspace keeps p and caret',a.visual.querySelector('p')?.textContent==='처음'&&getSelection().anchorNode!==a.visual);
+    a.setRaw('<p>가</p>');choose(a.visual.querySelector('p'),1,1);nativeDelete();assert('native final character deletion leaves p br',a.visual.querySelectorAll('p').length===1&&a.visual.querySelectorAll('br').length===1&&!a.visual.textContent);
+    for(let i=0;i<4;i++)nativeDelete();assert('native repeated empty Backspace keeps a single p',a.visual.querySelectorAll('p').length===1&&a.visual.querySelectorAll('br').length===1);
+    a.setRaw('<p><strong>앞</strong></p><p><em>뒤</em></p>');choose(a.visual.querySelector('em'),0,0);nativeDelete();assert('native paragraph merge preserves inline formats',a.visual.querySelectorAll('p').length===1&&a.visual.querySelector('strong')?.textContent==='앞'&&a.visual.querySelector('em')?.textContent==='뒤');
+    const mergeRaw=a.getRaw();await a.command('source');await a.command('source');assert('merged paragraph survives mode switch with no editor data',a.getRaw()===mergeRaw&&!a.getRaw().includes('data-ce-'));
+    const allRange=document.createRange();allRange.selectNodeContents(a.visual);getSelection().removeAllRanges();getSelection().addRange(allRange);nativeDelete();assert('native full selection delete keeps a usable empty p',a.visual.querySelectorAll('p').length===1&&!a.visual.textContent&&getSelection().anchorNode!==a.visual);
+    a.setRaw('<p><b>가나</b></p>');choose(a.visual.querySelector('b'),0,0);nativeDelete(true);assert('native forward Delete still removes text and preserves format',a.visual.querySelector('b')?.textContent==='나');
+    a.setRaw('');a.visual.focus();a.visual.dispatchEvent(new FocusEvent('focus'));assert('empty editor focus and mode switch do not publish placeholders',a.getRaw()===''&&a.visual.querySelectorAll('p').length===1);for(let i=0;i<3;i++){await a.command('source');await a.command('source')}assert('empty mode toggles never accumulate p or br',a.getRaw()===''&&a.visual.querySelectorAll('br').length<=1);
+    for(const html of ['<ul><li><p>목록</p></li></ul>','<table><tr><td><p>표</p></td></tr></table>','<pre><code>코드</code></pre>','<p><img src="'+attachment.content_url+'"></p>']){a.setRaw(html);const p=a.visual.querySelector('p,code');choose(p,0,0);assert('structured content has no general P boundary',getComputedStyle(p,'::before').content!=='"P"'&&!p.hasAttribute('data-ce-current'))}
+    let nativeDownloads=0;const downloadBox=document.querySelector('.attrow');downloadBox.onclick=e=>{nativeDownloads++;e.preventDefault()};downloadBox.querySelector('.am').click();assert('metadata and padding share full-box download anchor',nativeDownloads===1&&downloadBox.tagName==='A'&&downloadBox.hasAttribute('download')&&getComputedStyle(downloadBox).textDecorationLine==='none');
+    result.textContent=JSON.stringify({ok:true,checks:checks.length,names:checks});
+  }catch(e){result.textContent=JSON.stringify({ok:false,error:String(e.stack||e),checks:checks.length,names:checks})}
+})();
+</script></body></html>

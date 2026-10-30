@@ -227,16 +227,19 @@ function applyFmt(root){
   root.querySelectorAll(".cbk").forEach(b=>b._upd&&b._upd());
 }
 function edInit(root,md){
+  if(root._commentEditor){root._commentEditor.setRaw(md);return}
   root.textContent="";
   parseSegs(md||"",false).forEach(g=>root.appendChild(g.t==="x"?mkText(g.s):mkCode(g.s,g.lang)));
   fixStructure(root);applyFmt(root);
 }
 function edGet(root){   // 편집기 -> 저장용 글 (``` 와 ` 로 되돌린다). 문단 안 줄바꿈 표시는 댓글 입력칸(.cmta)에서만 남긴다
+  if(root._commentEditor)return root._commentEditor.getRaw();
   const out=[...root.children].map(el=>el.classList.contains("cbk")
     ?"```"+(el.dataset.lang||"")+"\n"+el.querySelector("textarea").value.replace(/\n+$/,"")+"\n```":serText(el)).filter(s=>s!=="").join("\n");
   return root.classList.contains("cmta")?out:softNl(out);
 }
 function addCodeBox(root){
+  if(root._commentEditor){root._commentEditor.addCode();return}
   const act=document.activeElement,after=act&&act.classList&&act.classList.contains("tb")&&root.contains(act)?act:root.lastElementChild;
   const box=mkCode("","");after.after(box);fixStructure(root);applyFmt(root);box.querySelector("textarea").focus();
 }
@@ -351,7 +354,7 @@ function renderCenter(){
   $("#fsz").onchange=$("#fwrap").onchange=$("#flnum").onchange=refmt;
   if($("#reltip"))$("#reltip").style.display="none";
   $("#save").onclick=()=>saveNote();
-  wireCf(n);wireJump(n);wireComposer($("#sec-write"),n);loadAtt(n);fillAttImgs();
+  wireCf(n);wireJump(n);wireComposer($("#sec-write"),n);mountJournalEditors();loadAtt(n);fillAttImgs();
   $("#refone").onclick=()=>refreshOne(n,true);autoRefresh(n);
   document.querySelectorAll("[data-cmnew]").forEach(b=>b.onclick=ev=>{ev.stopPropagation();toggleCm(true)});
   spy();cmNewApply(n);annPaint(n);

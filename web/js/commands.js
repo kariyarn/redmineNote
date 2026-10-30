@@ -145,7 +145,7 @@ async function cmdApply(c,id){
   const item=cmdItems.find(x=>x.id===id),ta=c.querySelector(".cmta"),iid=nIssueId(c);
   if(!item||!ta)return;
   const n=all.find(x=>x.issue_id===iid)||curNote(),r=await cmdExpand(item.description,n);
-  edInit(ta,r.text);setDraft(iid,edGet(ta));syncComposers(n||curNote(),ta);
+  edInit(ta,ta._commentEditor?.format==="html"?commentTextHTML(r.text):r.text);setDraft(iid,edGet(ta));syncComposers(n||curNote(),ta);
   const last=ta.querySelector(".tb:last-of-type")||ta.lastElementChild;if(last&&last.focus)last.focus();
   if(r.errors.length)toast("바꾸지 못한 변수가 있어요 — "+r.errors.join(" · "),7000);
 }

@@ -14,20 +14,27 @@ async function refreshOne(n,manual){
   }catch(e){if(manual)toast("새로 읽지 못했어요: "+e.message,5000)}
 }
 function autoRefresh(n){if(Date.now()-(lastRef.get(n.issue_id)||0)>60000)refreshOne(n,false)}
-/* ---------- 첨부파일: 본문 첨부 + 댓글 첨부를 보여 주고 내려받기 (읽기 전용) ---------- */
+/* ---------- 첨부파일: 본문 첨부 + 댓글 첨부, 본인 파일 삭제 ---------- */
 const attCache=new Map();
+const attVersions=new Map();
+function invalidateAtt(id){
+  for(const key of attCache.keys())if(key.startsWith(id+"|"))attCache.delete(key);
+  attVersions.set(id,(attVersions.get(id)||0)+1);
+}
 async function loadAtt(n){
   const id=n.issue_id,box=$("#attwrap");if(!box)return;
+  const version=attVersions.get(id)||0;
   let list=attCache.get(id+"|"+n.updated_on);
-  if(!list){try{list=await api("/api/rm/attachments?issue_id="+id)}catch(e){return}attCache.set(id+"|"+n.updated_on,list)}
+  if(!list){try{list=await api("/api/rm/attachments?issue_id="+id)}catch(e){return}if(version!==(attVersions.get(id)||0))return;attCache.set(id+"|"+n.updated_on,list)}
   const b2=$("#attwrap");if(!b2||cur!==id||view!=="note")return;
   if(!list.length){b2.innerHTML="";return}
   const src=a=>`/api/rm/attachment?id=${a.id}&name=${encodeURIComponent(a.filename)}`;
   const meta=a=>`${kb(a.filesize)} · ${esc(a.author)} · ${esc(lDay(a.created_on))} · ${a.source==="comment"?`댓글 (${esc(a.comment_by)} ${esc(lDay(a.comment_at).slice(5))})`:"본문"}`;
+  const del=a=>a.can_delete&&canWrite(n)?`<button type="button" class="mini attdelete" data-delete-att="${a.id}" data-issue="${id}" title="${esc(a.filename)} 삭제" aria-label="${esc(a.filename)} 삭제" ${cmBusy.has(id)||rmManagePending.has(id)?"disabled":""}><svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 6h16M9 6V3h6v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg> <span class="attdelete-label">삭제</span></button>`:"";
   b2.innerHTML=`<div class="card attcard"><div class="fhd"><span>첨부파일</span><small>${list.length}개 · 사진은 눌러서 크게 · 다른 파일은 눌러서 내려받기</small></div>
-    ${list.map(a=>isImgAtt(a)
-      ?`<div class="attrow img" title="${esc(a.description||a.filename)}"><img class="rimg athumb" loading="lazy" src="${src(a)}" data-full="${src(a)}" alt="${esc(a.filename)}" title="누르면 크게 봐요 (확대·축소 가능)"><div class="ab"><span class="an">${esc(a.filename)}</span><span class="am">${meta(a)}</span></div><a class="dl" href="${src(a)}" download="${esc(a.filename)}">⬇ 저장</a></div>`
-      :`<a class="attrow" href="${src(a)}" download="${esc(a.filename)}" title="${esc(a.description||a.filename)}"><span class="ai">📎</span><span class="an">${esc(a.filename)}</span><span class="am">${meta(a)}</span><span class="dl">⬇ 다운로드</span></a>`).join("")}</div>`;
+    ${list.map(a=>{const remove=del(a);return `<div class="attitem${remove?" has-delete":""}">`+(isImgAtt(a)
+      ?`<a class="attrow attmain img" href="${src(a)}" download="${esc(a.filename)}" title="${esc(a.filename)} · Enter: 다운로드 / Space: 확대 보기"><img class="rimg athumb" loading="lazy" src="${src(a)}" data-full="${src(a)}" alt="${esc(a.filename)}"><span class="ab"><span class="an">${esc(a.filename)}</span><span class="am">${meta(a)}</span></span><span class="dl">⬇ 다운로드</span></a>`
+      :`<a class="attrow attmain" href="${src(a)}" download="${esc(a.filename)}" title="${esc(a.description||a.filename)}"><span class="ai">📎</span><span class="an">${esc(a.filename)}</span><span class="am">${meta(a)}</span><span class="dl">⬇ 다운로드</span></a>`)+remove+"</div>"}).join("")}</div>`;
   setTimeout(()=>{fillAttImgs();fillAttPlaces();updThumbs(list)},0);
 }
 const isImgAtt=a=>/^image\//i.test(a.content_type||"")||/\.(png|jpe?g|gif|bmp|webp)$/i.test(a.filename||"");
@@ -170,13 +177,15 @@ function remoteText(raw){
 }
 /* ---- 사진: 본문·댓글의 <img> / !파일.png! 를 그 자리에 보여 준다 (사진은 앱 서버를 거쳐서 받는다) ---- */
 function imgSrc(u){
+  u=decodeEnt(u);
+  if(typeof CommentCodec!=="undefined")return CommentCodec.imageProxy(u);
   let path=u;
   if(/^https?:\/\//i.test(u)){try{const x=new URL(u),b=new URL(cfg.url);if(x.host!==b.host)return null;path=x.pathname+x.search}catch(e){return null}}
   return /^\/(?:system|attachments)\//.test(path)?"/api/rm/img?p="+encodeURIComponent(path):null;
 }
 function imgify(h){
   return h.replace(/\[\[img:([^\]]+)\]\]/g,(m,e)=>{const u=decodeURIComponent(e),src=imgSrc(u);
-      return src?`<img class="rimg" loading="lazy" src="${src}" data-full="${src}" alt="사진" title="누르면 크게 봐요">`:`<a class="rimg-x" href="${esc(u)}" target="_blank" rel="noopener">외부 이미지 열기 ↗</a>`})
+      return src?`<img class="rimg" loading="lazy" src="${src}" data-full="${src}" alt="사진" title="누르면 크게 봐요">`:/^https?:\/\//i.test(u)?`<a class="rimg-x" href="${esc(u)}" target="_blank" rel="noopener noreferrer">외부 이미지 열기 ↗</a>`:'<span class="meta">허용되지 않은 이미지 주소</span>'})
     .replace(/\[\[att:([^\]]+)\]\]/g,(m,e)=>`<img class="rimg" data-att="${e}" alt="${esc(decodeURIComponent(e))}" title="누르면 크게 봐요">`);
 }
 const curAtts=()=>{const n=curNote();return n?(attCache.get(n.issue_id+"|"+n.updated_on)||[]):[]};
@@ -252,7 +261,8 @@ function openLbox(src){
   if(!urls.includes(src))urls.unshift(src);
   lb.list=urls;lb.i=urls.indexOf(src);b.classList.add("show");lbLoad();
 }
-document.addEventListener("click",e=>{const im=e.target.closest&&e.target.closest("img.rimg");if(!im||im.classList.contains("bad")||!(im.dataset.full||im.currentSrc))return;e.preventDefault();e.stopPropagation();openLbox(im.dataset.full||im.currentSrc)},true);
+document.addEventListener("click",e=>{const target=e.target.closest&&e.target.closest("img.rimg,button.attpreview"),im=target?.matches("button.attpreview")?target.querySelector("img"):target;if(!im||im.closest(".cevisual,.ceimages")||im.classList.contains("bad")||!(im.dataset.full||im.currentSrc))return;e.preventDefault();e.stopPropagation();openLbox(im.dataset.full||im.currentSrc)},true);
+document.addEventListener("keydown",e=>{if(e.key!==" "||e.isComposing||e.ctrlKey||e.metaKey||e.altKey)return;const link=e.target.closest?.("a.attrow.img"),im=link?.querySelector("img.rimg");if(!im||link.closest(".cevisual,.ceimages")||im.classList.contains("bad")||!im.dataset.full)return;e.preventDefault();e.stopPropagation();openLbox(im.dataset.full)},true);
 window.addEventListener("keydown",e=>{
   if(!$("#lbox.show"))return;
   const k=e.key;
@@ -264,7 +274,7 @@ window.addEventListener("keydown",e=>{
   else if(k==="0"){e.stopPropagation();e.preventDefault();lbFit()}
   else if(k==="1"){e.stopPropagation();e.preventDefault();lbZoom(1)}
 },true);
-document.addEventListener("error",e=>{const t=e.target;if(t&&t.classList&&t.classList.contains("rimg")){t.classList.add("bad");t.alt="사진을 불러오지 못했어요";t.removeAttribute("title")}},true);
+document.addEventListener("error",async e=>{const t=e.target;if(!t?.classList?.contains("rimg"))return;t.classList.add("bad");t.alt="사진을 불러오지 못했어요";t.removeAttribute("title");const u=t.dataset.full||t.getAttribute("src")||"";if(!/^\/api\/rm\/(?:img|attachment)\?/.test(u))return;try{await api(u);t.title="이미지 응답은 받았지만 브라우저에서 디코딩하지 못했어요"}catch(err){t.title=err.status?err.message:"이미지 형식 또는 디코딩을 확인하세요"}t.alt="사진을 불러오지 못했어요 · "+t.title},true);
 /* |칸|칸| 줄이 이어지면 표로 그린다: 레드마인 HTML 표(remoteText 가 바꾼 것) · Textile 표(|_. 머리칸|) · 마크다운 표(| a | b | 와 |---|---|) */
 function tablify(h){
   const row=l=>/^\s*\|.*\|\s*$/.test(l)&&l.split("|").length>3,sep=l=>/^\s*\|(?:\s*:?-{3,}:?\s*\|)+\s*$/.test(l);
@@ -282,7 +292,7 @@ function tablify(h){
 }
 const tablifyMd=h=>h.split(/(<div class="cbw">[\s\S]*?<\/pre><\/div>)/).map((p,i)=>i%2?p:tablify(p)).join("");   // 코드 상자 안의 | 는 건드리지 않는다
 const richHtml=raw=>imgify(tablifyMd(renderMd(remoteText(raw))).replace(/\n(<div class="cbw">)/g,"$1").replace(/(<\/pre><\/div>)\n/g,"$1"));
-const cmBody=j=>richHtml(j.raw!=null?j.raw:j.notes);
+const cmBody=j=>{const raw=j.raw!=null?j.raw:j.notes;return (typeof commentSafeDisplay==="function"?commentSafeDisplay(raw,"source"):null)??richHtml(raw)};
 function origCard(n){
   const n2=noteImgs(n).length;
   return cf(n,"orig","레드마인 원문",`<small>요건 · 본문 그대로${n2?` · 사진 ${n2}장`:""}</small>`,"","",`<div class="j orig">${richHtml(n.desc_raw||n.description||"")||"(없음)"}</div><div class="cmimgs" data-attj="0"></div>`,true);   // 노트의 첫 구역: 기본은 펼침
@@ -300,7 +310,7 @@ function cmEntries(n){
 }
 const chgItem=it=>`<li><b>${esc(it.label)}</b> ${it.note?esc(it.note):(it.old&&it.new)?`${esc(it.old)} <span class="arr">→</span> <b>${esc(it.new)}</b>`:it.new?`<b>${esc(it.new)}</b>`:`${esc(it.old||"")} 제거`}</li>`;
 const chgHtml=c=>`<div class="chg" data-cmt="${esc(c.created_on||"")}"${cfg.meName&&c.user===cfg.meName?" data-mine":""}><span class="chgdot" aria-hidden="true">↻</span><div class="chgbody"><b>${esc(c.user)}</b> <span class="meta">· ${dTime(c.created_on)} · 변경</span><ul>${c.items.map(chgItem).join("")}</ul><div class="cmimgs" data-attj="${c.id||0}"></div></div></div>`;
-const cmHist=n=>cmEntries(n).map(e=>e.c?chgHtml(e.c):(j=>`<div class="cm ${j.user&&j.user.id===cfg.meId?"me":""}" data-cmt="${esc(j.created_on||"")}"${j.user&&cfg.meId&&j.user.id===cfg.meId?" data-mine":""}><div class="av">${esc(avatar(j.user.name))}</div><div style="flex:1;min-width:0"><div class="who"><b>${esc(j.user.name)}</b> · ${dTime(j.created_on)}</div><div class="bubble">${cmBody(j)}</div><div class="cmimgs" data-attj="${j.id||0}"></div></div></div>`)(e.j)).join("")||`<span class="meta">댓글이 없습니다.</span>`;
+const cmHist=n=>manageRecoveryHtml(n)+(cmEntries(n).map(e=>e.c?chgHtml(e.c):managedJournalHtml(n,e.j)).join("")||`<span class="meta">댓글이 없습니다.</span>`);
 /* ---------- 새 댓글로 바로 (2.22) ----------
    안 본 일감(목록에서 강조된 것)을 처음 열면, 마지막으로 본 뒤에 남이 단 댓글 · 변경을 NEW 영역 하나로 묶어 칠하고 그 자리로 바로 이동한다.
    기준은 안 본 일감 강조와 같다(rm_seen: 마지막으로 열어 본 때의 수정일). 한 번 열면 본 것이 되므로 다음에 열 때는 하지 않는다.

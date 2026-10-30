@@ -1,12 +1,21 @@
 """쓰기 시험용 가짜 레드마인 (PUT 지원). 실제 레드마인에는 연결하지 않는다."""
-import datetime, json, sys, threading
+import datetime, hashlib, json, sys, threading, time, uuid
+from pathlib import Path
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import urlparse, parse_qs, quote
 
 PORT = int(sys.argv[1])
 LOCK = threading.Lock()
 PUTS = []
+MANAGES, DELETED = [], set()
+BLOCKED = []
 ORIG_J = {}
+UPLOADS, UPLOAD_CALLS, ATT_DATA = {}, [], {}
+UPLOAD_FAILED_ONCE, PUT_FAILED_ONCE = set(), set()
+USED_UPLOADS = set()
+NEXT_AID = 10000
+CONTROL, REQUESTS = {}, []
+EXPIRED_ONCE = set()
 STATUS = {5: "완료", 11: "작업중", 15: "최종확인요청", 33: "접수"}
 
 
@@ -23,7 +32,7 @@ DB = {93599: mk(93599), 200: mk(200)}
 DB[200]["journals"].append({"id": 900, "user": {"id": 60, "name": "김철수"}, "notes": "", "created_on": "2026-10-05T02:00:00Z", "details": [{"property": "attachment", "name": "77", "new_value": "테스트 문서.txt"}]})
 TODAY = datetime.date.today().isoformat()
 YEST = (datetime.date.today() - datetime.timedelta(days=1)).isoformat()
-PNG = bytes.fromhex("89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000d49444154789c6300010000000500010d0a2db40000000049454e44ae426082")
+PNG = bytes.fromhex("89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000d49444154789c63f8cfc0f01f00050001ff89993d1d0000000049454e44ae426082")
 USERS = {7: ("테스터", "나"), 55: ("[웹] ", "요청자"), 60: ("[개발]", "김철수")}
 DB[200]["description"] = '<p>본문 사진</p><img alt="" data-rich-file-id="1" src="/system/rich/rich_files/rich_files/000/000/001/original/%EC%82%AC%EC%A7%84.png">'
 DB[200]["journals"] += [
@@ -60,10 +69,29 @@ DB[200]["attachments"] += [
 DB[200]["journals"].append({"id": 903, "user": {"id": 60, "name": "김철수"}, "notes": "<p>캡처 첨부합니다</p>", "created_on": "2026-10-05T05:00:00Z",
                             "details": [{"property": "attachment", "name": "78", "new_value": "화면캡처.png"}]})
 MEM = [{"user": {"id": 7, "name": "나"}},{"user": {"id": 55, "name": "요청자"}}, {"user": {"id": 60, "name": "김철수"}}]
+for _issue in DB.values():
+    for _att in _issue["attachments"]:
+        _att["content_url"] = f"http://127.0.0.1:{PORT}/attachments/download/{_att['id']}/{quote(_att['filename'])}"
 
 
 class H(BaseHTTPRequestHandler):
     def log_message(self, *a): pass
+
+    def do_CONNECT(self):
+        BLOCKED.append(self.path)
+        self.send(403, {"error": "test proxy: external network blocked"})
+
+    def redirect(self, path):
+        if path.startswith("/__"):
+            return False
+        REQUESTS.append({"method": self.command, "path": path, "has_key": bool(self.headers.get("X-Redmine-API-Key"))})
+        if CONTROL.get("redirect_path") == path and CONTROL.get("redirect_method", self.command) == self.command:
+            self.send_response(int(CONTROL["redirect_code"]))
+            self.send_header("Location", CONTROL.get("redirect_location", "http://outside.invalid/never"))
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return True
+        return False
 
     def send(self, code, obj=None):
         body = b"" if obj is None else json.dumps(obj, ensure_ascii=False).encode("utf-8")
@@ -75,8 +103,40 @@ class H(BaseHTTPRequestHandler):
 
     def do_GET(self):
         u = urlparse(self.path)
+        if u.scheme or u.netloc:
+            BLOCKED.append(self.path)
+            return self.send(403, {"error": "test proxy: external network blocked"})
+        if u.path == "/__blocked":
+            return self.send(200, BLOCKED)
+        if u.path == "/api/rm/attachment" and CONTROL.get("editor_app") and parse_qs(u.query).get("id") == ["78"]:
+            # 브라우저 컴포넌트 시험의 로컬 이미지 프록시 대역. 외부 서버로 전달하지 않는다.
+            self.send_response(200); self.send_header("Content-Type", "image/png"); self.send_header("Content-Length", str(len(PNG)))
+            self.end_headers(); self.wfile.write(PNG); return
+        if u.path == "/api/rm/img" and CONTROL.get("editor_app") and parse_qs(u.query).get("p", [""])[0].startswith(("/system/rich/", "/system/attachments/")):
+            self.send_response(200); self.send_header("Content-Type", "image/png"); self.send_header("Content-Length", str(len(PNG)))
+            self.end_headers(); self.wfile.write(PNG); return
+        if u.path == "/__test/editor":
+            base = CONTROL.get("editor_app", "")
+            if not base.startswith("http://127.0.0.1:"):
+                return self.send(400, {})
+            page = Path(__file__).with_name("comment_editor.html").read_text(encoding="utf-8").replace("__APP__", base)
+            body = page.encode("utf-8")
+            self.send_response(200); self.send_header("Content-Type", "text/html; charset=utf-8"); self.send_header("Content-Length", str(len(body)))
+            self.send_header("Content-Security-Policy", "default-src 'none'; script-src 'unsafe-inline' http://127.0.0.1:*; style-src 'unsafe-inline' http://127.0.0.1:*; img-src blob: http://127.0.0.1:*; connect-src http://127.0.0.1:*; font-src http://127.0.0.1:*; base-uri 'none'; form-action 'none'; frame-src 'none'; object-src 'none'")
+            self.end_headers(); self.wfile.write(body); return
+        if u.path == "/__manages":
+            return self.send(200, MANAGES)
+        if u.path == "/__test/requests":
+            return self.send(200, REQUESTS)
+        if u.path == "/__redirect_target":
+            REQUESTS.append({"method": self.command, "path": u.path, "has_key": bool(self.headers.get("X-Redmine-API-Key"))})
+            return self.send(200, {})
+        if self.redirect(u.path):
+            return
         if u.path == "/__puts":
             return self.send(200, PUTS)
+        if u.path == "/__uploads":
+            return self.send(200, UPLOAD_CALLS)
         if not u.path.startswith("/__test/") and self.headers.get("X-Redmine-API-Key") != "good-key":
             return self.send(401, {"error": "bad"})
         q = parse_qs(u.query)
@@ -112,7 +172,9 @@ class H(BaseHTTPRequestHandler):
             if q.get("cm"):
                 DB[i]["journals"].append({"id": 7002, "user": {"id": 60, "name": "김철수"}, "notes": "<p>완료 뒤 추가 댓글</p>", "created_on": q["cm"][0], "details": []})
             return self.send(200, {"ok": True})
-        if u.path.startswith("/system/rich/"):
+        if u.path.startswith(("/system/rich/", "/system/attachments/", "/rich/files/", "/attachments/thumbnail/")):
+            if CONTROL.get("image_status"):
+                return self.send(int(CONTROL["image_status"]), {"error": "synthetic image access error"})
             if u.path.endswith("bad.txt"):
                 b = b"nope"; ct = "text/plain"
             else:
@@ -155,6 +217,15 @@ class H(BaseHTTPRequestHandler):
         if u.path.startswith("/projects/") and u.path.endswith("/memberships.json"):
             return self.send(200, {"memberships": MEM, "total_count": len(MEM), "offset": 0, "limit": 100})
         if u.path.startswith("/attachments/download/"):
+            if CONTROL.get("image_status") and CONTROL.get("apply_to_download"):
+                return self.send(int(CONTROL["image_status"]), {"error": "synthetic attachment access error"})
+            aid = int(u.path.split("/")[3])
+            if aid in DELETED:
+                return self.send(404, {"error": "deleted"})
+            if aid in ATT_DATA:
+                body = ATT_DATA[aid]
+                ct = next((a.get("content_type", "application/octet-stream") for issue in DB.values() for a in issue["attachments"] if a["id"] == aid), "application/octet-stream")
+                self.send_response(200); self.send_header("Content-Type", ct); self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body); return
             if u.path.lower().endswith((".png", ".jpg")):
                 body = PNG; ct = "image/png"
             else:
@@ -168,9 +239,34 @@ class H(BaseHTTPRequestHandler):
         self.send(404, {"error": "?"})
 
     def do_PUT(self):
+        global NEXT_AID
+        if self.headers.get("X-Redmine-API-Key") != "good-key":
+            return self.send(401, {})
         u = urlparse(self.path)
         n = int(self.headers.get("Content-Length") or 0)
         body = json.loads(self.rfile.read(n) or b"{}")
+        if self.redirect(u.path):
+            return
+        if u.path.startswith("/journals/"):
+            jid = int(u.path.split("/")[2].split(".")[0])
+            with LOCK:
+                MANAGES.append({"method": "PUT", "target_id": jid, "body": body})
+                if CONTROL.get("manage_status"):
+                    return self.send(int(CONTROL["manage_status"]), {"errors": ["Journal update rejected"]})
+                pair = next(((d, j) for d in DB.values() for j in d["journals"] if j["id"] == jid), None)
+                if not pair:
+                    return self.send(404, {})
+                d, journal = pair
+                if journal["user"]["id"] != 7:
+                    return self.send(403, {})
+                if CONTROL.get("manage_delay"):
+                    time.sleep(float(CONTROL["manage_delay"]))
+                if set(body) != {"journal"} or set(body["journal"]) != {"notes"}:
+                    return self.send(422, {})
+                journal["notes"] = body["journal"]["notes"]
+                journal["updated_on"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
+                d["updated_on"] = journal["updated_on"]
+            return self.manage_response()
         i = int(u.path.split("/")[2].split(".")[0])
         iss = body["issue"]
         with LOCK:
@@ -181,11 +277,56 @@ class H(BaseHTTPRequestHandler):
                 return self.send(422, {"errors": ["Status is invalid"]})
             if "5XXNOTAPPLIED" in note:
                 return self.send(500, {"error": "boom"})
+            if "422ONCE" in note and note not in PUT_FAILED_ONCE:
+                PUT_FAILED_ONCE.add(note)
+                return self.send(422, {"errors": ["Status is invalid"]})
+            uploads = iss.get("uploads", [])
+            if any(x["filename"] == "expire-once.txt" for x in uploads) and "expire-once.txt" not in EXPIRED_ONCE:
+                EXPIRED_ONCE.add("expire-once.txt")
+                for x in uploads:
+                    UPLOADS.pop(x["token"], None)
+                return self.send(422, {"errors": ["Upload token has expired"]})
+            if any(x["filename"] == "token-boundary.txt" for x in uploads):
+                return self.send(422, {"errors": ["x" * 295 + " Upload " + uploads[0]["token"] + " good-key"]})
+            if any(x.get("token") not in UPLOADS or x.get("token") in USED_UPLOADS for x in uploads):
+                return self.send(422, {"errors": ["Upload is invalid"]})
+            if any(x["filename"] == "foreign-same.bin" for x in uploads):
+                x = uploads[0]; data = UPLOADS[x["token"]]["data"]; aid = NEXT_AID; NEXT_AID += 1
+                ATT_DATA[aid] = bytes(v ^ 255 for v in data)
+                d["attachments"].append({"id": aid, "filename": x["filename"], "filesize": len(data),
+                                          "author": {"id": 60, "name": "다른 사용자"}})
+                d["journals"].append({"id": max((j["id"] for j in d["journals"]), default=0) + 1,
+                                      "user": {"id": 60}, "notes": note, "details": [{"property": "attachment", "name": str(aid), "new_value": x["filename"]}]})
+                return self.send(500, {})
+            if "5XXPARTIAL" in note:  # 댓글만 반영되고 파일은 빠진 경우를 성공으로 오판하지 않아야 한다.
+                d["journals"].append({"id": max((j["id"] for j in d["journals"]), default=0) + 1,
+                                      "user": {"id": 7, "name": "나"}, "notes": note, "details": []})
+                return self.send(500, {})
+            details = []
+            for upload in uploads:
+                stored = UPLOADS[upload["token"]]
+                aid = stored["id"]
+                ATT_DATA[aid] = stored["data"]
+                USED_UPLOADS.add(upload["token"])
+                d["attachments"].append({"id": aid, "filename": upload["filename"], "filesize": len(stored["data"]),
+                                         "content_type": upload.get("content_type", "application/octet-stream"), "author": {"id": 7, "name": "나"},
+                                         "content_url": f"http://127.0.0.1:{PORT}/attachments/download/{aid}/{quote(upload['filename'])}",
+                                         "created_on": "2026-10-06T02:00:00Z"})
+                details.append({"property": "attachment", "name": str(aid), "new_value": upload["filename"]})
+            for key in ("status_id", "assigned_to_id"):
+                if key in iss:
+                    old = (d["status"] if key == "status_id" else d.get("assigned_to", {})).get("id")
+                    if old != iss[key]:
+                        details.append({"property": "attr", "name": key, "old_value": str(old), "new_value": str(iss[key])})
+            for cf in iss.get("custom_fields", []):
+                if d["custom_fields"][0]["value"] != cf["value"]:
+                    details.append({"property": "cf", "name": str(cf["id"]), "old_value": d["custom_fields"][0]["value"], "new_value": cf["value"]})
             if "touch" in iss:
                 pass
-            if note:
-                d["journals"].append({"id": len(d["journals"]) + 1, "user": {"id": 7, "name": "나"}, "notes": note,
-                                      "created_on": "2026-10-06T02:00:00Z"})
+            if note or details:
+                d["journals"].append({"id": max((j["id"] for j in d["journals"]), default=0) + 1,
+                                      "user": {"id": 7, "name": "나"}, "notes": note,
+                                      "created_on": "2026-10-06T02:00:00Z", "details": details})
             if "status_id" in iss:
                 d["status"] = {"id": iss["status_id"], "name": STATUS[iss["status_id"]]}
             if "assigned_to_id" in iss:
@@ -194,12 +335,84 @@ class H(BaseHTTPRequestHandler):
             for cf in iss.get("custom_fields", []):
                 d["custom_fields"][0]["value"] = cf["value"]
             d["updated_on"] = "2026-10-06T03:%02d:00Z" % (len(PUTS) % 60)
-            if "5XXAPPLIED" in note:
+            if "5XXAPPLIED" in note or any(x["filename"] == "applied-error.txt" for x in uploads):
                 return self.send(500, {"error": "applied but error"})
+        # 반영은 끝났지만 성공 응답을 받지 못한 상황을 재현한다.
+        response = CONTROL.get("put_response")
+        if response in ("timeout", "lost"):
+            if response == "timeout":
+                time.sleep(0.25)
+            self.close_connection = True
+            return
         self.send(204)
 
+    def manage_response(self):
+        mode = CONTROL.get("manage_response")
+        if mode in ("lost", "timeout"):
+            if mode == "timeout":
+                time.sleep(.25)
+            self.close_connection = True
+            return
+        return self.send(204)
+
+    def do_DELETE(self):
+        if self.headers.get("X-Redmine-API-Key") != "good-key":
+            return self.send(401, {})
+        path = urlparse(self.path).path
+        if self.redirect(path):
+            return
+        if not path.startswith("/attachments/") or not path.endswith(".json"):
+            return self.send(404, {})
+        aid = int(path.split("/")[2].split(".")[0])
+        with LOCK:
+            MANAGES.append({"method": "DELETE", "target_id": aid})
+            if CONTROL.get("manage_status"):
+                return self.send(int(CONTROL["manage_status"]), {"errors": ["Attachment delete rejected"]})
+            pair = next(((d, a) for d in DB.values() for a in d["attachments"] if a["id"] == aid), None)
+            if not pair:
+                return self.send(404, {})
+            d, attachment = pair
+            if attachment["author"]["id"] != 7:
+                return self.send(403, {})
+            if CONTROL.get("manage_delay"):
+                time.sleep(float(CONTROL["manage_delay"]))
+            d["attachments"].remove(attachment)
+            DELETED.add(aid); ATT_DATA.pop(aid, None)
+            jid = max((j["id"] for issue in DB.values() for j in issue["journals"]), default=0) + 1
+            now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+            d["journals"].append({"id": jid, "user": {"id": 7, "name": "나"}, "notes": "", "created_on": now,
+                                  "details": [{"property": "attachment", "name": str(aid), "old_value": attachment["filename"]}]})
+            d["updated_on"] = now
+        return self.manage_response()
+
     def do_POST(self):  # 시험 도우미: 일감을 몰래 바꿔서 '충돌' 상황을 만든다
+        global NEXT_AID
         u = urlparse(self.path)
+        if u.path == "/__test/control":
+            CONTROL.clear(); CONTROL.update(json.loads(self.rfile.read(int(self.headers.get("Content-Length") or 0)) or b"{}"))
+            return self.send(200, {})
+        if self.redirect(u.path):
+            return
+        if u.path == "/uploads.json":
+            if self.headers.get("X-Redmine-API-Key") != "good-key":
+                return self.send(401, {})
+            if self.headers.get("Content-Type") != "application/octet-stream":
+                return self.send(406, {})
+            name = parse_qs(u.query).get("filename", [""])[0]
+            data = self.rfile.read(int(self.headers.get("Content-Length") or 0))
+            with LOCK:
+                UPLOAD_CALLS.append({"filename": name, "filesize": len(data), "sha256": hashlib.sha256(data).hexdigest(),
+                                     "content_type": self.headers.get("Content-Type")})
+                fail = name == "upload-fail.txt" or (name == "upload-fail-once.txt" and name not in UPLOAD_FAILED_ONCE)
+                if fail:
+                    UPLOAD_FAILED_ONCE.add(name)
+                    return self.send(500, {"error": "upload failed"})
+                token = "fake-upload-" + uuid.uuid4().hex
+                aid = NEXT_AID; NEXT_AID += 1
+                UPLOADS[token] = {"data": data, "filename": name, "id": aid}
+            if name == "slow.txt":
+                time.sleep(0.5)
+            return self.send(201, {"upload": {"token": token, **({} if name == "no-id.txt" or CONTROL.get("upload_token_only") else {"id": aid})}})
         if u.path == "/__clearnotes":   # 레드마인에서 댓글을 지운 상황 (일감 수정일은 그대로)
             with LOCK:
                 DB[93599]["journals"] = []

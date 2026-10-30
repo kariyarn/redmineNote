@@ -12,6 +12,7 @@ import urllib.request
 from .config import LINKED_LIMIT, STATE, conn
 from .storage import configured, db, ensure_daily_backup
 from .textutil import make_draft, plain
+from .http_client import RedirectBlocked, open_authenticated
 
 
 # ---------- Redmine ----------
@@ -21,6 +22,8 @@ class SyncError(Exception):
 
 def explain(e):
     """예외 -> (종류, 사용자용 사유, 조치 안내, 건너뜀 여부). 건너뜀 = 정상적으로 못 받는 일감(권한 없음·삭제됨)."""
+    if isinstance(e, RedirectBlocked):
+        return ("redirect", "인증 요청의 리다이렉트를 거절했어요", "설정의 최종 API 주소와 프록시를 확인하세요", False)
     if isinstance(e, urllib.error.HTTPError):
         c = e.code
         if c == 401:
@@ -51,7 +54,7 @@ def rm_get(path, params, retries=2):
     for attempt in range(retries + 1):
         try:
             req = urllib.request.Request(url, headers={"X-Redmine-API-Key": conn.key})
-            with urllib.request.urlopen(req, timeout=30) as r:
+            with open_authenticated(req, timeout=30) as r:
                 return json.loads(r.read().decode("utf-8"))
         except urllib.error.HTTPError as e:
             if (e.code >= 500 or e.code == 429) and attempt < retries:
@@ -82,8 +85,10 @@ def check_login(url, key):
     """입력한 주소·키로 레드마인에 로그인되는지 확인하고 사용자 정보를 돌려준다."""
     req = urllib.request.Request(f"{url}/users/current.json", headers={"X-Redmine-API-Key": key})
     try:
-        with urllib.request.urlopen(req, timeout=15) as r:
+        with open_authenticated(req, timeout=15) as r:
             return json.loads(r.read().decode("utf-8"))["user"]
+    except RedirectBlocked:
+        raise ValueError("인증 요청의 리다이렉트를 거절했어요. 최종 API 주소와 프록시를 확인하세요")
     except urllib.error.HTTPError as e:
         if e.code in (401, 403):
             raise ValueError("API 키가 올바르지 않습니다. 레드마인 '내 계정'에서 키를 다시 복사해 보세요.")
@@ -212,7 +217,8 @@ def build_changes(full):
                     return (user_name(x) or f"#{x}") if is_user and str(x).isdigit() else str(x)
                 items.append({"label": label, "old": val(old), "new": val(new)})
             elif prop == "attachment":
-                items.append({"label": "첨부", "new": new or name})
+                items.append({"label": "첨부", "new": new or "", "old": old or "",
+                              **({"note": f"#{name} 제거"} if not new and not old else {})})
             elif prop == "relation":
                 items.append({"label": "관계", "new": f"{_REL.get(name, name)} #{new}" if new else "", "old": f"{_REL.get(name, name)} #{old}" if old else ""})
         if items:
@@ -489,14 +495,23 @@ def fetch_ids(ids, role="연관"):
 
 
 _CACHE = {}
+_CACHE_VERSIONS = {}
+
+
+def invalidate_cached(key):
+    _CACHE.pop(key, None)
+    _CACHE_VERSIONS[key] = _CACHE_VERSIONS.get(key, 0) + 1
+
 
 def cached(key, ttl, fn):
     now = time.time()
     v = _CACHE.get(key)
     if v and now - v[0] < ttl:
         return v[1]
+    version = _CACHE_VERSIONS.get(key, 0)
     r = fn()
-    _CACHE[key] = (now, r)
+    if version == _CACHE_VERSIONS.get(key, 0):
+        _CACHE[key] = (now, r)
     return r
 
 
@@ -522,7 +537,7 @@ def rm_members(pid):
 
 
 def rm_issue(iid):
-    d = rm_get(f"/issues/{iid}.json", {"include": "journals"})["issue"]
+    d = rm_get(f"/issues/{iid}.json", {"include": "journals,attachments"})["issue"]
     dev = next((c.get("value") for c in d.get("custom_fields", []) if str(c.get("id")) == str(conn.dev_field)), None)
     try:
         dev = int(dev) if dev not in (None, "", []) else None
@@ -536,5 +551,32 @@ def rm_put(path, payload):
     data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
     req = urllib.request.Request(f"{conn.url}{path}", data=data, method="PUT",
                                  headers={"X-Redmine-API-Key": conn.key, "Content-Type": "application/json"})
-    with urllib.request.urlopen(req, timeout=30) as r:
+    with open_authenticated(req, timeout=30) as r:
+        return r.status
+
+
+def rm_upload(filename, data):
+    """공식 바이너리 업로드. 비멱등 요청이므로 자동 재시도하지 않는다."""
+    req = urllib.request.Request(
+        f"{conn.url}/uploads.json?{urllib.parse.urlencode({'filename': filename})}",
+        data=data, method="POST",
+        headers={"X-Redmine-API-Key": conn.key, "Content-Type": "application/octet-stream"},
+    )
+    with open_authenticated(req, timeout=60) as r:
+        if r.status != 201:
+            raise ValueError("파일 업로드 응답이 올바르지 않아요")
+        upload = json.loads(r.read(65536).decode("utf-8"))["upload"]
+        token = upload["token"]
+    if not isinstance(token, str) or not re.fullmatch(r"[A-Za-z0-9._-]{1,512}", token):
+        raise ValueError("파일 업로드 토큰이 올바르지 않아요")
+    aid = upload.get("id")
+    # 선택 항목인 ID는 오류/응답 유실 시 검증에만 사용한다. 토큰에서 ID를 추측하지 않는다.
+    return {"token": token, "filename": filename,
+            "attachment_id": aid if isinstance(aid, int) and not isinstance(aid, bool) and aid > 0 else None}
+
+
+def rm_delete(path):
+    """인증 DELETE. 응답 유실 시 중복 삭제를 피하기 위해 자동 재시도하지 않는다."""
+    req = urllib.request.Request(f"{conn.url}{path}", method="DELETE", headers={"X-Redmine-API-Key": conn.key})
+    with open_authenticated(req, timeout=30) as r:
         return r.status

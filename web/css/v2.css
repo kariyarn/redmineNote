@@ -14,6 +14,9 @@ html[data-design=v2] button.primary{background:var(--accent);color:var(--accent-
 html[data-design=v2] button.primary:hover{background:var(--accent);filter:brightness(1.07)}
 html[data-design=v2] .mini{font-weight:500;color:var(--sub)}
 html[data-design=v2] .mini:hover{color:var(--text)}
+/* 본인 첨부 삭제는 공통 mini 색상보다 우선해 항상 빨간색으로 표시한다. */
+html[data-design=v2] .attcard .attdelete{color:#c73545;color:color-mix(in srgb,#df3349 80%,var(--text));background:var(--surface2);border-color:var(--line)}
+html[data-design=v2] .attcard .attdelete:hover{background:var(--accent-soft);border-color:var(--accent)}
 html[data-design=v2] .seg{background:color-mix(in srgb,var(--text) 7%,transparent)}
 html[data-design=v2] .seg button.on{background:var(--surface);color:var(--text)}
 

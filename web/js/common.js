@@ -24,9 +24,14 @@ function wdlg({title,body,ok="확인",cancel="취소",remember,focusNo,wide,coll
   });
 }
 function setCmBusy(n,on){
-  document.querySelectorAll(".cmp").forEach(c=>{
-    c.querySelectorAll("[data-w],[data-send]").forEach(b=>b.disabled=on||!canWrite(n));
+  document.querySelectorAll(`.cmp[data-issue="${n.issue_id}"]`).forEach(c=>{
+    c.querySelectorAll("button,input,select,textarea").forEach(b=>b.disabled=on||(!canWrite(n)&&b.matches("[data-w],[data-send],[data-add-file],[data-file-input],.wsel")));
+    c.querySelectorAll("[contenteditable]").forEach(e=>{
+      if(on){if(e.dataset.busyEditable===undefined)e.dataset.busyEditable=e.getAttribute("contenteditable");e.setAttribute("contenteditable","false")}
+      else if(e.dataset.busyEditable!==undefined){e.setAttribute("contenteditable",e.dataset.busyEditable);delete e.dataset.busyEditable}
+    });
     const s=c.querySelector("[data-send]");if(s)s.textContent=on?"올리는 중…":"올리기";
+    c.querySelector(".cmta")?._commentEditor?.setDisabled(on);
   });
 }
 async function refreshToday(){   // 레드마인 날짜를 오늘로 해서 가져오기: 내가 올린 것과 그 사이 다른 사람이 바꾼 것까지 반영
@@ -40,18 +45,22 @@ async function refreshToday(){   // 레드마인 날짜를 오늘로 해서 가�
 async function ackFirst(){   // 처음 쓰기 기능(상태·담당자 고르기)을 쓸 때 한 번만. 올리기를 누를 때는 묻지 않는다.
   if(S.write_ack_first==="1")return true;
   return wdlg({title:"레드마인에 직접 올립니다",remember:"write_ack_first",ok:"알겠어요",
-    body:`이 프로그램에서 <b>댓글을 올리고, 상태·담당자·개발담당자를 바꿀 수 있어요.</b><br>바꾸는 것은 이 세 가지뿐이고 삭제는 못 해요. 버튼은 고르기만 하고, <b>올리기</b>를 눌러야 올라가요.<br>올린 댓글은 이 프로그램에서 고칠 수 없어요 (레드마인에서).${wcfg().test?`<br><br><b>시험 모드:</b> ${wcfg().allow.map(x=>"#"+x).join(", ")} 에서만 올라갑니다.`:""}`});
+    body:`이 프로그램에서 <b>댓글·파일을 올리고, 상태·담당자·개발담당자를 바꿀 수 있어요.</b><br>버튼은 고르기만 하고, <b>올리기</b>를 눌러야 올라가요.<br>본인 첨부파일 삭제와 본인 댓글 수정도 원본 Redmine에 직접 반영됩니다.${wcfg().test?`<br><br><b>시험 모드:</b> ${wcfg().allow.map(x=>"#"+x).join(", ")} 에서만 올라갑니다.`:""}`});
 }
 async function doWrite(n,o){
   const id=n.issue_id;if(cmBusy.has(id))return false;                      // 두 번 눌러도 한 번만
-  const notes=draftOf(id).trim(),st=stageOf(id),f={};
-  if(o.preset)f.preset=o.preset;
-  else{if(st.preset)f.preset=st.preset;["status_id","assigned_to_id","dev_id"].forEach(k=>{if(st[k])f[k]=st[k]})}
+  if(cmImageState(id).pending){toast("이미지 삽입 창에서 이전 첨부 요청의 반영을 먼저 확인하세요",7000);return false}
+  if(cmRecovery.has(id)){toast("이전 요청의 반영을 확인한 뒤 재시도를 준비해 주세요",6000);return false}
+  const format=cmFormatOf(id),notes=format==="legacy"?draftOf(id).trim():draftOf(id),f=cmFields(id,o),files=[...filesOf(id)];
   const hasF=Object.keys(f).length>0;
-  if(!notes&&!hasF){toast("댓글을 쓰거나 상태·담당자 버튼을 고르세요",2500);return false}
+  if(!notes.trim()&&!hasF&&!files.length){toast("댓글·파일을 넣거나 상태·담당자 버튼을 고르세요",2500);return false}
   if(!canWrite(n)){toast(`시험 모드예요: ${wcfg().allow.map(x=>"#"+x).join(", ")} 에서만 레드마인에 올릴 수 있어요`,6000);return false}
   cmBusy.add(id);setCmBusy(n,true);
-  const send=async force=>post("/api/rm/write",{issue_id:id,notes,...f,loaded_updated_on:n.updated_on,...(force?{force:true}:{})});
+  const requestId=cmRequestId(id,notes,{...f,...(format!=="legacy"?{notes_format:format}:{})},files);
+  const send=async force=>{
+    const data={issue_id:id,notes,...f,...(format!=="legacy"?{notes_format:format}:{}),request_id:requestId,loaded_updated_on:n.updated_on,...(force?{force:true}:{})};
+    return sendCommentWrite(data,files);
+  };
   try{
     let r;
     try{r=await send(false)}
@@ -67,17 +76,18 @@ async function doWrite(n,o){
     const tgt=all.find(x=>x.issue_id===id)||n;
     if(r.note)["subject","project","tracker","rm_status","author","assignee","updated_on","description","journals","roles","desc_raw","changes","author_id"].forEach(k=>{tgt[k]=r.note[k]});
     prep(tgt);buildTokens();markSeen(tgt);                             // 내가 올려서 바뀐 것은 안 본 것으로 치지 않는다
-    setDraft(id,"");cmStage.delete(id);
-    toast(r.verified?"레드마인이 오류를 줬지만 확인해 보니 올라가 있어요 ✓":"레드마인에 올렸어요 ✓",3500);
+    clearComposer(id);
+      toast(r.verified?"Redmine에서 등록을 확인했어요 ✓":"레드마인에 올렸어요 ✓",3500);
     const sentText=notes;
     const c=$("#center"),y=c.scrollTop;renderAll();c.scrollTop=y;
     if(cmOpen)cmPanelRender();
     refreshToday();                                                   // 올린 뒤 '오늘' 기준으로 한 번 더 최신화 (뒤에서 조용히)
-    autoDeployProgress(tgt,sentText);
+    if(!r.replayed)autoDeployProgress(tgt,sentText);
     return true;
   }catch(err){
     const b=err.body||{};
-    toast(`올리지 못했어요: ${err.message}${b.hint?" — "+b.hint:""}${b.detail?" (레드마인: "+b.detail+")":""} · 쓴 내용은 그대로 남아 있어요`,15000);
+    if(b.needs_review){cmRecovery.set(id,b.request_id||requestId);syncComposers(n)}
+      toast(`${b.needs_review?"등록 여부를 확정하지 못했어요":"올리지 못했어요"}: ${err.message}${b.hint?" — "+b.hint:""}${b.detail?" (레드마인: "+b.detail+")":""} · 댓글과 선택 파일은 그대로 남아 있어요`,15000);
     return false;
   }finally{cmBusy.delete(id);setCmBusy(n,false)}
 }
@@ -120,6 +130,7 @@ function cmPanelRender(){
   p.innerHTML=`<div class="cmph"><b>#${n.issue_id} 댓글</b><span class="meta">${n.journals.length}건</span><span class="sp"></span><button type="button" class="icon" id="cmx" title="닫기 (Esc)">✕</button></div><div class="cmphist tl" id="cmphist">${cmHist(n)}</div>${composerHtml("p",n)}`;
   $("#cmx").onclick=()=>toggleCm(false);
   wireComposer(p,n);
+  mountJournalEditors();
   wireCp($("#cmphist"));fillAttImgs($("#cmphist"));fillAttPlaces();
   const h=$("#cmphist");h.scrollTop=h.scrollHeight;
 }

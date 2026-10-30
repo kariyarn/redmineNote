@@ -1,13 +1,23 @@
 __pycache__/
 *.pyc
+.idea/
 build/
 dist/
 dist-next/
 build-next/
 *.spec
 notes.db
+notes.db-*
 config.json
+gitbackup.json
+auth.json
 .env
+*.log
+logs/
+.cache/
+.pytest_cache/
+tmp/
+temp/
 backups/
 fonts/
 # internal requirement docs (not public)

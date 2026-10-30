@@ -1,22 +1,41 @@
 """레드마인에 쓰기(댓글 · 상태 · 담당자) · 첨부 목록"""
 import datetime
+import collections
 import hashlib
+import html
 import json
 import os
 import re
+import threading
+import time
+import unicodedata
+import uuid
+from email import policy
+from email.parser import BytesParser
 import urllib.error
 import urllib.parse
 import urllib.request
 
 from .config import STATE, conn
-from .redmine import cached, explain, my_id, rm_get, rm_issue, rm_members, rm_put, rm_statuses, upsert_issue
+from .redmine import cached, explain, invalidate_cached, my_id, rm_get, rm_issue, rm_members, rm_put, rm_statuses, rm_upload, upsert_issue
 from .storage import configured, db, get_settings
+from .http_client import RedirectBlocked
+from . import write_requests
+from .comment_format import attachment_image_url, check_format
 
 
 # ---------- 레드마인에 쓰기 (댓글 · 상태 · 담당자) ----------
-# 영향도를 최소화하려고 쓸 수 있는 것은 이 세 가지뿐이다. 제목·본문·기간 등은 쓰지 않고, 삭제 기능은 없다.
+# 댓글·첨부·상태·담당자만 쓴다. 제목·본문·기간 등은 쓰지 않고, 삭제 기능은 없다.
 WRITE_ALLOW_IDS = ()   # 시험 모드 해제됨(2.1.0). 목록이 비어 있으면 "내 노트에 등록된 일감"이면 어디서든 쓸 수 있다. 다시 제한하려면 (93599,) 처럼 번호를 넣고 빌드한다.
-WRITE_FIELDS = {"issue_id", "notes", "status_id", "assigned_to_id", "dev_id", "preset", "loaded_updated_on", "force"}   # 요청에 들어올 수 있는 항목
+WRITE_FIELDS = {"issue_id", "notes", "notes_format", "status_id", "assigned_to_id", "dev_id", "preset", "loaded_updated_on", "force", "request_id"}
+MAX_FILE_SIZE = 20 * 1024 * 1024
+MAX_FILES_SIZE = 50 * 1024 * 1024
+MAX_FILES = 10
+LOCKS_GUARD = threading.Lock()
+WRITE_LOCKS = {}
+_REQUESTS = collections.OrderedDict()  # 토큰만 메모리에 보관. 바이너리·토큰을 DB에 넣지 않는다.
+REQUEST_TTL = 24 * 60 * 60
+MAX_REQUESTS = 256
 
 
 def write_allow():
@@ -33,7 +52,8 @@ def status_ids():
 
 def write_info():
     allow = write_allow()
-    return {"allow": list(allow), "test": bool(allow), "statuses": status_ids()}
+    return {"allow": list(allow), "test": bool(allow), "statuses": status_ids(),
+            "uploads": {"max_file": MAX_FILE_SIZE, "max_total": MAX_FILES_SIZE, "max_count": MAX_FILES}}
 
 
 _FENCE = re.compile(r"```([A-Za-z0-9_+#.-]*)[ \t]*\n(.*?)```", re.S)
@@ -64,16 +84,27 @@ def to_textile(text):
 
     def fence(m):
         lang, code = m.group(1).lower(), m.group(2).strip("\n")
+        code = html.escape(code, quote=False)
         return f'<pre><code class="{lang}">\n{code}\n</code></pre>' if lang else f"<pre>\n{code}\n</pre>"
 
     segs = _PRE.split(_FENCE.sub(fence, text))
     for i in range(0, len(segs), 2):  # 짝수 칸 = 코드 상자 밖
-        segs[i] = _paragraphs(re.sub(r"`([^`\n]+)`", r"@\1@", segs[i]))
+        segs[i] = _paragraphs(re.sub(r"`([^`\n]+)`", lambda m: "@" + html.escape(m[1], quote=False) + "@", segs[i]))
     return "\n".join(x for x in segs if x)   # 문단과 코드 상자는 각각 따로 선 덩어리
 
 
-def explain_write(e):
+def redact(text, secrets=(), limit=300):
+    text = str(text)
+    for secret in sorted({s for s in (conn.key, *secrets) if s}, key=len, reverse=True):
+        text = text.replace(secret, "[redacted]")
+    return text[:limit]
+
+
+def explain_write(e, secrets=()):
     """쓰기 실패 -> (종류, 사유, 조치). 레드마인이 알려 준 원문도 같이 돌려준다."""
+    if isinstance(e, RedirectBlocked):
+        kind, reason, hint, _ = explain(e)
+        return kind, reason, hint, ""
     if isinstance(e, urllib.error.HTTPError):
         raw = ""
         try:
@@ -85,7 +116,7 @@ def explain_write(e):
             msgs = json.loads(raw).get("errors") or []
         except Exception:
             pass
-        detail = " / ".join(str(x) for x in msgs)[:300]
+        detail = redact(" / ".join(str(x) for x in msgs), secrets)
         if e.code == 401:
             return ("key", "API 키가 거절됐어요", "설정에서 API 키를 다시 입력하세요", detail)
         if e.code == 403:
@@ -94,6 +125,8 @@ def explain_write(e):
             return ("gone", "일감을 찾을 수 없어요 (삭제됐거나 볼 수 없음)", "번호를 확인하세요", detail)
         if e.code == 422:
             low = detail.lower()
+            if any(x in low for x in ("upload", "attachment", "token", "첨부")):
+                return ("upload_token", "첨부 토큰이 만료되었거나 거절됐어요", "Redmine에서 반영 여부를 확인한 뒤 재시도를 준비하세요", detail)
             if "status" in low or "상태" in detail:
                 return ("status", "지금 상태에서는 그 상태로 바꿀 수 없어요", "레드마인의 워크플로가 허용하지 않는 전환이에요. 다른 상태를 고르거나 레드마인에서 확인하세요", detail)
             if "assigned" in low or "담당자" in detail:
@@ -105,7 +138,7 @@ def explain_write(e):
             return ("server", f"레드마인 서버 오류예요 (HTTP {e.code})", "올라갔는지 레드마인에서 확인한 뒤 다시 시도하세요", detail)
         return ("http", f"레드마인이 오류로 응답했어요 (HTTP {e.code})", "같은 오류가 계속되면 알려 주세요", detail)
     kind, reason, hint, _ = explain(e)
-    return (kind, reason, hint, "")
+    return (kind, redact(reason, secrets), redact(hint, secrets), "")
 
 
 def name_of(uid, d, names, me):
@@ -207,94 +240,351 @@ def refresh_local(iid):
     return n
 
 
-def do_write(b):
-    """POST /api/rm/write. 돌려주는 값: (HTTP 코드, JSON)"""
-    try:
-        iid = int(b.get("issue_id") or 0)
-    except (TypeError, ValueError):
-        iid = 0
-    if not iid:
-        return 400, {"error": "일감 번호가 없어요"}
+def validate_files(files):
+    if not isinstance(files, list) or len(files) > MAX_FILES:
+        raise ValueError(f"첨부파일은 최대 {MAX_FILES}개예요")
+    metadata, total = [], 0
+    for f in files:
+        name, data = f.get("filename"), f.get("data")
+        if (not isinstance(name, str) or not name.strip() or name in (".", "..")
+                or len(name.encode("utf-8")) > 255 or any(c in name for c in '/\\:')
+                or any(unicodedata.category(c).startswith("C") for c in name)):
+            raise ValueError("첨부파일 이름이 올바르지 않아요 (경로·제어 문자는 사용할 수 없어요)")
+        if not isinstance(data, bytes) or len(data) > MAX_FILE_SIZE:
+            raise ValueError("첨부파일은 하나에 최대 20MB예요")
+        total += len(data)
+        metadata.append({"filename": name, "filesize": len(data), "sha256": hashlib.sha256(data).hexdigest()})
+    if total > MAX_FILES_SIZE:
+        raise ValueError("첨부파일 합계는 최대 50MB예요")
+    return metadata
+
+
+def parse_write_request(content_type, raw):
+    """HTTP 핸들러는 라우팅만 하고, 댓글 입력 형식은 여기서 해석한다."""
+    if content_type.startswith("application/json"):
+        return json.loads(raw or b"{}"), []
+    if not content_type.startswith("multipart/form-data"):
+        raise ValueError("JSON 또는 multipart 요청이 필요해요")
+    message = BytesParser(policy=policy.default).parsebytes(
+        ("Content-Type: " + content_type + "\r\nMIME-Version: 1.0\r\n\r\n").encode("ascii") + raw)
+    if not message.is_multipart() or message.defects:
+        raise ValueError("첨부 요청 형식이 올바르지 않아요")
+    data, files = None, []
+    for part in message.iter_parts():
+        name = part.get_param("name", header="content-disposition")
+        if part.is_multipart() or part.defects or part.get("Content-Transfer-Encoding"):
+            raise ValueError("첨부 요청 형식이 올바르지 않아요")
+        payload = part.get_payload(decode=True)
+        if name == "data" and data is None and part.get_filename() is None and len(payload) <= 100000:
+            data = json.loads(payload.decode("utf-8"))
+        elif name == "files" and part.get_filename() is not None and len(files) < MAX_FILES:
+            files.append({"filename": part.get_filename(), "data": payload})
+        else:
+            raise ValueError("허용되지 않은 항목 또는 너무 많은 파일이 있어요")
+    if not isinstance(data, dict):
+        raise ValueError("댓글 요청 정보가 없어요")
+    return data, files
+
+
+def _verified_write(context):
+    """명시 업로드 ID + 새 첨부 + 작성자 + 같은 새 저널로 동일성을 확인한다."""
+    d, dev = rm_issue(context["iid"])
+    current = {"status_id": d["status"]["id"], "assigned_to_id": (d.get("assigned_to") or {}).get("id"), "dev_id": dev}
+    if any(current.get(k) != v for k, v in context["fields"].items()):
+        return False
+    ids = context["attachment_ids"]
+    if context["files"]:
+        if len(ids) != len(context["files"]) or any(not isinstance(i, int) or i <= 0 for i in ids) or len(set(ids)) != len(ids):
+            return False
+        attachments = {a["id"]: a for a in d.get("attachments", [])}
+        for aid, wanted in zip(ids, context["files"]):
+            a = attachments.get(aid)
+            if (aid in context["before_attachments"] or not a or (a.get("author") or {}).get("id") != context["me"]
+                    or a.get("filename") != wanted["filename"] or a.get("filesize") != wanted["filesize"]):
+                return False
+    for journal in d.get("journals", []):
+        if journal.get("id") in context["before_journals"] or (journal.get("user") or {}).get("id") != context["me"]:
+            continue
+        if context["notes"] and (journal.get("notes") or "").strip() != context["notes"].strip():
+            continue
+        details = journal.get("details", [])
+        added = {str(x.get("name")) for x in details if x.get("property") == "attachment" and x.get("new_value")}
+        if not {str(i) for i in ids} <= added:
+            continue
+        if all(any(x.get("property") == ("cf" if k == "dev_id" else "attr")
+                   and str(x.get("name")) == (context["dev_field"] if k == "dev_id" else k)
+                   and str(x.get("new_value")) == str(v) for x in details) for k, v in context["fields"].items()):
+            return True
+    return False
+
+
+def _scope(me):
+    return hashlib.sha256(json.dumps([conn.url, me, conn.dev_field]).encode()).hexdigest()
+
+
+def _access(iid):
     allow = write_allow()
     if allow and iid not in allow:
-        return 403, {"error": "시험 모드예요: " + ", ".join(f"#{x}" for x in allow) + " 에서만 레드마인에 쓸 수 있어요", "code": "test_mode"}
-    if not allow:   # 시험 모드가 아니면: 내 노트에 등록된(가져온) 일감에서만
+        return 403, {"error": "시험 모드에서 허용되지 않은 일감이에요", "code": "test_mode"}
+    if not allow:
         with db() as c:
             if not c.execute("SELECT 1 FROM notes WHERE issue_id=?", (iid,)).fetchone():
-                return 403, {"error": "내 노트에 등록되지 않은 일감이에요. 먼저 가져온 일감에서만 쓸 수 있어요", "code": "not_registered"}
-    extra = set(b) - WRITE_FIELDS
-    if extra:
-        return 400, {"error": "보낼 수 없는 항목이 들어 있어요: " + ", ".join(sorted(extra)), "code": "bad_field"}
-    if not configured() or not my_id():
-        return 400, {"error": "레드마인에 연결돼 있지 않아요 — 설정에서 API 키를 확인하세요"}
-    notes = (b.get("notes") or "").strip()
-    if len(notes) > 20000:
-        return 400, {"error": "댓글이 너무 길어요 (최대 20000자)"}
+                return 403, {"error": "내 노트에 등록되지 않은 일감이에요", "code": "not_registered"}
+    return None
+
+
+def _review_required(request_id, message="이전 요청의 반영 여부를 Redmine에서 확인해 주세요", code="needs_review"):
+    return 409, {"error": message, "code": code, "request_id": request_id, "needs_review": True,
+                 "hint": "댓글과 파일을 유지했어요. 반영 확인 또는 재시도 준비를 선택하세요. 자동으로 다시 보내지 않아요"}
+
+
+def _finish_write(context, request, verified=False, manual=False):
+    iid, rid = context["iid"], context["request_id"]
+    invalidate_cached(("att", iid))
+    result = {"ok": True, "note": None, "verified": verified, "manual": manual, "log_id": None, "request_id": rid}
+    request["result"] = dict(result)
+    request.pop("uploads", None)
+    # 이 갱신이 실패해도 PUT 전 pending 기록이 남아서 재시작 후 재전송을 차단한다.
+    try:
+        write_requests.set_state(rid, "confirmed" if manual else "succeeded")
+    except Exception:
+        result["tracking_pending"] = True
+    try:
+        result["note"] = refresh_local(iid)
+    except Exception:
+        pass
+    try:
+        result["log_id"] = write_log(iid, context["action"], context["sig"], context["log_payload"], True,
+                                     "사용자가 등록됨을 확인" if manual else "올라감" + (" (Redmine에서 동일성 확인됨)" if verified else ""))
+    except Exception:
+        pass  # write_requests가 별도로 중복 방지를 담당한다.
+    request["result"] = {k: v for k, v in result.items() if k != "note"}
+    return 200, result
+
+
+def _locked_call(iid, fn, *args):
+    with LOCKS_GUARD:
+        lock = WRITE_LOCKS.setdefault(iid, threading.Lock())
+        if not lock.acquire(blocking=False):
+            return 409, {"error": "이 일감에 이미 올리는 중이에요", "code": "busy"}
+    try:
+        return fn(*args)
+    finally:
+        with LOCKS_GUARD:
+            lock.release()
+            WRITE_LOCKS.pop(iid, None)
+
+
+def do_write(b, files=None):
+    try:
+        iid = int(b.get("issue_id") or 0) if isinstance(b, dict) else 0
+    except (TypeError, ValueError):
+        iid = 0
+    if iid <= 0:
+        return 400, {"error": "일감 번호가 없어요"}
+    return _locked_call(iid, _do_write, b, files or [], iid)
+
+
+def _do_write(b, files, iid):
+    denied = _access(iid)
+    if denied:
+        return denied
+    if set(b) - WRITE_FIELDS:
+        return 400, {"error": "보낼 수 없는 항목이 들어 있어요", "code": "bad_field"}
+    rid = b.get("request_id") or uuid.uuid4().hex
+    if not isinstance(rid, str) or not re.fullmatch(r"[A-Za-z0-9_-]{16,100}", rid):
+        return 400, {"error": "요청 식별자가 올바르지 않아요"}
+    try:
+        metadata = validate_files(files)
+    except (ValueError, TypeError, AttributeError) as e:
+        return 400, {"error": str(e), "code": "bad_file"}
+    me = my_id() if configured() else None
+    if not me:
+        return 400, {"error": "Redmine에 연결돼 있지 않아요"}
+    notes = b.get("notes") or ""
+    if not isinstance(notes, str) or len(notes.strip()) > 20000:
+        return 400, {"error": "댓글은 최대 20000자예요"}
+    mode = b.get("notes_format", "legacy")
+    try:
+        if mode != "legacy" and len(notes) > 20000:
+            return 400, {"error": "댓글은 최대 20000자예요"}
+        notes = check_format(notes, mode, conn.url)
+    except (ValueError, TypeError):
+        return 400, {"error": "댓글 형식 또는 HTML이 안전하지 않아요. 원문과 선택한 형식을 확인하세요", "code": "bad_format"}
+    notes = notes.strip() if mode == "legacy" else notes
+    raw_fields = {k: b[k] for k in ("preset", "status_id", "assigned_to_id", "dev_id") if b.get(k) not in (None, "")}
+    if mode != "legacy":
+        raw_fields["notes_format"] = mode
+    sig = hashlib.sha1(json.dumps([iid, notes, sorted(raw_fields.items()), metadata], ensure_ascii=False).encode()).hexdigest()
+    scope = _scope(me)
+    signature = scope + ":" + sig
+    for key, value in list(_REQUESTS.items()):
+        if time.monotonic() - value["at"] > REQUEST_TTL:
+            _REQUESTS.pop(key, None)
+    request = _REQUESTS.get(rid)
+    if request and request["sig"] != signature:
+        return 409, {"error": "이미 다른 내용에 사용한 요청이에요", "code": "request_reused"}
+    if request and request.get("result"):
+        return 200, {**request["result"], "replayed": True}
+    stored = write_requests.get_request(rid)
+    if stored:
+        if stored["scope"] != scope or stored["signature"] != sig:
+            return 409, {"error": "이미 다른 내용에 사용한 요청이에요", "code": "request_reused"}
+        if stored["state"] in ("succeeded", "confirmed"):
+            return 200, {"ok": True, "note": None, "replayed": True, "request_id": rid}
+        if stored["state"] == "released":
+            return 409, {"error": "확인을 마친 이전 요청 ID예요. 새 요청 ID로 올려 주세요", "code": "request_closed"}
+        return _review_required(rid)
+    pending = write_requests.unresolved(scope, iid)
+    if pending:
+        return _review_required(pending["request_id"])
     try:
         d, dev = rm_issue(iid)
-        me = my_id()
         fields = gather_fields(b, d, me)
     except Exception as e:
         kind, reason, hint, _ = explain(e)
-        return 502, {"error": f"{reason} — {hint}", "kind": kind}
-    # 이미 같은 값이면 보내지 않는다 (불필요한 변경 이력과 알림 방지)
+        return 502, {"error": redact(reason), "hint": redact(hint), "kind": kind}
     same = {"status_id": d["status"]["id"], "assigned_to_id": (d.get("assigned_to") or {}).get("id"), "dev_id": dev}
     fields = {k: v for k, v in fields.items() if v != same.get(k)}
-    if not notes and not fields:
-        return 400, {"error": "바뀌는 것이 없어요 — 이미 같은 상태·담당자예요 (댓글도 비어 있어요)", "code": "nochange"}
-    # 보이는 화면을 연 뒤에 레드마인에서 바뀌었는지 확인
-    lu = b.get("loaded_updated_on")
-    if lu and lu != d["updated_on"] and not b.get("force"):
-        return 409, {"error": "이 일감이 그 사이에 레드마인에서 바뀌었어요. 그래도 올릴까요?", "code": "changed",
-                     "current": {"updated_on": d["updated_on"], "status": d["status"]["name"], "assigned": (d.get("assigned_to") or {}).get("name"),
-                                 "comments": len([j for j in d.get("journals", []) if (j.get("notes") or "").strip()])}}
-    sig = hashlib.sha1(json.dumps([iid, notes, sorted(fields.items())], ensure_ascii=False).encode("utf-8")).hexdigest()
+    if not notes and not fields and not files:
+        return 400, {"error": "바뀌는 것이 없어요", "code": "nochange"}
+    if b.get("loaded_updated_on") and b["loaded_updated_on"] != d["updated_on"] and not b.get("force"):
+        return 409, {"error": "그 사이 Redmine에서 바뀌었어요. 그래도 올릴까요?", "code": "changed",
+                     "current": {"updated_on": d["updated_on"], "status": d["status"]["name"],
+                                 "assigned": (d.get("assigned_to") or {}).get("name"), "comments": len(d.get("journals", []))}}
     if not b.get("force"):
         since = (datetime.datetime.now() - datetime.timedelta(seconds=60)).isoformat(timespec="seconds")
         with db() as c:
-            if c.execute("SELECT 1 FROM write_log WHERE sig=? AND ok=1 AND at>=?", (sig, since)).fetchone():
-                return 409, {"error": "같은 내용을 방금 올렸어요. 한 번 더 올릴까요?", "code": "duplicate"}
+            duplicate = c.execute("SELECT 1 FROM write_log WHERE sig=? AND ok=1 AND at>=?", (sig, since)).fetchone()
+        if duplicate or write_requests.recently_succeeded(scope, sig):
+            return 409, {"error": "같은 내용을 방금 올렸어요", "code": "duplicate"}
     payload = {"issue": {}}
     if notes:
-        payload["issue"]["notes"] = to_textile(notes)
-    if "status_id" in fields:
-        payload["issue"]["status_id"] = fields["status_id"]
-    if "assigned_to_id" in fields:
-        payload["issue"]["assigned_to_id"] = fields["assigned_to_id"]
+        payload["issue"]["notes"] = to_textile(notes) if mode == "legacy" else notes
+    for k in ("status_id", "assigned_to_id"):
+        if k in fields:
+            payload["issue"][k] = fields[k]
     if "dev_id" in fields:
         payload["issue"]["custom_fields"] = [{"id": int(conn.dev_field), "value": str(fields["dev_id"])}]
-    action = b.get("preset") or ("comment" if notes and not fields else "custom")
-    verified = False
+    action = b.get("preset") or ("comment" if notes or files else "custom")
+    log_payload = {"issue": dict(payload["issue"]), "attachments": metadata, "request_id": rid}
+    if request is None:
+        if len(_REQUESTS) >= MAX_REQUESTS:
+            for key, value in list(_REQUESTS.items()):
+                if value.get("result"):
+                    _REQUESTS.pop(key, None)
+                    break
+        if len(_REQUESTS) >= MAX_REQUESTS:
+            return 429, {"error": "보관 중인 요청이 많아요. 잠시 뒤 다시 시도해 주세요"}
+        request = {"at": time.monotonic(), "sig": signature, "uploads": []}
+        _REQUESTS[rid] = request
     try:
+        for f in files[len(request["uploads"]):]:
+            request["uploads"].append(rm_upload(f["filename"], f["data"]))
+    except Exception as e:
+        kind, reason, hint, _ = explain_write(e, [u["token"] for u in request["uploads"]])
+        return 502, {"error": "파일 업로드를 마치지 못했어요", "code": "upload_failed", "kind": kind,
+                     "hint": hint if kind == "redirect" else "일감 수정은 보내지 않았어요. 받은 토큰은 메모리에서만 재사용해요"}
+    context = {"iid": iid, "me": me, "dev_field": str(conn.dev_field), "fields": fields,
+               "notes": payload["issue"].get("notes", ""), "files": metadata,
+               "attachment_ids": [u["attachment_id"] for u in request["uploads"]],
+               "before_attachments": [a["id"] for a in d.get("attachments", [])],
+               "before_journals": [j["id"] for j in d.get("journals", [])],
+               "request_id": rid, "sig": sig, "action": action, "log_payload": log_payload}
+    try:
+        write_requests.begin(rid, scope, iid, sig, context)  # commit를 마치기 전에는 PUT을 보내지 않는다.
+    except Exception:
+        return 503, {"error": "요청 처리 상태를 저장하지 못해 일감 수정을 보내지 않았어요", "code": "journal_unavailable"}
+    if request["uploads"]:
+        payload["issue"]["uploads"] = [{"token": u["token"], "filename": u["filename"],
+                                        **({"content_type": mime} if (mime := raster_type(f["filename"], f["data"])) else {})}
+                                       for u, f in zip(request["uploads"], files)]
+    verified, failure = False, None
+    try:
+        # 명확한 PUT 성공 응답이면 등록 완료다. upload ID는 필수 응답이 아니다.
         rm_put(f"/issues/{iid}.json", payload)
     except Exception as e:
-        kind, reason, hint, detail = explain_write(e)
-        if kind in ("server", "timeout", "network"):  # 올라갔는지 모르는 경우: 레드마인에서 다시 읽어 확인한다 (자동 재시도는 중복이 될 수 있어 하지 않음)
-            try:
-                d2, dev2 = rm_issue(iid)
-                mine = [j for j in d2.get("journals", []) if (j.get("user") or {}).get("id") == me and (j.get("notes") or "").strip() == payload["issue"].get("notes", "").strip()]
-                done = (bool(notes) and bool(mine)) or (not notes and all(
-                    {"status_id": d2["status"]["id"], "assigned_to_id": (d2.get("assigned_to") or {}).get("id"), "dev_id": dev2}.get(k) == v for k, v in fields.items()))
-                if done:
-                    verified = True
-            except Exception:
-                pass
-        if not verified:
-            lid = write_log(iid, action, sig, payload, False, f"{kind}: {reason} {detail}".strip())
-            return 422 if kind in ("status", "assignee", "devfield", "invalid") else 502, {
-                "error": reason, "hint": hint, "detail": detail, "kind": kind, "log_id": lid}
+        # 응답 유실·오류 때에만 확실한 동일성 증거로 원격 반영을 확인한다.
+        failure = explain_write(e, [u["token"] for u in request["uploads"]])
+        try:
+            verified = _verified_write(context)
+        except Exception:
+            pass
+    finally:
+        invalidate_cached(("att", iid))
+    if failure and not verified:
+        kind, reason, hint, detail = failure
+        try:
+            write_requests.set_state(rid, "token_rejected" if kind == "upload_token" else "uncertain")
+        except Exception:
+            pass  # durable pending가 이미 있어 재시작 뒤에도 전송을 차단한다.
+        try:
+            write_log(iid, action, sig, log_payload, False, "write: " + kind)
+        except Exception:
+            pass
+        return (422 if kind in ("status", "assignee", "devfield", "invalid", "upload_token") else 502), {
+            "error": reason, "hint": hint, "detail": detail, "kind": kind, "code": "needs_review",
+            "needs_review": True, "request_id": rid}
+    return _finish_write(context, request, verified)
+
+
+def recover_write(b):
     try:
-        n = refresh_local(iid)
+        iid = int(b.get("issue_id") or 0)
+    except (TypeError, ValueError, AttributeError):
+        iid = 0
+    if iid <= 0:
+        return 400, {"error": "일감 번호가 없어요"}
+    return _locked_call(iid, _recover_write, b, iid)
+
+
+def _recover_write(b, iid):
+    if b.get("decision") not in ("check", "applied", "not_applied"):
+        return 400, {"error": "확인 방법이 올바르지 않아요"}
+    denied = _access(iid)
+    if denied:
+        return denied
+    me = my_id() if configured() else None
+    stored = write_requests.get_request(b.get("request_id") or "")
+    if not me or not stored or stored["scope"] != _scope(me) or stored["issue_id"] != iid:
+        return 404, {"error": "이 연결과 일감의 요청이 아니에요"}
+    if stored["state"] == "released":
+        return 200, {"retry_allowed": True, "request_id": stored["request_id"]}
+    context = json.loads(stored["context"])
+    try:
+        verified = _verified_write(context)
     except Exception:
-        n = None
-    lid = write_log(iid, action, sig, payload, True, "올라감" + (" (오류 응답 뒤 레드마인에서 확인됨)" if verified else ""))
-    return 200, {"ok": True, "note": n, "verified": verified, "log_id": lid}
+        verified = False
+    if verified or stored["state"] in ("succeeded", "confirmed") or b.get("decision") == "applied":
+        request = _REQUESTS.get(stored["request_id"], {})
+        return _finish_write(context, request, verified, not verified and (b.get("decision") == "applied" or stored["state"] == "confirmed"))
+    if b.get("decision") != "not_applied":
+        return _review_required(stored["request_id"], "API만으로 반영 여부를 확정할 수 없어요. Redmine에서 직접 확인하세요")
+    # 사용자가 미반영을 직접 확인했다고 명시한 경우에만 이전 ID를 닫는다. 여기서는 전송하지 않는다.
+    try:
+        write_requests.set_state(stored["request_id"], "released")
+    except Exception:
+        return 503, {"error": "확인 결과를 저장하지 못했어요. 다시 보내지 않았어요"}
+    _REQUESTS.pop(stored["request_id"], None)
+    return 200, {"retry_allowed": True, "request_id": stored["request_id"]}
+
+
+def raster_type(filename, data):
+    """확장자와 바이너리 서명이 일치하는 래스터만 이미지 MIME으로 전달한다."""
+    ext = filename.lower().rsplit(".", 1)[-1]
+    if ext == "png" and data.startswith(b"\x89PNG\r\n\x1a\n"): return "image/png"
+    if ext in ("jpg", "jpeg") and data.startswith(b"\xff\xd8\xff"): return "image/jpeg"
+    if ext == "gif" and data[:6] in (b"GIF87a", b"GIF89a"): return "image/gif"
+    if ext == "webp" and data[:4] == b"RIFF" and data[8:12] == b"WEBP": return "image/webp"
+    return ""
 
 
 def rm_attachments(iid):
     """일감의 첨부파일 목록(본문 첨부 + 댓글 첨부). 레드마인에서 바로 읽는다 (1분 캐시)."""
     def load():
         d = rm_get(f"/issues/{iid}.json", {"include": "attachments,journals"})["issue"]
+        me = my_id()
+        eligible = _access(iid) is None
         by_att = {}
         for j in d.get("journals", []):
             for x in j.get("details", []):
@@ -306,7 +596,9 @@ def rm_attachments(iid):
             out.append({
                 "id": a["id"], "filename": a.get("filename", ""), "filesize": a.get("filesize", 0),
                 "content_type": a.get("content_type", ""), "description": a.get("description", ""),
+                "content_url": attachment_image_url(a.get("content_url"), a["id"], conn.url),
                 "author": (a.get("author") or {}).get("name", ""), "created_on": a.get("created_on", ""),
+                "can_delete": bool(me and eligible and (a.get("author") or {}).get("id") == me and a.get("deletable") is not False),
                 "source": "comment" if j else "body",
                 "comment_by": ((j.get("user") or {}).get("name", "") if j else ""),
                 "comment_at": (j.get("created_on", "") if j else ""),

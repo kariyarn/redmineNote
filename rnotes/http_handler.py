@@ -21,10 +21,13 @@ from .autosync import status as autosync_status
 from .config import APP_TITLE, BETA, BUILD, CHANNEL, VERSION_LABEL
 from .config import WEB_DIR, APP_VERSION, BACKUP_DIR, DATA_DIR, DB_PATH, DEFAULT_URL, FONT_DIR, FONT_EXT, FROZEN, HOME_DIR, MAX_UPLOAD, POINTER_PATH, PORT, RUN, SETTING_KEYS, STATE, conn
 from .fonts import font_files
+from .comment_format import image_path
 from .lifecycle import open_or_notify, shutdown
 from .redmine import check_login, explain, fetch_ids, fetch_linked, my_id, rm_issue, rm_members, rm_statuses, sync
 from .rm_deploy import deploy_issues, deploy_state, rm_peek, rm_projects, rm_search
-from .rm_write import do_write, preview_write, refresh_local, rm_attachments, write_info
+from .rm_write import do_write, parse_write_request, preview_write, recover_write, refresh_local, rm_attachments, write_info
+from .http_client import open_authenticated
+from .rm_manage import journal_for_edit, manage_write, recover_manage
 from .sticky import sticky_row, sticky_save
 from .storage import backup_path, configured, db, get_settings, list_backups, note_count, restore_bytes, save_config, snapshot_zip, stamp
 from .holidays import extra_days, holiday_dates
@@ -249,22 +252,32 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_json({"error": f"{reason} — {hint}"}, 502)
         elif u.path == "/api/rm/img":         # 본문·댓글 속 사진: 브라우저는 레드마인에 바로 못 가므로 서버가 대신 받아서 넘긴다 (사진 경로만 허용)
             pth = q.get("p", "")
-            if not re.fullmatch(r"/(?:system|attachments)/[^\s?#]+", pth) or ".." in pth:
+            pth = image_path(pth, conn.url)
+            if not pth:
                 self.send_json({"error": "허용되지 않은 경로예요"}, 400)
                 return
             try:
-                r = urllib.request.urlopen(urllib.request.Request(conn.url + urllib.parse.quote(pth, safe="/%:@!$&'()*+,;=-._~"),
+                r = open_authenticated(urllib.request.Request(conn.url + pth,
                                                                   headers={"X-Redmine-API-Key": conn.key}), timeout=40)
             except Exception as e:
-                self.send_json({"error": "사진을 불러오지 못했어요"}, 502)
+                kind, reason, hint, _ = explain(e)
+                status = getattr(e, "code", None)
+                message = {401: "이미지 API 인증이 거절됐어요. 브라우저 로그인 세션과 REST API 권한은 다를 수 있어요", 403: "이미지에 접근할 권한이 없어요", 404: "이미지 파일이나 경로를 찾을 수 없어요"}.get(status, reason)
+                self.send_json({"error": message, "kind": kind, "upstream_status": status}, status if status in (401, 403, 404) else 502)
                 return
             with r:
                 ct = r.headers.get("Content-Type") or ""
                 if not ct.startswith("image/"):
                     self.send_json({"error": "사진이 아니에요"}, 415)
                     return
-                body = r.read(20 * 1024 * 1024)
-            self.send_bytes(body, ct, 200, {"Cache-Control": "private, max-age=86400", "X-Content-Type-Options": "nosniff"})
+                body = r.read(20 * 1024 * 1024 + 1)
+                if len(body) > 20 * 1024 * 1024:
+                    self.send_json({"error": "이미지가 20MB 제한을 초과했어요", "kind": "size"}, 413)
+                    return
+            self.send_bytes(body, ct, 200, {"Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff"})
+        elif u.path == "/api/rm/journal":
+            code, obj = journal_for_edit(q)
+            self.send_json(obj, code)
         elif u.path == "/api/rm/attachments":
             try:
                 self.send_json(rm_attachments(int(q.get("issue_id") or 0)))
@@ -280,10 +293,12 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 req = urllib.request.Request(f"{conn.url}/attachments/download/{aid}/{urllib.parse.quote(name)}",
                                              headers={"X-Redmine-API-Key": conn.key})
-                r = urllib.request.urlopen(req, timeout=60)
+                r = open_authenticated(req, timeout=60)
             except Exception as e:
                 kind, reason, hint, _ = explain(e)
-                self.send_json({"error": f"{reason} — {hint}"}, 502)
+                status = getattr(e, "code", None)
+                message = {401: "첨부파일 API 인증이 거절됐어요", 403: "첨부파일에 접근할 권한이 없어요", 404: "첨부파일을 찾을 수 없어요"}.get(status, reason)
+                self.send_json({"error": message, "kind": kind, "upstream_status": status}, status if status in (401, 403, 404) else 502)
                 return
             with r:
                 self.send_response(200)
@@ -292,6 +307,7 @@ class Handler(BaseHTTPRequestHandler):
                     self.send_header("Content-Length", r.headers["Content-Length"])
                 self.send_header("Content-Disposition", "attachment; filename*=UTF-8''" + urllib.parse.quote(name))
                 self.send_header("X-Content-Type-Options", "nosniff")
+                self.send_header("Cache-Control", "no-store")
                 self.end_headers()
                 while True:
                     chunk = r.read(65536)
@@ -370,6 +386,15 @@ class Handler(BaseHTTPRequestHandler):
         u = urllib.parse.urlparse(self.path)
         q = {k: v[0] for k, v in urllib.parse.parse_qs(u.query).items()}
         try:
+            if u.path == "/api/rm/write":
+                try:
+                    size = int(self.headers.get("Content-Length", "0"))
+                except ValueError:
+                    return self.send_json({"error": "요청 크기가 올바르지 않아요"}, 400)
+                if size < 0 or self.headers.get("Transfer-Encoding"):
+                    return self.send_json({"error": "요청 크기가 올바르지 않아요"}, 400)
+                if size > MAX_UPLOAD:
+                    return self.send_json({"error": "요청이 너무 큽니다 (최대 80MB)"}, 413)
             raw = self.read_raw()
             is_json = self.headers.get("Content-Type", "").startswith("application/json")
             d = json.loads(raw or b"{}") if is_json else {}
@@ -590,8 +615,21 @@ class Handler(BaseHTTPRequestHandler):
                 except Exception as e:
                     kind, reason, hint, _ = explain(e)
                     self.send_json({"error": f"{reason} — {hint}", "kind": kind}, 502)
-            elif u.path == "/api/rm/write":   # 레드마인에 댓글 · 상태 · 담당자 쓰기
-                code, obj = do_write(d)
+            elif u.path == "/api/rm/write":
+                try:
+                    data, files = parse_write_request(self.headers.get("Content-Type", ""), raw)
+                except (ValueError, TypeError, UnicodeError) as e:
+                    return self.send_json({"error": str(e)}, 400)
+                code, obj = do_write(data, files)
+                self.send_json(obj, code)
+            elif u.path == "/api/rm/write/recover":
+                code, obj = recover_write(d)
+                self.send_json(obj, code)
+            elif u.path in ("/api/rm/attachment/delete", "/api/rm/journal/edit"):
+                code, obj = manage_write(d, "delete_attachment" if u.path.endswith("delete") else "edit_journal")
+                self.send_json(obj, code)
+            elif u.path == "/api/rm/manage/recover":
+                code, obj = recover_manage(d)
                 self.send_json(obj, code)
             elif u.path == "/api/second-launch":  # 이미 켜져 있는데 또 실행됨
                 self.send_json({"ok": True, "opened": open_or_notify()})

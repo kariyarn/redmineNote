@@ -30,6 +30,7 @@ import zipfile
 
 from .config import APP_VERSION, DB_PATH, HOME_DIR, RUN
 from .storage import db, restore_bytes
+from .http_client import RedirectBlocked, open_authenticated
 
 API = (os.environ.get("REDMINE_NOTES_GITHUB_API") or "https://api.github.com").rstrip("/")   # 시험에서는 가짜 깃허브 주소
 CFG_PATH = HOME_DIR / "gitbackup.json"
@@ -187,7 +188,7 @@ def _req(d, method, path, body=None, raw=False, timeout=60):
         **({"Content-Type": "application/json"} if data is not None else {}),
     })
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as r:
+        with open_authenticated(req, timeout=timeout) as r:
             b = r.read()
             return b if raw else (json.loads(b) if b else {})
     except urllib.error.HTTPError as e:
@@ -205,6 +206,8 @@ def _explain(e, d):
     """HTTPError → 사용자에게 보여 줄 BackupError."""
     if isinstance(e, BackupError):
         return e
+    if isinstance(e, RedirectBlocked):
+        return BackupError("인증 요청의 리다이렉트를 거절했어요. 최종 API 주소를 확인하세요", "redirect")
     code, msg = getattr(e, "code", 0), getattr(e, "gh_message", "")
     if code == 401:
         return BackupError("토큰이 맞지 않거나 만료됐어요. 깃허브에서 새 토큰을 만들어 넣어 주세요", "auth")

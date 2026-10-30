@@ -1,14 +1,12 @@
 """시험 모드 해제 후 + 줄바꿈 변환 + 첨부파일 (가짜 레드마인만 사용)"""
 import datetime, json, os, urllib.parse, subprocess, sys, tempfile, time, urllib.request, urllib.error
+from isolated_env import isolated_env
 SP = os.path.dirname(os.path.abspath(__file__)); SRV = sys.argv[1]
-FP, AP = int(os.environ.get("RN_FAKE_PORT") or 18951), int(os.environ.get("RN_APP_PORT") or 18952)   # 다른 시험과 겹치면 환경변수로 바꾼다
-home = tempfile.mkdtemp(prefix="rn2-rel-")
-env = dict(os.environ, REDMINE_NOTES_HOME=home, REDMINE_NOTES_PORT=str(AP), REDMINE_NOTES_IDLE_SEC="0", REDMINE_NOTES_NO_APPWIN="1", PYTHONIOENCODING="utf-8")
-env.pop("REDMINE_NOTES_WRITE_ALLOW", None)
-json.dump({"url": f"http://127.0.0.1:{FP}", "api_key": "good-key", "dev_field_id": "18"}, open(os.path.join(home, "config.json"), "w", encoding="utf-8"))
-fake = subprocess.Popen([sys.executable, os.path.join(SP, "fake_rm_write.py"), str(FP)])
+home, env, FP, AP = isolated_env("rn2-rel-")
+fake = subprocess.Popen([sys.executable, os.path.join(SP, "fake_rm_write.py"), str(FP)], env=env)
 app = subprocess.Popen([sys.executable, SRV], env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 BASE = f"http://127.0.0.1:{AP}"; ok = True
+checks = 0
 NL = chr(10)
 
 
@@ -21,7 +19,9 @@ def call(m, p, b=None):
 
 
 def chk(n, c, i=""):
-    global ok; ok &= bool(c); print(("PASS " if c else "FAIL ") + n, "" if c else i)
+    global ok, checks
+    checks += 1
+    ok &= bool(c); print(("PASS " if c else "FAIL ") + n, "" if c else i)
 
 
 try:
@@ -29,7 +29,8 @@ try:
         try: urllib.request.urlopen(BASE + "/api/config", timeout=2); break
         except Exception: time.sleep(0.3)
     s, cfg = call("GET", "/api/config")
-    if "127.0.0.1" not in str(cfg.get("url")): raise SystemExit("ABORT 가짜 서버가 아님")
+    if cfg.get("url") != f"http://127.0.0.1:{FP}" or os.path.realpath(cfg.get("dataDir", "")) != os.path.realpath(home):
+        raise SystemExit("ABORT 가짜 서버/임시 홈 격리가 일치하지 않음")
     chk("시험 모드 꺼짐", cfg["write"]["test"] is False and cfg["write"]["allow"] == [], cfg["write"])
     call("POST", "/api/fetch", {"ids": [200]})
     s, r = call("POST", "/api/rm/write", {"issue_id": 200, "notes": "등록된 일감 댓글"}); chk("등록된 #200 에 댓글 가능", s == 200 and r.get("ok"), r)
@@ -207,4 +208,6 @@ try:
     chk("추가 휴일에 적은 오늘은 쉬는 날", a2["holiday"]["today_off"] is True, a2["holiday"])
     s, hd = call("GET", f"/api/holidays?year={tdy[:4]}"); chk("달력 공휴일에 추가 휴일 포함", s == 200 and tdy in hd, hd)
 finally:
-    app.terminate(); fake.terminate(); print("ALL PASS" if ok else "SOME FAILED")
+    app.terminate(); fake.terminate(); app.wait(timeout=10); fake.wait(timeout=10)
+    print(("ALL PASS" if ok else "SOME FAILED") + f" ({checks} checks)")
+sys.exit(0 if ok else 1)

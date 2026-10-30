@@ -157,6 +157,13 @@ def init_db():
                 at TEXT, issue_id INTEGER, action TEXT, sig TEXT,
                 payload TEXT, ok INTEGER, result TEXT
             );
+            -- PUT 전 의도 기록. context에는 첨부 ID/메타데이터만, 토큰·바이너리는 넣지 않는다.
+            CREATE TABLE IF NOT EXISTS write_requests (
+                request_id TEXT PRIMARY KEY, scope TEXT NOT NULL, issue_id INTEGER NOT NULL,
+                signature TEXT NOT NULL, state TEXT NOT NULL, context TEXT NOT NULL,
+                created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_write_requests_issue ON write_requests(scope, issue_id, state);
             -- 포스트잇 메모: 레드마인·사전·검색과 상관없는 별개의 메모 (하루 = 보드 한 장)
             CREATE TABLE IF NOT EXISTS sticky (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,

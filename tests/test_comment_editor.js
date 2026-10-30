@@ -1,0 +1,206 @@
+/* 실제 편집기 코드를 DOM 대역에서 검사. 네이티브 명령/레이아웃은 브라우저 수동 검사 대상. */
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
+const {document,Element}=require('./dom_stub');const root=path.resolve(__dirname,'..');let checks=0;
+const check=(name,fn)=>{fn();checks++;console.log('PASS',name)};
+const selected={rangeCount:0,anchorNode:null,isCollapsed:true};
+const context=vm.createContext({document,location:{origin:'http://127.0.0.1:1'},URL,window:{getSelection:()=>selected},
+  cfg:{url:'http://127.0.0.1:2'},Event:class{constructor(type,o={}){this.type=type;Object.assign(this,o)}},askC:async()=>true,toast(){},api:async()=>[]});
+vm.runInContext(fs.readFileSync(path.join(root,'web/js/comment_editor.js'),'utf8'),context);const run=s=>vm.runInContext(s,context);
+context.root=new Element('div');context.peer=new Element('div');
+run('a=new CommentEditor(root,{value:"<p>한국어<br>둘째</p>",format:"html"});b=new CommentEditor(peer,{value:a.getRaw(),format:"html"});a.onChange=value=>b.setPeer(value,a.format)');
+check('original raw is unchanged by initialization',()=>assert.equal(run('a.getRaw()'),'<p>한국어<br>둘째</p>'));
+check('unsafe URLs and tracking images blocked',()=>{for(const u of ['javascript:alert(1)','data:image/svg+xml,x','//outside.invalid','java\nscript:x']){context.u=u;assert.equal(run('CommentCodec.url(u)'),null)}assert.equal(run('CommentCodec.url("https://outside.invalid/img.png",true)'),null)});
+check('encoded spaces in attachment names are valid but encoded newlines are blocked',()=>{assert.equal(run('CommentCodec.url("http://127.0.0.1:2/attachments/download/77/my%20image.png",true)'),'http://127.0.0.1:2/attachments/download/77/my%20image.png');assert.equal(run('CommentCodec.url("http://127.0.0.1:2/attachments/download/77/my%0aimage.png",true)'),null)});
+check('CSS allowlist rejects executable and positioning styles',()=>{for(const s of ['background:url(https://outside.invalid)','position:fixed','color:expression(alert(1))']){context.s=s;assert.equal(run('CommentCodec.style(s)'),null)}assert.equal(run('CommentCodec.style("font-size:24px;color:#ff0000")'),'font-size:24px;color:#ff0000')});
+check('HTML sanitation removes active nodes event attrs and unsafe URLs',()=>{const s=run('CommentCodec.clean(\'<p onclick="x()">안전<b>굵게</b></p><script>bad()</script><img src="https://outside.invalid/x" onerror="x()"><a href="java&#x73;cript:x()">링크</a><svg onload="x()"></svg>\').html');assert.ok(s.includes('안전'));assert.doesNotMatch(s,/onclick|script|outside.invalid|onerror|javascript|svg/)});
+check('images use local proxy while serialization preserves original address',()=>{const html=run('CommentCodec.clean(\'<img src="http://127.0.0.1:2/attachments/download/77/a.png" alt="이미지">\',{preview:true}).html');assert.ok(html.includes('/api/rm/attachment?id=77'));context.img=html;assert.match(run('CommentCodec.serialize(img,"html")'),/src="http:\/\/127.0.0.1:2\/attachments\/download\/77\/a.png"/)});
+check('read-only image rendering retains existing viewer hooks',()=>{const html=run('commentSafeDisplay(\'<p><img src="/attachments/download/77/a.png"></p>\',"source")');assert.match(html,/class="rimg"/);assert.match(html,/data-full="\/api\/rm\/attachment/)});
+check('HTML rendering retains headings links tables styles and code',()=>{const raw='<h2>제목</h2><p><b>굵게</b><i>기울임</i><u>밑줄</u><s>취소</s><a href="https://example.invalid">링크</a></p><table><tbody><tr><td>칸</td></tr></tbody></table><pre><code>x = 1\n\nprint(x)</code></pre>';context.raw=raw;assert.equal(run('CommentCodec.serialize(raw,"html")'),raw)});
+check('Korean composition does not publish intermediate text',()=>{run('a.composing=true;a.visual.innerHTML="<p>조합 중</p>";a.changed(a.visual)');assert.equal(run('a.getRaw()'),'<p>한국어<br>둘째</p>');run('a.composing=false;a.changed(a.visual)');assert.equal(run('a.getRaw()'),'<p>조합 중</p>');assert.equal(run('b.getRaw()'),'<p>조합 중</p>')});
+check('source mode and line breaks preserve exact data',()=>{run('a.source.value="\\n<p>한국어\\n둘째</p>\\n";a.changed(a.source)');assert.equal(run('a.getRaw()'),'\n<p>한국어\n둘째</p>\n')});
+context.compat='<p style="margin:0;padding:0;line-height:1.6">이미지 앞</p>\n<p><img data-rich-file-id="123" src="/system/rich/rich_files/001/original/my%20image.png"></p>\n<div>중간<br>다음</div>\n<table><tr><td><img src="/system/attachments/002/%ED%95%9C%EA%B8%80.png"></td></tr></table>\n<p>이미지 뒤</p>';
+check('CKEditor display preserves encoded names structure and image positions',()=>{const raw=run('commentSafeDisplay(compat,"source")');const box=new Element('div');box.innerHTML=raw;const images=box.querySelectorAll('img');assert.equal(images.length,2);assert.match(raw,/class="remote-html"/);assert.match(raw,/이미지 앞[\s\S]*<img[\s\S]*중간[\s\S]*<table[\s\S]*이미지 뒤/);assert.equal(new URL(images[0].getAttribute('src'),'http://127.0.0.1:1').searchParams.get('p'),'/system/rich/rich_files/001/original/my%20image.png');assert.doesNotMatch(raw,/<\/p>\n<p>/)});
+check('image proxy accepts safe thumbnails and rejects manager auth and traversal URLs',()=>{for(const s of ['/attachments/thumbnail/77?size=128','/rich/files/42/photo.png','/system/attachments/a%20b.png']){context.s=s;assert.ok(run('CommentCodec.imageProxy(s)'))}for(const s of ['/rich/files/?CKEditor=foo','/system/a.png?key=secret','/system/%252e%252e/x.png','/system/x.png?bad=1']){context.s=s;assert.equal(run('CommentCodec.imageProxy(s)'),null)}});
+context.htmlRoot=new Element('div');run('htmlDefault=new CommentEditor(htmlRoot,{value:compat})');
+check('HTML is visual default without format menu and CKEditor original stays exact',()=>{assert.equal(run('htmlDefault.format'),'html');assert.equal(run('htmlDefault.sourceMode'),false);assert.equal(run('htmlDefault.getRaw()'),context.compat);assert.equal(run('htmlRoot.querySelector("select.ceformat")'),null);assert.doesNotMatch(run('htmlRoot.innerHTML'),/option value="(?:markdown|textile|legacy)"/)});
+check('icon toolbar has functional command IDs tooltips and accessible names',()=>{const b=run('htmlDefault.tools.querySelector(\'[data-ce="bold"]\')');assert.equal(b.getAttribute('aria-label'),'굵게');assert.equal(b.getAttribute('title'),'굵게');assert.match(b.innerHTML,/>B</);assert.ok(run('htmlDefault.tools.querySelector(".cefont")'));assert.equal(run('htmlDefault.images.getAttribute("role")'),'dialog')});
+check('legacy edits choose internal raw mode and text snippets safely become HTML',()=>{assert.equal(run('commentEditFormat("plain\\n**old**")'),'source');assert.equal(run('commentEditFormat("```html\\n<p>literal</p>\\n```")'),'source');assert.equal(run('commentEditFormat(compat)'),'html');const raw=run('commentTextHTML("한국어\\n다음\\n```html\\n<script>literal</script>\\n```")');assert.match(raw,/<p>한국어<\/p><p>다음<\/p>/);assert.match(raw,/&lt;script&gt;literal/)});
+check('editor styles no longer target historical bubbles',()=>{const css=fs.readFileSync(path.join(root,'web/css/comment_editor.css'),'utf8'),display=fs.readFileSync(path.join(root,'web/css/note.css'),'utf8');assert.doesNotMatch(css,/\.bubble/);assert.match(display,/\.remote-html\{white-space:normal/);assert.match(css,/\.ceimages\{position:fixed/)});
+(async()=>{
+  const before=run('a.getRaw()');await run('a.command("undo")');assert.notEqual(run('a.getRaw()'),before);await run('a.command("redo")');
+  check('custom undo redo preserves full raw snapshot',()=>assert.equal(run('a.getRaw()'),before));
+  run('a.setRaw(\'<p data-unknown="keep">원문</p>\')');check('unsupported originals stay source without mutation',()=>{assert.equal(run('a.sourceMode'),true);assert.equal(run('a.getRaw()'),'<p data-unknown="keep">원문</p>')});
+  for(const mode of ['markdown','textile']){
+    context.mode=mode;run('a.format=mode;a.sourceMode=false;a.setRaw("한국어");a.visual.innerHTML="<p><strong>한국어</strong></p><pre><code>x = 1\\nprint(x)</code></pre>";a.changed(a.visual)');
+    check(mode+' emits native markup and code blocks',()=>{const raw=run('a.getRaw()');assert.ok(raw.includes(mode==='markdown'?'**한국어**':'*한국어*'));assert.ok(raw.includes(mode==='markdown'?'```\nx = 1\nprint(x)\n```':'<pre><code>x = 1\nprint(x)</code></pre>'))});
+    check(mode+' hides unsupported font color and alignment',()=>{assert.equal(run('a.tools.querySelector(".cecolor")'),null);assert.equal(run('a.tools.querySelector(\'[data-ce="justifyCenter"]\')'),null)});
+  }
+  check('markdown links keep query string exactly',()=>{const html=run('CommentCodec.parse("[link](https://example.invalid?a=1&b=2)","markdown").node.querySelector("a").getAttribute("href")');assert.equal(html,'https://example.invalid?a=1&b=2')});
+  check('markup in URLs never changes Textile link targets',()=>{const href=run('CommentCodec.parse(\'"link":https://example.invalid/a_b_c?q=one+two&x=1\',"textile").node.querySelector("a").getAttribute("href")');assert.equal(href,'https://example.invalid/a_b_c?q=one+two&x=1')});
+  check('markdown table serializer creates header separator',()=>assert.match(run('CommentCodec.serialize("<table><tr><td>A</td><td>B</td></tr><tr><td>1</td><td>2</td></tr></table>","markdown")'),/\|---\|---\|/));
+  check('nested lists keep hierarchy in both markup formats',()=>{for(const [mode,raw]of [['markdown','- one\n  - two\n- three'],['textile','* one\n** two\n* three']]){context.mode=mode;context.raw=raw;const html=run('CommentCodec.parse(raw,mode).html');assert.match(html,/<li>one<ul><li>two<\/li><\/ul><\/li>/);context.html=html;assert.ok(run('CommentCodec.serialize(html,mode)').includes(mode==='markdown'?'  - two':'** two'))}});
+  check('Textile code uses safe pre tags rather than unsupported Markdown fences',()=>{const raw=run('CommentCodec.serialize("<pre><code>&lt;script&gt;literal&lt;/script&gt;\\n</code></pre>","textile")');assert.ok(raw.includes('&lt;script&gt;'));context.raw=raw;assert.match(run('CommentCodec.parse(raw,"textile").html'),/&lt;script&gt;literal&lt;\/script&gt;/)});
+  check('HTML-looking text in Markdown code is never interpreted as document tags',()=>{const html=run('commentSafeDisplay("```html\\n<p>literal</p>\\n```","markdown")');assert.match(html,/&lt;p&gt;literal&lt;\/p&gt;/)});
+  run('a.setDisabled(true)');check('busy freezes both source and visual editing',()=>{assert.equal(run('a.source.disabled'),true);assert.equal(run('a.visual.contentEditable'),'false');assert.equal(run('a.select.disabled'),true)});
+  run('a.setDisabled(false);a.format="html";a.setRaw("<p>선택</p>")');
+  const commands=[];document.execCommand=(...args)=>{commands.push(args);return true};
+  for(const key of ['bold','italic','underline','strikeThrough','justifyCenter','insertOrderedList','insertUnorderedList','indent','outdent'])await run('a.command('+JSON.stringify(key)+')');
+  check('format commands invoke browser editing API rather than decorative buttons',()=>assert.equal(commands.filter(c=>c[0]!=='styleWithCSS').length,9));
+  context.clipboard={getData:type=>type==='text/html'?'<b>붙여넣기</b><img src="https://outside.invalid/x" onerror="x()">':'붙여넣기'};
+  await run('a.paste({preventDefault(){},stopPropagation(){},clipboardData:clipboard},a.visual)');
+  check('paste dispatches only sanitized HTML to browser insert command',()=>{const cmd=commands.at(-1);assert.equal(cmd[0],'insertHTML');assert.ok(cmd[2].includes('붙여넣기'));assert.doesNotMatch(cmd[2],/outside.invalid|onerror/)});
+  run('a.format="html";a.sourceMode=false;a.setRaw("<table><tbody><tr><td>A</td><td>B</td></tr></tbody></table>")');
+  selected.anchorNode=run('a.visual.querySelector("td")');
+  await run('a.command("row")');check('table row editing changes the real editor tree',()=>assert.equal(run('a.visual.querySelectorAll("tr").length'),2));
+  selected.anchorNode=run('a.visual.querySelector("td")');await run('a.command("column")');
+  check('table column editing preserves all rows',()=>assert.equal(run('a.visual.querySelectorAll("td").length'),6));
+  selected.anchorNode=run('a.visual.querySelector("td")');await run('a.command("removeColumn")');
+  selected.anchorNode=run('a.visual.querySelector("td")');await run('a.command("removeRow")');
+  check('table row and column removal are functional',()=>assert.equal(run('a.visual.querySelectorAll("td").length'),2));
+  run('a.setRaw(\'<p><a href="https://example.invalid/old">링크</a></p>\')');selected.anchorNode=run('a.visual.querySelector("a")');selected.isCollapsed=false;
+  context.window.prompt=()=> 'https://example.invalid/new';await run('a.command("link")');
+  check('link edit changes URL without removing text',()=>{assert.ok(run('a.getRaw()').includes('/new'));assert.ok(run('a.getRaw()').includes('링크'))});
+  context.window.prompt=()=> 'javascript:alert(1)';const safe=run('a.getRaw()');await run('a.command("link")');
+  check('link dialog cannot insert executable URLs',()=>assert.equal(run('a.getRaw()'),safe));
+  context.api=async()=>[{id:77,filename:'이미지 파일.png',content_type:'application/octet-stream',content_url:'http://127.0.0.1:2/attachments/download/77/image%20file.png'}];await run('a.command("image")');
+  check('image toolbar opens a selectable preview list instead of an ID prompt',()=>{assert.match(run('a.tools.innerHTML'),/이미지 삽입/);assert.equal(run('a.images.hidden'),false);assert.equal(run('a.images.querySelectorAll("[data-image-id]").length'),1)});
+  run('a.images.querySelector("[data-image-id]").onclick()');
+  check('image command requests registered attachment insertion through local proxy',()=>{const html=commands.at(-1)[2];assert.ok(html.includes('/api/rm/attachment?id=77'));assert.ok(html.includes('data-ce-src'));assert.doesNotMatch(html,/outside.invalid/)});
+  check('failed native insertion keeps chooser open and never pretends body was changed',()=>{assert.equal(run('a.images.hidden'),false);assert.match(run('a.images.querySelector(".ceimagestatus").textContent'),/삽입하지 못/)});
+  check('attachment URL requires actual content_url and matching ID',()=>{for(const att of [{id:77},{id:77,content_url:'http://127.0.0.1:2/attachments/download/78/x.png'},{id:77,content_url:'http://127.0.0.1:1/attachments/download/77/x.png'},{id:77,content_url:'https://outside.invalid/attachments/download/77/x.png'},{id:77,content_url:'http://127.0.0.1:2/attachments/download/77/x.png?key=secret'}]){context.att=att;assert.equal(run('CommentCodec.attachmentURL(att)'),null)}});
+  check('real server mode never accepts local preview URLs as saved image URLs',()=>{run('cfg.url="https://redmine.example.invalid/team"');assert.equal(run('CommentCodec.url("http://127.0.0.1:2/attachments/download/77/x.png",true)'),null);assert.equal(run('CommentCodec.url("/api/rm/attachment?id=77",true)'),null);context.att={id:77,content_url:'https://redmine.example.invalid/team/attachments/download/77/x%20y.png'};assert.equal(run('CommentCodec.attachmentURL(att)'),context.att.content_url);run('cfg.url="http://127.0.0.1:2"')});
+  document.execCommand=(key,_,html)=>{commands.push([key,_,html]);if(key==='insertHTML')run('a.visual.innerHTML+=testInsertHTML');return true};
+  context.testInsertHTML=commands.at(-1)[2];run('a.setRaw("<p>앞</p><p>뒤</p>");a.insert(testInsertHTML)');
+  check('saved image uses REST content_url while visible image uses only proxy',()=>{assert.match(run('a.getRaw()'),/src="http:\/\/127.0.0.1:2\/attachments\/download\/77\/image%20file.png"/);assert.doesNotMatch(run('a.getRaw()'),/\/api\/rm|data-ce-src|blob:/)});
+  const imageRaw=run('a.getRaw()');await run('a.command("source")');await run('a.command("source")');
+  check('image HTML survives source visual round trip without rewriting',()=>assert.equal(run('a.getRaw()'),imageRaw));
+  run('a.selectedImage=a.visual.querySelector("img")');context.window.prompt=()=> '320';await run('a.command("imageSize")');
+  check('selected image width is serialized',()=>assert.match(run('a.getRaw()'),/width="320"/));
+  const sizeRaw=run('a.getRaw()');context.window.prompt=()=> '50000';await run('a.command("imageSize")');check('invalid resize preserves original image',()=>assert.equal(run('a.getRaw()'),sizeRaw));
+  await run('a.command("imageBefore")');check('image position can move before preceding paragraph',()=>assert.match(run('a.getRaw()'),/^<p>앞<\/p><p><img/));
+  await run('a.command("imageAfter")');check('image position can move after next paragraph',()=>assert.match(run('a.getRaw()'),/^<p>앞<\/p><p>뒤<\/p>/));
+  await run('a.command("imageRemove")');check('remove image changes only body with undo available',()=>assert.doesNotMatch(run('a.getRaw()'),/<img/));await run('a.command("undo")');check('undo restores removed image with size and original address',()=>assert.match(run('a.getRaw()'),/width="320"/));
+  const png=new Blob([new Uint8Array([137,80,78,71,13,10,26,10,0])],{type:'image/png'});png.name='한국어.png';context.png=png;
+  assert.equal(await run('CommentCodec.rasterFile(png)'),'image/png');
+  check('raster signature and type are checked without network',()=>assert.equal(png.size,9));
+  for(const [name,bytes,mime]of [['a.jpg',[255,216,255],'image/jpeg'],['a.gif',[71,73,70,56,57,97],'image/gif'],['a.webp',[82,73,70,70,0,0,0,0,87,69,66,80],'image/webp']]){const file=new Blob([new Uint8Array(bytes)]);file.name=name;context.raster=file;assert.equal(await run('CommentCodec.rasterFile(raster)'),mime)}
+  check('PNG JPEG GIF and WebP signature validation is supported',()=>true);await assert.rejects(run('CommentCodec.rasterFile(png,8)'));check('image size limit checked before preview and upload',()=>true);
+  for(const [name,bytes]of [['x.svg','<svg onload=x()>'],['x.png','<svg/>'],['../x.png','bad']]){const file=new Blob([bytes]);file.name=name;context.bad=file;await assert.rejects(run('CommentCodec.rasterFile(bad)'))}
+  check('SVG disguised raster and path filenames rejected',()=>true);
+  context.uploadCalls=0;context.state={};context.imageRoot=new Element('div');
+  run('imageEditor=new CommentEditor(imageRoot,{value:"<p>보존</p>",format:"html",issueId:93599,imageState:()=>state,onImageUpload:async()=>{uploadCalls++;state.message="실패: 초안 유지"}})');
+  await run('imageEditor.command("image")');run('imageEditor.images.querySelector(".ceimagefile").files=[png]');await run('imageEditor.images.querySelector(".ceimagefile").onchange()');
+  check('new image preview remains out of raw body and never uploads on selection',()=>{assert.match(run('imageEditor.images.querySelector(".ceimagepreview").innerHTML'),/blob:/);assert.equal(run('imageEditor.getRaw()'),'<p>보존</p>');assert.equal(context.uploadCalls,0);assert.equal(context.state.file,png)});
+  check('selection phase explicitly states file is not registered',()=>assert.match(run('imageEditor.images.querySelector(".ceimagephase").textContent'),/서버 미등록/));
+  await run('imageEditor.uploadImage()');check('failed upload preserves chosen image and body',()=>{assert.equal(context.uploadCalls,1);assert.equal(context.state.file,png);assert.equal(run('imageEditor.getRaw()'),'<p>보존</p>')});
+  let finish;context.uploadWait=()=>new Promise(resolve=>finish=resolve);run('imageEditor.onImageUpload=uploadWait');const first=run('imageEditor.uploadImage()');await run('imageEditor.uploadImage()');check('duplicate image upload blocked while first call in flight',()=>assert.equal(run('imageEditor.imageLoading'),true));finish(false);await first;
+  run('state.pending=true;imageEditor.paintImages([])');check('uncertain image retains file and disables replacement and resend',()=>{assert.equal(run('imageEditor.images.querySelector(".ceimagefile").disabled'),true);assert.equal(run('imageEditor.images.querySelector(".ceimageupload").disabled'),true);assert.equal(run('imageEditor.images.querySelectorAll("[data-image-recover]").length'),3)});
+  run('imageEditor.closeImages()');check('closing image chooser revokes temporary preview but retains File',()=>{assert.equal(run('imageEditor.previewURL'),null);assert.equal(context.state.file,png)});
+  context.api=async()=>[];run('state.pending=false;delete state.file;state.uploaded=false');await run('imageEditor.openImages()');
+  check('empty initial list gives a short upload instruction',()=>assert.match(run('imageEditor.images.querySelector(".ceimageliststatus").textContent'),/＋.*선택.*업로드/));
+  run('state.uploaded=true');await run('imageEditor.openImages()');
+  check('successful upload without listed image is reported as unresolved display issue',()=>assert.match(run('imageEditor.images.querySelector(".ceimageliststatus").textContent'),/등록은 완료.*확인하지 못/));
+  context.api=async()=>[{id:99,filename:'invalid.png',content_url:'https://outside.invalid/attachments/download/99/x.png'}];await run('imageEditor.openImages()');
+  check('unsafe or missing metadata is diagnosed without fabricating a successful image',()=>{assert.match(run('imageEditor.images.querySelector(".ceimageliststatus").textContent'),/content_url.*제외/);assert.equal(run('imageEditor.images.querySelectorAll("[data-image-id]").length'),0)});
+  context.api=async()=>{throw Error('synthetic list failure')};await run('imageEditor.openImages()');
+  check('list refresh failure keeps known upload state and provides read-only refresh',()=>{assert.match(run('imageEditor.images.querySelector(".ceimageliststatus").textContent'),/조회 실패/);assert.equal(run('state.uploaded'),true);assert.ok(run('imageEditor.images.querySelector(".ceimagerefresh")'))});
+  context.api=async()=>[{id:99,filename:'valid.png',content_url:'http://127.0.0.1:2/attachments/download/99/x.png'}];await run('imageEditor.images.querySelector(".ceimagerefresh").onclick()');
+  check('read-only refresh restores real ID choices without uploading again',()=>{assert.equal(run('imageEditor.images.querySelectorAll("[data-image-id]").length'),1);assert.equal(context.uploadCalls,1)});
+  context.all=[{issue_id:93599,desc_raw:'<p><img src="/system/rich/old%20image.png" data-rich-file-id="7"></p>',journals:[]}];context.api=async()=>[];
+  await run('imageEditor.openImages()');
+  check('popup reuses existing safe CKEditor references without a Rich Browser API',()=>{assert.equal(run('imageEditor.images.querySelectorAll("[data-image-ref]").length'),1);assert.match(run('imageEditor.images.innerHTML'),/old%2520image.png/);assert.equal(run('imageEditor.images.getAttribute("aria-modal")'),'true')});
+  run('imageEditor.images.querySelector("[data-image-ref]").querySelector("img").onerror()');
+  check('broken thumbnail disables insertion rather than pretending URL is usable',()=>assert.equal(run('imageEditor.images.querySelector("[data-image-ref]").disabled'),true));
+  run('imageEditor.images.dispatchEvent({type:"keydown",key:"Escape",preventDefault(){},stopPropagation(){}})');
+  check('image popup closes with Escape while retaining editor draft',()=>{assert.equal(run('imageEditor.images.hidden'),true);assert.equal(run('imageEditor.getRaw()'),'<p>보존</p>')});
+  document.queryCommandState=k=>k==='bold';run('htmlDefault.remember()');
+  check('toolbar active state exposes aria-pressed',()=>assert.equal(run('htmlDefault.tools.querySelector(\'[data-ce="bold"]\').getAttribute("aria-pressed")'),'true'));delete document.queryCommandState;
+  context.paragraphRoot=new Element('div');run('paragraph=new CommentEditor(paragraphRoot,{value:"<p>첫 번째 문단두 번째 문단</p>"})');
+  const nativeCommands=[];let separator='div',cursor=7;
+  document.queryCommandValue=()=>separator;
+  document.execCommand=(key,_,value)=>{
+    nativeCommands.push([key,value]);if(key==='defaultParagraphSeparator'){separator=value;return true}
+    const area=run('paragraph.visual'),node=selected.anchorNode,el=node?.nodeType===1?node:node?.parentElement;
+    if(key==='insertText'){el.textContent+='\n';selected.anchorNode=el.firstChild;return true}
+    const p=el?.closest('p');if(!p)return false;const text=p.textContent,left=text.slice(0,cursor),right=text.slice(cursor),esc=s=>s.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+    if(key==='insertParagraph'){p.innerHTML=esc(left)||'<br>';const next=new Element(separator);next.innerHTML=esc(right)||'<br>';p.after(next);selected.anchorNode=next.firstChild;cursor=0;return true}
+    if(key==='insertLineBreak'){p.innerHTML=esc(left)+'<br>'+esc(right);selected.anchorNode=p.childNodes.at(-1);return true}return false;
+  };
+  const enter=shift=>{context.enterEvent={key:'Enter',shiftKey:shift,preventDefault(){this.prevented=true},stopPropagation(){}};return run('paragraph.paragraphKey(enterEvent)')};
+  selected.anchorNode=run('paragraph.visual.querySelector("p").firstChild');assert.equal(enter(false),true);
+  check('Enter splits a plain paragraph into separate p elements through native editing command',()=>{assert.equal(run('paragraph.visual.querySelectorAll("p").length'),2);assert.equal(run('paragraph.getRaw()'),'<p>첫 번째 문단</p><p>두 번째 문단</p>');assert.equal(separator,'div');assert.ok(context.enterEvent.prevented)});
+  enter(false);enter(false);check('consecutive Enter retains empty paragraphs',()=>assert.match(run('paragraph.getRaw()'),/<p><br><\/p><p><br><\/p>/));
+  run('paragraph.setRaw("<p>첫 번째 줄두 번째 줄</p>")');selected.anchorNode=run('paragraph.visual.querySelector("p").firstChild');cursor=6;assert.equal(enter(true),true);
+  check('Shift Enter creates br in the same p rather than another paragraph',()=>{assert.equal(run('paragraph.visual.querySelectorAll("p").length'),1);assert.equal(run('paragraph.getRaw()'),'<p>첫 번째 줄<br>두 번째 줄</p>');assert.equal(separator,'div')});
+  const breaks=run('paragraph.getRaw()');await run('paragraph.command("source")');await run('paragraph.command("source")');check('source visual switching preserves paragraph versus line break HTML',()=>assert.equal(run('paragraph.getRaw()'),breaks));
+  run('paragraph.setRaw("<p>조합 중</p>");paragraph.composing=true');selected.anchorNode=run('paragraph.visual.querySelector("p").firstChild');const commandCount=nativeCommands.length;assert.equal(enter(false),false);run('paragraph.composing=false');
+  context.enterEvent={key:'Enter',keyCode:229,preventDefault(){throw Error('IME must remain native')},stopPropagation(){}};assert.equal(run('paragraph.paragraphKey(enterEvent)'),false);
+  check('Korean IME composition Enter never runs a paragraph command',()=>assert.equal(nativeCommands.length,commandCount));
+  for(const raw of ['<ul><li><p>목록</p></li></ul>','<table><tr><td><p>표</p></td></tr></table>']){context.structure=raw;run('paragraph.setRaw(structure)');selected.anchorNode=run('paragraph.visual.querySelector("p").firstChild');assert.equal(enter(false),false);assert.equal(enter(true),false);assert.equal(run('paragraph.getRaw()'),raw)}
+  check('list and table editing stays with native structure handling',()=>true);
+  run('paragraph.setRaw("<pre><code>코드</code></pre>")');selected.anchorNode=run('paragraph.visual.querySelector("code").firstChild');assert.equal(enter(false),true);
+  check('code block Enter inserts literal newline without a new p',()=>assert.equal(run('paragraph.getRaw()'),'<pre><code>코드\n</code></pre>'));
+  run('paragraph.setRaw("<p><strong>현재 문단</strong><br>다음 줄</p>")');selected.anchorNode=run('paragraph.visual.querySelector("strong").firstChild');run('paragraph.remember()');
+  check('caret path and current top-level paragraph marker reflect inline formatting',()=>{assert.equal(run('paragraph.path.textContent'),'body > p > strong');assert.ok(run('paragraph.visual.querySelector("p").hasAttribute("data-ce-current")'))});
+  const clean=run('CommentCodec.serialize(paragraph.visual.innerHTML,"html")');check('paragraph UI marker and element path never serialize into HTML',()=>{assert.doesNotMatch(clean,/data-ce-current|cepath|ce-current/);assert.equal(clean,'<p><strong>현재 문단</strong><br>다음 줄</p>')});
+  for(const raw of ['<ul><li><p>목록</p></li></ul>','<table><tr><td><p>표</p></td></tr></table>','<pre><code>코드</code></pre>','<p><img src="/attachments/download/77/x.png"></p>']){context.structure=raw;run('paragraph.setRaw(structure)');selected.anchorNode=run('paragraph.visual.querySelector("p,code")');run('paragraph.remember()');assert.equal(run('paragraph.visual.querySelector("[data-ce-current]")'),null)}
+  check('paragraph borders are absent in lists tables code and image paragraphs',()=>true);
+  check('normal editor guidance is removed while validation stays active',()=>{assert.equal(run('paragraph.hint.textContent'),'');assert.equal(run('CommentCodec.url("https://outside.invalid/x.png",true)'),null)});
+  // Model native deletion results; these assertions exercise repair/selection, not Chromium's key engine.
+  selected.setBaseAndExtent=(a,ao,f,fo)=>Object.assign(selected,{anchorNode:a,anchorOffset:ao,focusNode:f,focusOffset:fo});
+  const caret=(node,offset=0)=>selected.setBaseAndExtent(node,offset,node,offset);
+  const loadParagraph=raw=>{context.paragraphHTML=raw;run('paragraph.setRaw(paragraphHTML)');const p=run('paragraph.visual.querySelector("p")');caret(p?.firstChild||run('paragraph.visual'));return p};
+  const beforeDelete=(type='deleteContentBackward')=>run(`paragraph.visual.dispatchEvent({type:"beforeinput",inputType:${JSON.stringify(type)}})`);
+  const finishDelete=()=>run('paragraph.visual.dispatchEvent({type:"input",inputType:"deleteContentBackward"})');
+  check('all ordinary paragraph indicators are CSS based and independent of the active attribute',()=>{
+    const css=fs.readFileSync(path.join(root,'web/css/comment_editor.css'),'utf8');
+    assert.match(css,/\.cevisual>p:not\(:has\(img,table,pre,ul,ol\)\)::before\{content:"P"/);
+    assert.match(css,/\.cevisual>p:not\(:has\(img,table,pre,ul,ol\)\)\{[^}]*outline:1px dashed/);
+    assert.match(css,/\.cevisual>p\[data-ce-current\]\{outline-color:var\(--accent\)\}/);
+    for(const rule of css.matchAll(/[^{}]*\.cevisual[^{}]*>\s*p[^{}]*\{([^{}]*)\}/g))assert.doesNotMatch(rule[1],/background(?:-color)?\s*:/);
+    assert.doesNotMatch(css,/\[data-ce-current\]::before/);
+  });
+  loadParagraph('<p>첫 문단</p><p>둘째 문단</p><p><br></p>');run('paragraph.remember()');
+  const firstP=run('paragraph.visual.querySelector("p")');caret(run('paragraph.visual.children[1].firstChild'));run('paragraph.remember()');
+  check('cursor movement changes only active paragraph and leaves all paragraph DOM intact',()=>{assert.equal(firstP.hasAttribute('data-ce-current'),false);assert.equal(run('paragraph.visual.querySelectorAll("[data-ce-current]").length'),1);assert.equal(run('paragraph.visual.querySelectorAll("p").length'),3);assert.equal(run('paragraph.path.textContent'),'body > p')});
+  loadParagraph('<p>첫 문단</p>');const backKey={type:'keydown',key:'Backspace',preventDefault(){throw Error('Backspace must remain native')},stopPropagation(){}};context.backKey=backKey;run('paragraph.visual.dispatchEvent(backKey)');beforeDelete();
+  run('paragraph.visual.innerHTML="첫 문단"');caret(run('paragraph.visual.firstChild'),0);finishDelete();
+  check('first paragraph unwrapping is repaired with caret inside p without blocking Backspace',()=>{assert.equal(run('paragraph.getRaw()'),'<p>첫 문단</p>');assert.equal(selected.anchorNode.parentElement.localName,'p');assert.equal(selected.anchorOffset,0);assert.equal(run('paragraph.path.textContent'),'body > p')});
+  loadParagraph('<p>가</p>');beforeDelete();run('paragraph.visual.querySelector("p").innerHTML=""');caret(run('paragraph.visual.querySelector("p")'));finishDelete();
+  check('last character deletion preserves empty paragraph and a single caret br',()=>assert.equal(run('paragraph.getRaw()'),'<p><br></p>'));
+  for(let i=0;i<4;i++){beforeDelete();run('paragraph.visual.innerHTML="<br>"');caret(run('paragraph.visual'));finishDelete()}
+  check('repeated Backspace retains exactly one p and one br with no root caret',()=>{assert.equal(run('paragraph.getRaw()'),'<p><br></p>');assert.equal(selected.anchorNode.localName,'p');assert.equal(run('paragraph.path.textContent'),'body > p')});
+  loadParagraph('<p><strong>앞</strong></p><p><em>뒤</em></p>');caret(run('paragraph.visual.children[1].firstChild.firstChild'));beforeDelete();
+  run('paragraph.visual.innerHTML="<div><strong>앞</strong><em>뒤</em></div>"');const preserved=run('paragraph.visual.querySelector("em").firstChild');caret(preserved,1);finishDelete();
+  check('native merged div becomes one p while preserving formatting node and caret',()=>{assert.equal(run('paragraph.getRaw()'),'<p><strong>앞</strong><em>뒤</em></p>');assert.equal(selected.anchorNode,preserved);assert.equal(selected.anchorOffset,1)});
+  loadParagraph('<p>모두</p><p>삭제</p>');caret(run('paragraph.visual'),0);beforeDelete();run('paragraph.visual.innerHTML=""');caret(run('paragraph.visual'));finishDelete();
+  check('Ctrl A followed by Backspace leaves a usable empty paragraph',()=>{assert.equal(run('paragraph.getRaw()'),'<p><br></p>');assert.equal(selected.anchorNode.localName,'p')});
+  loadParagraph('<p><b>가나</b></p>');beforeDelete('deleteContentForward');const text=run('paragraph.visual.querySelector("b").firstChild');text.textContent='나';caret(text);finishDelete();
+  check('Delete and normal character deletion keep text formatting and caret untouched',()=>{assert.equal(run('paragraph.getRaw()'),'<p><b>나</b></p>');assert.equal(selected.anchorNode,text)});
+  loadParagraph('<p>가</p><p>나</p>');beforeDelete();run('paragraph.visual.innerHTML="<p>가나</p>"');caret(run('paragraph.visual.querySelector("p").firstChild'),1);finishDelete();
+  check('already valid native paragraph merge is not rewritten',()=>{assert.equal(run('paragraph.getRaw()'),'<p>가나</p>');assert.equal(selected.anchorOffset,1)});
+  loadParagraph('<div style="color:red">기존 소스</div><p>새 문단</p>');caret(run('paragraph.visual.querySelector("p").firstChild'));beforeDelete();run('paragraph.visual.querySelector("p").innerHTML=""');finishDelete();
+  check('normal source div is preserved while an emptied sibling p gets br',()=>assert.equal(run('paragraph.getRaw()'),'<div style="color:red">기존 소스</div><p><br></p>'));
+  for(const raw of ['<ul><li><p>목록</p></li></ul>','<table><tr><td><p>표</p></td></tr></table>','<pre><code>코드</code></pre>']){loadParagraph(raw);caret(run('paragraph.visual.querySelector("p,code").firstChild'));beforeDelete();assert.equal(run('paragraph.paragraphEdit'),null);finishDelete();assert.equal(run('paragraph.getRaw()'),raw)}
+  check('native deletion within lists tables and code does not apply ordinary paragraph normalization',()=>true);
+  loadParagraph('<p>앞<img src="/attachments/download/77/x.png">뒤</p>');beforeDelete();run('paragraph.visual.querySelector("p").setAttribute("data-ce-current","")');finishDelete();
+  check('image paragraph and actual source URL survive deletion serialization with no editor metadata',()=>{assert.match(run('paragraph.getRaw()'),/앞<img src="\/attachments\/download\/77\/x.png">뒤/);assert.doesNotMatch(run('paragraph.getRaw()'),/data-ce-|cepath/)});
+  loadParagraph('<p>한글</p>');run('paragraph.visual.dispatchEvent({type:"compositionstart"})');beforeDelete();run('paragraph.visual.innerHTML="<p>한글 조합</p>"');finishDelete();assert.equal(run('paragraph.getRaw()'),'<p>한글</p>');run('paragraph.visual.dispatchEvent({type:"compositionend"})');
+  check('composition only publishes completed Korean input and does not normalize intermediate DOM',()=>assert.equal(run('paragraph.getRaw()'),'<p>한글 조합</p>'));
+  for(const raw of ['', '<p><br></p>', '<p style="color:red">원문</p>\n<div>정상 div<br>줄</div>']){loadParagraph(raw);for(let i=0;i<4;i++){await run('paragraph.command("source")');await run('paragraph.command("source")')}assert.equal(run('paragraph.getRaw()'),raw)}
+  check('repeated empty and formatted source roundtrips neither rewrite raw nor accumulate placeholders',()=>true);
+  loadParagraph('');caret(run('paragraph.visual'));run('paragraph.visual.dispatchEvent({type:"focus"})');
+  check('empty focus supplies a p caret without publishing a synthetic comment',()=>{assert.equal(selected.anchorNode.localName,'p');assert.equal(run('CommentCodec.serialize(paragraph.visual.innerHTML,"html")'),'<p><br></p>');assert.equal(run('paragraph.getRaw()'),'')});
+  caret(run('paragraph.visual'));beforeDelete();finishDelete();
+  check('native empty p result with root selection restores caret into existing p',()=>assert.equal(selected.anchorNode.localName,'p'));
+  run('paragraph.visual.innerHTML="<p><strong></strong></p>"');caret(run('paragraph.visual.querySelector("strong")'));beforeDelete();finishDelete();
+  check('empty formatted p obtains one caret br without destroying inline format',()=>assert.equal(run('paragraph.getRaw()'),'<p><strong></strong><br></p>'));
+  for(const raw of ['<p></p>','<p><br></p>']){loadParagraph(raw);selected.anchorNode=selected.focusNode=null;document.activeElement=run('paragraph.visual');run('paragraph.visual.dispatchEvent({type:"focus"})');assert.equal(selected.anchorNode.localName,'p');assert.equal(run('CommentCodec.serialize(paragraph.visual.innerHTML,"html")'),'<p><br></p>');assert.equal(run('paragraph.getRaw()'),raw)}
+  check('focus into an existing empty source p restores caret without rewriting source',()=>true);document.activeElement=null;
+  delete selected.setBaseAndExtent;delete document.queryCommandValue;selected.anchorNode=selected.focusNode=null;
+  const beforeDrop=commands.length;run('a.visual.dispatchEvent({type:"drop",preventDefault(){},stopPropagation(){},dataTransfer:{files:[png]}})');check('dropping local files cannot create persisted blob or file URLs',()=>assert.equal(commands.length,beforeDrop));
+  let oldInit=0,oldCode=0;context.edInit=(node,value)=>{oldInit++;node.textContent=value};context.edGet=node=>node.textContent;context.addCodeBox=node=>{oldCode++;node.textContent+='\n```\ncode\n```'};
+  context.legacyRoot=new Element('div');run('legacy=new CommentEditor(legacyRoot,{value:"기존 초안",format:"legacy"});legacy.addCode()');
+  check('unconfirmed default retains existing code editor implementation',()=>{assert.ok(oldInit>0);assert.equal(oldCode,1);assert.ok(run('legacy.getRaw()').includes('```\ncode\n```'))});
+  console.log(`ALL PASS (${checks} checks; DOM doubles, not native layout)`);
+})().catch(e=>{console.error(e);process.exitCode=1});
