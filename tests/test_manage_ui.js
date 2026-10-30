@@ -7,7 +7,7 @@ function check(name,fn){fn();checks++;console.log("PASS",name)}
 function control(attr,journal=101){return {dataset:{issue:"93599",journal:String(journal)},disabled:false,hasAttribute:k=>k===attr,closest(){return this}}}
 async function suite(v2){
   console.log("Design:",v2?"v2":"classic");
-  const events={},posts=[],notices=[],confirmations=[],attbox={innerHTML:""},center={scrollTop:40,addEventListener(){}};
+  const events={},posts=[],notices=[],confirmations=[],attbox={innerHTML:""},attcard={style:{}},attcaption={},center={scrollTop:40,addEventListener(){}};
   const editors=[{dataset:{jeditor:"93599:101"},value:"",disabled:false},{dataset:{jeditor:"93599:101"},value:"",disabled:false}];
   const controls=[control("data-jsave"),control("data-jcancel"),control("data-jreload")];
   const j={id:101,user:{id:7,name:"me"},created_on:"2026-10-01",raw:"original",notes:"original"};
@@ -25,7 +25,7 @@ async function suite(v2){
     n,j,all:[n],cur:93599,view:"note",cfg:{url:"http://127.0.0.1:1",meId:7,write:{test:false,allow:[]}},S:{},
     V2:()=>v2,esc:escape,kb:x=>x+" B",lDay:x=>x||"",dTime:x=>x||"",avatar:()=>"me",renderMd:escape,
     prep(){},buildTokens(){},markSeen(){},renderAll(){context.renders=(context.renders||0)+1},
-    $:s=>s==="#attwrap"?attbox:s==="#center"?center:null,
+    $:s=>s==="#attwrap"?attbox:s==="#sec-att"?attcard:s==="#attsm"?attcaption:s==="#center"?center:null,nsCounts(){},
     toast:s=>notices.push(s),fetch(){throw Error("Network forbidden")},
     api:async url=>url.startsWith("/api/rm/journal?")?{raw:original,version:"version-1"}:atts,
     post:async(url,body)=>{posts.push({url,body});return {ok:true,note:{...n,updated_on:"updated"}}},
@@ -45,6 +45,7 @@ async function suite(v2){
     assert.doesNotMatch(run("managedJournalHtml(n,{...j,editable:false})"),/data-jedit/);
   });
   await run("loadAtt(n)");
+  check("merged collapsible attachment block gets its own caption without a nested card",()=>{assert.equal(attcard.style.display,"");assert.match(attcaption.textContent,/3개/);assert.doesNotMatch(attbox.innerHTML,/class="card attcard"/)});
   const attDOM=new Element('div');attDOM.innerHTML=attbox.innerHTML;
   check("every bordered file box is the download anchor with deletion outside",()=>{
     for(const row of attDOM.querySelectorAll('.attrow')){assert.equal(row.localName,'a');assert.ok(row.hasAttribute('href'));assert.ok(row.hasAttribute('download'));assert.equal(row.querySelectorAll('button').length,0)}

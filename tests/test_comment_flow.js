@@ -31,23 +31,30 @@ async function api(url,options={}){
 async function suite(design){
   const cfg=await request('/api/config');assert.equal(cfg.url,FAKE);assert.equal(path.resolve(cfg.dataDir),path.resolve(process.env.REDMINE_NOTES_HOME));
   await post('/api/fetch',{ids:[93599,200]});await post(FAKE+'/__test/control',{upload_token_only:true});
-  const n=(await request('/api/notes')).find(n=>n.issue_id===93599),body=new Element('div'),cmp=new Element('div'),editor=new Element('div'),attbox=new Element('div'),center=new Element('div');
+  const n=(await request('/api/notes')).find(n=>n.issue_id===93599),body=new Element('div'),cmp=new Element('div'),editor=new Element('div'),attbox=new Element('div'),attcard={style:{}},attcaption={},center=new Element('div');
   cmp.className='cmp';cmp.dataset.issue=n.issue_id;editor.className='cmta';cmp.appendChild(editor);body.appendChild(cmp);center.scrollTop=0;
   document.addEventListener=()=>{};document.querySelector=()=>null;document.querySelectorAll=selector=>selector.startsWith('[data-jeditor')?[]:body.querySelectorAll(selector);
   let liveEditor;document.execCommand=(key,_,html)=>{if(key==='insertHTML')liveEditor.visual.innerHTML+=html;return true};
   const selection={rangeCount:0,anchorNode:null,setBaseAndExtent(a,ao,f,fo){Object.assign(this,{anchorNode:a,anchorOffset:ao,focusNode:f,focusOffset:fo})}};
   const notices=[],context=vm.createContext({document,URL,Event:class{constructor(type,o={}){this.type=type;Object.assign(this,o)}},crypto,FormData,console,
     location:{origin:BASE},window:{getSelection:()=>selection,addEventListener(){}},localStorage:{getItem:()=>null,setItem(){},removeItem(){}},
-    cfg,n,all:[n],cur:n.issue_id,view:'note',S:{},api,post,fetch(){throw Error('Use guarded local HTTP only')},
+    cfg,n,all:[n],cur:n.issue_id,view:'note',S:{},ui:{},todos:[],curNote:()=>n,api,post,fetch(){throw Error('Use guarded local HTTP only')},
     V2:()=>design==='v2',esc:escape,kb:x=>x+' B',lDay:x=>x||'',dTime:x=>x||'',avatar:()=>'',fmt:d=>d.toISOString().slice(0,10),
     setTimeout:()=>0,clearTimeout(){},prep(){},buildTokens(){},markSeen(){},renderAll(){},autoDeployProgress(){},toast:s=>notices.push(s),askC:async()=>true,
-    $:s=>s==='#attwrap'?attbox:s==='#center'?center:null,cmdWireComposer(){}});
+    $:s=>s==='#attwrap'?attbox:s==='#sec-att'?attcard:s==='#attsm'?attcaption:s==='#sec-write'?cmp:s==='#center'?center:null,cmdWireComposer(){}});
   const run=s=>vm.runInContext(s,context);
-  for(const file of ['comment_editor.js','note.js','write.js','common.js'])vm.runInContext(fs.readFileSync(path.join(root,'web/js',file),'utf8'),context,{filename:file});
+  for(const file of ['comment_editor.js','noteside.js','notelayout.js','note.js','write.js','common.js'])vm.runInContext(fs.readFileSync(path.join(root,'web/js',file),'utf8'),context,{filename:file});
   run('refreshToday=()=>{};updFab=()=>{};wdlg=async()=>true');context.editor=editor;
   context.baseline='<p>이미지 흐름 확인 · 앞 문단</p><p>다른 문단<br>같은 문단의 다음 줄</p>\n<p><img data-rich-file-id="42" src="/system/rich/rich_files/001/original/my%20image.png"></p>\n<p>기존 이미지 뒤</p><table><tr><td>표와 이미지</td></tr></table>';
   run('ce=new CommentEditor(editor,{value:baseline,issueId:n.issue_id,...cmImageOptions(n),onChange:v=>setDraft(n.issue_id,v)});setDraft(n.issue_id,ce.getRaw())');liveEditor=run('ce');
   check(design+' HTML default keeps existing CKEditor source without a menu',()=>{assert.equal(run('ce.format'),'html');assert.equal(run('cmFormatOf(n.issue_id)'),'html');assert.equal(run('ce.getRaw()'),context.baseline)});
+  check(design+' merged composer focus selects visual and source editor correctly',()=>{assert.equal(run('composerInput($("#sec-write"))'),run('ce.visual'));run('ce.sourceMode=true');assert.equal(run('composerInput($("#sec-write"))'),run('ce.source'));run('ce.sourceMode=false')});
+  context.foldKey=(n,k)=>n.issue_id+':'+k;context.foldOpen=new Map();
+  check(design+' upstream attachment and comment layout placements stay available',()=>{
+    assert.match(run('attBlock(n)'),/id="sec-att"/);assert.match(run('attBlock(n)'),/class="attcard" id="attwrap"/);
+    run('ui.nl=NL_PRESET.cmSide[1]');assert.equal(run('cmSide()'),true);assert.ok(run('nlPlace({cm:"comment",att:attBlock(n)}).side.includes("cm")'));
+    run('ui.nl=NL_PRESET.focus[1]');assert.match(run('nlPlace({cm:"comment",att:attBlock(n)}).hidden'),/id="sec-att"/);run('ui.nl={}');
+  });
   // Simulate a native first-p unwrap before exercising the existing real HTTP image/save/edit flow.
   const p=run('ce.visual.querySelector("p")'),text=p.firstChild;selection.setBaseAndExtent(text,0,text,0);
   run('ce.visual.dispatchEvent({type:"beforeinput",inputType:"deleteContentBackward"})');p.before(text);p.remove();

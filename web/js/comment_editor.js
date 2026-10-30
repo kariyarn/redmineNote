@@ -284,6 +284,12 @@ setDisabled(on){this.disabled=on;this.visual.contentEditable=on?"false":"true";t
     const s=window.getSelection(),el=s.anchorNode?.nodeType===1?s.anchorNode:s.anchorNode?.parentElement;if(!el||!this.visual.contains(el))return false;
     const code=el.closest("pre"),structured=el.closest("li,td,th,table,ul,ol");
     if(structured&&!code)return false; // 목록 분할/빈 항목 탈출·표 내부 편집은 브라우저의 기존 동작을 보존한다.
+    if(code&&s.rangeCount){
+      const range=s.getRangeAt(0);if(!code.contains(range.commonAncestorContainer))return false;
+      // Chromium insertText("\n") can create two br elements instead of a literal code newline.
+      const line=document.createTextNode("\n");range.deleteContents();range.insertNode(line);range.setStartAfter(line);range.collapse(true);s.removeAllRanges();s.addRange(range);
+      ev.preventDefault();ev.stopPropagation();this.changed(this.visual);return true;
+    }
     const command=code?"insertText":ev.shiftKey?"insertLineBreak":"insertParagraph";
     if(typeof document.execCommand!=="function"||document.queryCommandSupported?.(command)===false)return false;
     let previous="div",done=false,configured=false;const before=this.visual.innerHTML;

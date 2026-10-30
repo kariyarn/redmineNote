@@ -9,15 +9,24 @@ function toggleDict(){
   if(isNarrow())dictOv=!dictOv;else{ui.hr=!ui.hr;saveUI()}applyUI();renderDict();renderHead();renderNav();if(view==="graph")renderGraph()}
 document.addEventListener("click",e=>{if(dictOv&&isNarrow()&&!e.target.closest("#dict,[data-act=dict],#gopenDict,.tp,.hbar")){dictOv=false;applyUI();renderNav()}});
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&dictOv){dictOv=false;applyUI();renderNav()}});
+/* 노트 크게 보기: 왼쪽 메뉴 · 목록(2단)과 오른쪽 사전 칸을 숨기고 노트 본문을 창 폭에 맞춰 넓게 (노트 위쪽 이동 바의 ☐ 단추). 노트 화면에서만 */
+const noteMax=()=>!!ui.noteMax&&view==="note"&&cur!=null&&!todayFull();   // 새 디자인의 넓은 오늘 목록(노트 칸이 숨음)일 때는 최대화하지 않는다 — 둘이 겹치면 모든 칸이 숨어 빈 화면이 됐다
+const maxBtnHtml=()=>`<button type="button" id="jmax" class="jmax" title="${ui.noteMax?"왼쪽 메뉴 · 목록을 다시 보여요":"왼쪽 메뉴 · 목록을 숨기고 노트를 창 가득 넓게 봐요"}" aria-pressed="${!!ui.noteMax}">${ui.noteMax?"원래대로":"최대화"}</button>`;
+function toggleNoteMax(){
+  ui.noteMax=!ui.noteMax;saveUI();applyUI();
+  const b=$("#jmax");if(b){b.outerHTML=maxBtnHtml();$("#jmax").onclick=toggleNoteMax}
+  if(view==="graph")renderGraph();
+}
 function applyUI(){
-  const vault=nav.startsWith("vault");
-  const hideL=ui.hl||nav==="mine"||nav==="code"||nav==="memo"||nav==="deploy"||nav==="trouble"||nav==="queries"||nav==="commands"||vault;      // 내 기록·보관함은 가운데 화면만 넓게 쓴다
-  const col=!isNarrow()&&!ui.hr&&nav!=="memo"&&nav!=="deploy"&&nav!=="trouble"&&nav!=="queries"&&nav!=="commands"&&!vault;      // 넓은 창: 사전을 오른쪽 칸으로. 좁은 창: 칸을 만들지 않고 필요할 때만 겹쳐서 연다
+  const vault=nav.startsWith("vault"),max=noteMax();
+  $("#nav").style.display=max?"none":"";$("#center").classList.toggle("nmax",max);
+  const hideL=max||ui.hl||nav==="mine"||nav==="code"||nav==="memo"||nav==="deploy"||nav==="trouble"||nav==="queries"||nav==="commands"||vault;      // 내 기록·보관함은 가운데 화면만 넓게 쓴다
+  const col=!max&&!isNarrow()&&!ui.hr&&nav!=="memo"&&nav!=="deploy"&&nav!=="trouble"&&nav!=="queries"&&nav!=="commands"&&!vault;      // 넓은 창: 사전을 오른쪽 칸으로. 좁은 창: 칸을 만들지 않고 필요할 때만 겹쳐서 연다
   const strip=!hideL&&listStrip();     // 노트를 연 동안 목록은 아이콘 줄로 (노트 폭을 지킨다)
   $("#main").style.gridTemplateColumns=`${hideL?0:strip?LSTRIP_W:ui.lw}px ${hideL||strip?0:6}px minmax(0,1fr) ${col?6:0}px ${col?ui.rw:0}px`;
   $("#listpane").style.display=hideL?"none":"";$("#s1").style.display=hideL||strip?"none":"";
   $("#listpane").classList.toggle("strip",strip);
-  $("#dict").style.display=dictVisible()&&nav!=="memo"&&nav!=="deploy"&&nav!=="trouble"&&nav!=="queries"&&nav!=="commands"&&!vault?"":"none";$("#s2").style.display=col?"":"none";
+  $("#dict").style.display=!max&&dictVisible()&&nav!=="memo"&&nav!=="deploy"&&nav!=="trouble"&&nav!=="queries"&&nav!=="commands"&&!vault?"":"none";$("#s2").style.display=col?"":"none";
   $("#dict").classList.toggle("ov",isNarrow()&&dictOv);
   const wide=todayFull();   // 새 디자인의 오늘: 목록만 넓게 (노트 · 사전 칸은 일감을 고르면 보인다)
   $("#listpane").classList.toggle("v2wide",wide);
@@ -26,11 +35,11 @@ function applyUI(){
   if($("#cmfab"))placeCm();     // 사전 칸을 접고 펴거나 칸 너비를 바꾸면 💬 단추도 가운데 칸 오른쪽을 따라간다
   nsCenter();                   // 칸 폭이 바뀌면 노트를 다시 창 가운데로
 }
-function dragSplit(id,fn){
-  $(id).onmousedown=e=>{e.preventDefault();document.body.style.userSelect="none";
-    const mv=ev=>{fn(ev.clientX);applyUI()};
-    const up=()=>{document.removeEventListener("mousemove",mv);document.removeEventListener("mouseup",up);document.body.style.userSelect="";saveUI();if(view==="graph")renderGraph()};
-    document.addEventListener("mousemove",mv);document.addEventListener("mouseup",up)};
+function dragSplit(id,fn){   // 2.29.1: 포인터를 손잡이에 붙잡아(setPointerCapture) 끄는 동안 다른 칸 위로 지나가도 놓치지 않는다
+  const el=$(id);
+  el.onpointerdown=e=>{if(e.button!==0)return;e.preventDefault();el.setPointerCapture(e.pointerId);el.classList.add("drag");document.body.style.userSelect="none";
+    el.onpointermove=ev=>{fn(ev.clientX);applyUI()};
+    el.onpointerup=el.onpointercancel=()=>{el.onpointermove=el.onpointerup=el.onpointercancel=null;el.classList.remove("drag");document.body.style.userSelect="";saveUI();if(view==="graph")renderGraph()}};
 }
 dragSplit("#s1",x=>ui.lw=Math.max(260,Math.min(640,x-NAVW)));
 dragSplit("#s2",x=>ui.rw=Math.max(220,Math.min(600,innerWidth-x)));

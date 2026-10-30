@@ -121,7 +121,7 @@ function updFab(){
   ensureCm();updTodoFloat();updTopFab();
   const n=view==="note"&&cur?curNote():null,fab=$("#cmfab");
   if(!n){fab.style.display="none";if(cmOpen)toggleCm(false);return}
-  fab.style.display=composerVisible()&&!cmOpen?"none":"block";fab.textContent=`💬 댓글 ${n.journals.length}`;fab.classList.toggle("draft",!!draftOf(n.issue_id).trim());
+  fab.style.display=fabShown()?"block":"none";fab.textContent=`💬 댓글 ${n.journals.length}`;fab.classList.toggle("draft",!!draftOf(n.issue_id).trim());
   placeCm();if(cmOpen&&$("#cmpanel").dataset.id!==String(n.issue_id))cmPanelRender();
 }
 function cmPanelRender(){
@@ -137,12 +137,14 @@ function cmPanelRender(){
 function toggleCm(open){
   ensureCm();const p=$("#cmpanel");
   const want=open===undefined?!cmOpen:open;
-  if(want&&composerVisible()){const tb=$("#sec-write .cmta .tb");if(tb){tb.focus();tb.scrollIntoView({block:"center",behavior:"smooth"})}return}   // 아래 댓글 쓰기 칸이 이미 보이면 팝업 대신 그 칸을 쓴다
+  if(want&&nlEdit)return;                                                                          // 배치 편집 중에는 열지 않는다
+  if(want&&cmSide()){focusSideCm();return}                                                         // 2.29: 댓글이 옆 칸에 있으면 팝업 대신 옆 칸의 댓글 쓰기 칸으로
+  if(want&&composerVisible()){const tb=composerInput($("#sec-write"));if(tb){tb.focus();tb.scrollIntoView({block:"center",behavior:"smooth"})}return}   // 아래 댓글 쓰기 칸이 이미 보이면 팝업 대신 그 칸을 쓴다
   cmOpen=want;
   if(!cmOpen)setTimeout(spy,0);
   if(cmOpen&&!curNote())cmOpen=false;
   p.classList.toggle("show",cmOpen);
-  if(cmOpen){placeCm();cmPanelRender();const tb=p.querySelector(".cmta .tb");if(tb)tb.focus()}
+  if(cmOpen){placeCm();cmPanelRender();const tb=composerInput(p);if(tb)tb.focus()}
   updTodoFloat();
 }
 window.addEventListener("resize",()=>{if($("#cmfab"))placeCm()});

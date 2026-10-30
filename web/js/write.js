@@ -114,6 +114,10 @@ const setDraft=(id,v)=>{cmDraft.set(id,v);try{v?localStorage.setItem("rncm:"+id,
 const stageOf=id=>{if(!cmStage.has(id))cmStage.set(id,{lbl:{}});return cmStage.get(id)};
 const WPRESETS=[["dev","개발중"],["confirm","최종확인요청"],["done","완료"],["me","나로 지정"]];
 const PRESET_TIP={dev:"상태 → 개발중 · 담당자와 개발담당자 → 나",confirm:"상태 → 최종확인요청 · 담당자 → 일감 작성자 · 개발담당자 → 나",done:"상태 → 완료 · 담당자와 개발담당자 → 나",me:"담당자와 개발담당자 → 나 (상태는 그대로)"};
+function composerInput(root){
+  const host=root?.matches?.(".cmta")?root:root?.querySelector(".cmta"),editor=host?._commentEditor;
+  return editor?(editor.format==="legacy"?editor.legacy.querySelector(".tb"):editor.sourceMode?editor.source:editor.visual):host?.querySelector(".tb")||host?.querySelector("textarea");
+}
 function composerHtml(k,n){
   const ok=canWrite(n),w=wcfg();
   return `<div class="cmp" data-k="${k}" data-issue="${n.issue_id}">

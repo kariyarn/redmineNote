@@ -26,7 +26,23 @@ def get(path):
 
 
 fake = subprocess.Popen([sys.executable, str(ROOT / "tests/fake_rm_write.py"), str(FP)], env=env)
-app = subprocess.Popen([sys.executable, str(ROOT / "main.py")], env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+# Serve a test-only augmented index in this temporary process; production routes/files stay unchanged.
+app_code = r'''
+import os, pathlib, runpy, sys, urllib.parse
+assert getattr(sys, "_rnotes_test_local_only", False) and os.environ["RN_TEST_ISOLATED"] == "1"
+root=pathlib.Path(sys.argv[1]);sys.path.insert(0,str(root))
+from rnotes.http_handler import Handler
+original=Handler.do_GET
+def smoke_get(self):
+    if urllib.parse.urlsplit(self.path).path!="/__test/app":return original(self)
+    text=(root/"web/index.html").read_text(encoding="utf-8")
+    probe="<script>window.__smokeErrors=[];window.addEventListener('error',e=>window.__smokeErrors.push(String(e.message)));</script><style>*,*::before,*::after{transition:none!important;animation:none!important}</style>"
+    text=text.replace("</head>",probe+"</head>").replace("</body>","<script>"+(root/"tests/browser_app_smoke.js").read_text(encoding="utf-8")+"</script></body>")
+    self.send_bytes(text.encode(),"text/html; charset=utf-8",200,{"Content-Security-Policy":"default-src 'self' blob: data:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' blob: data:; object-src 'none'"})
+Handler.do_GET=smoke_get
+sys.argv=[str(root/"main.py"),"nobrowser"];runpy.run_path(str(root/"main.py"),run_name="__main__")
+'''
+app = subprocess.Popen([sys.executable, "-B", "-c", app_code, str(ROOT)], env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 try:
     for _ in range(100):
         try:
@@ -38,6 +54,8 @@ try:
     assert config["url"] == FAKE and Path(config["dataDir"]).resolve() == Path(home).resolve()
     control = urllib.request.Request(FAKE + "/__test/control", json.dumps({"editor_app": BASE}).encode(), {"Content-Type": "application/json"})
     urllib.request.urlopen(control, timeout=5).close()
+    seed = urllib.request.Request(BASE + "/api/fetch", json.dumps({"ids": [93599, 200]}).encode(), {"Content-Type": "application/json", "Origin": BASE})
+    urllib.request.urlopen(seed, timeout=10).close()
     # 실행 전 차단 프록시가 외부 URL/CONNECT를 전달하지 않는지 직접 확인한다.
     import http.client
     conn = http.client.HTTPConnection("127.0.0.1", FP, timeout=5)
@@ -50,7 +68,8 @@ try:
         except KeyboardInterrupt:
             pass
         sys.exit(0)
-    for design in ("classic", "v2"):
+    for kind, design in (("editor", "classic"), ("editor", "v2"), ("app", "classic"), ("app", "v2")):
+        target = FAKE + "/__test/editor?design=" + design if kind == "editor" else BASE + "/__test/app?design=" + design
         args = [str(browser), "--headless=new", "--disable-gpu", "--disable-gpu-shader-disk-cache", "--no-first-run", "--no-default-browser-check",
                 "--disable-background-networking", "--disable-component-update", "--disable-sync", "--disable-extensions",
                 "--disable-default-apps", "--disable-quic", "--disable-crash-reporter", "--metrics-recording-only",
@@ -58,8 +77,8 @@ try:
                 "--disable-features=MediaRouter,OptimizationHints,AutofillServerCommunication,DnsOverHttps",
                 "--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1",
                 f"--proxy-server={FAKE}", "--proxy-bypass-list=127.0.0.1",
-                f"--user-data-dir={Path(home) / ('browser-' + design)}",
-                "--dump-dom", "--virtual-time-budget=15000", FAKE + "/__test/editor?design=" + design]
+                f"--user-data-dir={Path(home) / ('browser-' + kind + '-' + design)}",
+                "--dump-dom", "--virtual-time-budget=15000", target]
         process = subprocess.Popen(args, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                    creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
         try:
@@ -79,8 +98,9 @@ try:
         if not match:
             raise AssertionError("브라우저 결과를 읽지 못했어요: code=" + str(result.returncode) + " " + result.stderr.decode("utf-8", "replace")[-1200:] + dom[-500:])
         data = json.loads(html.unescape(match.group(1)))
-        print(design + ": " + json.dumps(data, ensure_ascii=False))
-        assert data["ok"], data
+        summary = {k: v for k, v in data.items() if k != "names"}
+        print(kind + " " + design + ": " + json.dumps(summary, ensure_ascii=False))
+        assert data["ok"], summary
         assert any("preflight.invalid" in u for u in json.loads(get(FAKE + "/__blocked"))), "차단 프록시 검증 실패"
     # 실제 EXE를 실행하지 않고 동일한 정적 리소스 경로와 빌드 포함 규칙을 검증한다.
     for path in ("/static/js/comment_editor.js", "/static/css/comment_editor.css"):

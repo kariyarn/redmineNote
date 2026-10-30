@@ -8,6 +8,9 @@
 #jumpbar button.on{background:var(--accent-soft);color:var(--accent);font-weight:600}
 #jumpbar button i{font-style:normal;font-size:.75rem;opacity:.75;margin-left:2px}
 #jumpbar .sp{flex:1}
+#jumpbar .jmax{border:1px solid var(--line);background:var(--surface);color:var(--text);font-weight:600}
+#jumpbar .jmax:hover{border-color:var(--accent);color:var(--accent);background:var(--surface)}
+#jumpbar .jmax[aria-pressed=true]{background:var(--accent-soft);color:var(--accent);border-color:transparent}
 #center.todo-on #jumpbar{padding-right:276px}
 .cfold>.cfhd{display:flex;align-items:baseline;gap:8px;font-weight:700;cursor:pointer;user-select:none;margin-bottom:10px}
 .cfold>.cfhd:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:6px}
@@ -298,6 +301,8 @@ mark.ann.m{border-bottom:2px dotted var(--accent);border-radius:0}
   grid-template-columns:max(0px,min(calc((100% - var(--nmax)) / 2 + var(--cx,0px)),calc(100% - var(--nmax) - var(--side)))) minmax(0,var(--nmax)) var(--gap) var(--sw) minmax(0,1fr)}
 #center[data-ns=doc] .notewrap{--nmax:860px}
 .notewrap.rail{--sw:40px;--gap:10px}
+/* 노트만 크게(2.28.2): 메뉴 · 목록을 숨긴 만큼 본문도 넓힌다 — 옆 칸을 뺀 나머지를 거의 다 쓴다(양쪽 여백 16px 남짓) */
+#center.nmax[data-vw=note] .notewrap{--nmax:calc(100% - var(--side) - 32px)}
 #center[data-vw=note]>.notewrap,#center[data-ns=doc][data-vw=note]>.notewrap{max-width:none}
 .notewrap>.notemain{grid-column:2}.notewrap>.ns-split{grid-column:3}.notewrap>.noteside{grid-column:4}
 .notemain{min-width:0}
@@ -307,7 +312,7 @@ mark.ann.m{border-bottom:2px dotted var(--accent);border-radius:0}
 .ns-split:hover::after,.ns-split.drag::after{background:var(--accent)}
 .rail .ns-split{cursor:default}.rail .ns-split::after{display:none}
 .noteside{position:sticky;top:0;display:flex;flex-direction:column;gap:14px;padding:6px 0 24px;max-height:calc(100vh - 30px);overflow:auto;min-width:0}
-.ns-top{display:flex;gap:6px;flex-wrap:wrap}
+.ns-top{display:flex;gap:6px;flex-wrap:wrap;position:sticky;top:-6px;z-index:3;margin-top:-6px;padding:6px 0 8px;background:var(--bg)}   /* 2.29.1: 옆 칸을 내려도 단추는 위에 붙어 있다 */
 .ns-pill{border:1px solid var(--line);background:var(--surface);color:var(--sub);border-radius:999px;padding:3px 10px;font-size:.82rem;font-weight:600;cursor:pointer;white-space:nowrap}
 .ns-pill.on{color:var(--text);border-color:color-mix(in srgb,var(--accent) 55%,var(--line));background:var(--accent-soft)}
 .ns-pill i{font-style:normal;font-size:.72rem;margin-left:5px;padding:0 6px;border-radius:999px;background:var(--accent);color:var(--accent-ink)}
@@ -317,10 +322,6 @@ mark.ann.m{border-bottom:2px dotted var(--accent);border-radius:0}
 .rail .ns-pill{width:36px;height:36px;padding:0;display:flex;align-items:center;justify-content:center;font-size:1rem;position:relative}
 .rail .ns-pill .l{display:none}
 .rail .ns-pill i{position:absolute;top:-4px;right:-6px;margin:0}
-.ns-sec{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 12px 10px;min-width:0}
-.ns-sec[hidden]{display:none}
-.ns-h{display:flex;align-items:center;gap:6px;font-weight:700;font-size:.95rem;margin-bottom:8px}
-.ns-h small{font-weight:500;color:var(--sub)}
 /* 할 일 (todo.js 가 그린다): 카드 없이 단순한 목록 */
 .todoplain .fhd{display:flex;align-items:center;gap:6px;margin:0 0 4px;min-height:24px;flex-wrap:wrap}
 .todoplain .fhd b{font-size:.95rem}.todoplain .fhd small{color:var(--sub)}
@@ -336,8 +337,8 @@ mark.ann.m{border-bottom:2px dotted var(--accent);border-radius:0}
 /* 진행 기록: 쓰는 칸 + 최신 순 타임라인 */
 .ns-new{display:flex;flex-direction:column;gap:6px}
 .ns-new .rte,.ns-pg .rte{min-height:56px;background:var(--bg)}
-.noteside .row2{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
-.noteside .row3{display:flex;gap:6px;align-items:center}.noteside .row3 .sp,.ns-pg .d .sp{flex:1}
+#sec-pg .row2{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+#sec-pg .row3{display:flex;gap:6px;align-items:center}#sec-pg .row3 .sp,.ns-pg .d .sp{flex:1}
 .nchip{font-size:.78rem;border:1px solid var(--line);background:none;border-radius:999px;padding:1px 9px;color:var(--sub);cursor:pointer}
 .nchip.on{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
 .nday{font-size:.78rem;padding:1px 4px;width:auto;max-width:9.5rem}
@@ -382,3 +383,51 @@ mark.ann.m{border-bottom:2px dotted var(--accent);border-radius:0}
 .attcard .attdelete{flex:none;margin-left:auto}.cm .who .jedit{margin-left:8px}
 .journaledit{margin-top:6px;display:grid;gap:6px}.journaledit textarea{width:100%;min-height:160px;resize:vertical;font:inherit;line-height:1.6;color:var(--text);background:var(--surface2);border:1px solid var(--line);border-radius:8px;padding:10px;box-sizing:border-box;white-space:pre-wrap}
 .journaledit .cmrow,.manage-recovery .cmrow{display:flex;align-items:center;gap:6px;flex-wrap:wrap}.manage-recovery{padding:10px;margin-bottom:10px;border:1px solid var(--line);border-radius:8px;background:var(--surface2)}
+/* ===== 2.29 : 노트 배치 (notelayout.js). 블록을 본문 / 옆 칸 / 숨김으로 =====
+   옆 칸에 놓인 블록은 본문과 같은 카드를 작게 그린다. 옆 칸이 비면 칸째 뺀다 */
+.notewrap.noside{--sw:0px;--gap:0px}
+.nl-hidden{display:none!important}
+.ns-b{display:flex;flex-direction:column;gap:10px;min-width:0;border-radius:12px}
+.ns-b[hidden],.rail .ns-b{display:none}
+#center .noteside .card{margin:0;padding:11px 12px 10px;border-radius:12px;box-shadow:none;background:var(--surface);border:1px solid var(--line)}
+#center .noteside .cfold.collapsed{padding-top:9px;padding-bottom:9px}
+#center .noteside .cfold>.cfhd,#center .noteside .fhd{font-size:.95rem;margin-bottom:8px}
+#center .noteside .cfold.collapsed>.cfhd{margin-bottom:0}
+#center .noteside .cfbody{min-width:0;overflow-x:auto}
+#center .noteside .cfhd .cfsum{display:none}
+#center .noteside .ehead h2{font-size:1.1rem}
+@keyframes nlFlash{0%{box-shadow:0 0 0 3px var(--accent)}100%{box-shadow:0 0 0 3px transparent}}
+.nl-flash{animation:nlFlash 1.4s ease-out}
+/* 배치 편집: 블록 대신 이름표(타일). 끌어서 옮기거나 타일의 단추로 */
+.notebox .nlbar{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 calc(-1*var(--np,20px)) 16px;padding:12px var(--np,20px);background:color-mix(in srgb,var(--accent-soft) 60%,var(--surface));border-bottom:1px solid var(--line);border-radius:11px 11px 0 0}
+.nlbar>b{font-size:1rem;white-space:nowrap}.nlbar small{color:var(--sub);min-width:0}.nlbtns{display:inline-flex;gap:6px;flex:none}.nlbar small b{color:var(--accent)}.nlbar .sp{flex:1}
+.nl-tray{display:flex;flex-direction:column;gap:8px;margin-bottom:18px}
+.nl-pre{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.nl-zh{font-size:.8rem;font-weight:800;letter-spacing:.04em;color:var(--sub);margin:0 2px 6px}
+.nl-zh small{font-weight:500;letter-spacing:0;margin-left:6px}
+.nl-hid{display:flex;flex-wrap:wrap;gap:8px;min-height:42px;padding:6px;border-radius:12px;border:1.5px dashed var(--line)}
+.nl-hid:empty::before{content:"숨긴 블록이 없어요";color:var(--sub);font-size:.84rem;padding:5px 6px}
+.nl-hid.nl-over{border-color:var(--accent);background:var(--accent-soft)}
+.nl-pill{display:inline-flex;gap:6px;align-items:center;padding:4px 5px 4px 11px;border-radius:999px;background:var(--surface2);font-size:.86rem;cursor:grab}
+.nl-pill button{border:0;background:var(--surface);border-radius:999px;padding:1px 10px;font-size:.8rem;cursor:pointer;min-height:0;box-shadow:none}
+.nl-pill button:hover{color:var(--accent)}
+.nl-zone{display:flex;flex-direction:column;gap:8px;padding:10px;min-height:64px;margin-bottom:16px;border-radius:14px;border:1.5px dashed color-mix(in srgb,var(--accent) 40%,var(--line));background:color-mix(in srgb,var(--accent-soft) 45%,transparent)}
+.nl-zone.nl-over{border-color:var(--accent)}
+.nl-empty{display:none;color:var(--sub);font-size:.84rem;text-align:center;padding:14px 8px}
+.nl-zone:not(:has(.nl-tile)) .nl-empty{display:block}
+.nl-tile{display:flex;align-items:center;gap:8px 10px;flex-wrap:wrap;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface);box-shadow:0 1px 2px rgba(0,0,0,.06);cursor:grab}
+.nl-tile:hover{border-color:color-mix(in srgb,var(--accent) 55%,var(--line))}
+.nl-tile.nl-dragging,.nl-pill.nl-dragging{opacity:.35}
+.nl-grip{color:var(--sub);font-size:1.1rem;line-height:1}
+.nl-ic{font-size:1.05rem}
+.nl-tx{flex:1 1 160px;min-width:0;display:flex;flex-direction:column}
+.nl-tx b{font-size:.95rem}.nl-tx small{color:var(--sub);font-size:.8rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nl-fold{display:inline-flex;align-items:center;gap:5px;font-size:.8rem;color:var(--sub);cursor:default}
+#center .nl-fold select{font-size:.8rem;padding:2px 4px;width:auto;min-width:0}
+.nl-btns{display:inline-flex;gap:3px;flex-wrap:wrap}
+.nl-btns button{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:2px 8px;font-size:.8rem;cursor:pointer;min-height:0;box-shadow:none;color:var(--text)}
+.nl-btns button:hover:not([disabled]){border-color:var(--accent);color:var(--accent)}
+.nl-btns button[disabled]{opacity:.35;cursor:default}
+.nl-drop{height:4px;border-radius:3px;background:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);margin:-2px 0}
+.nl-lock h2{margin:2px 0 4px}
+.nl-sidez{padding-top:6px}

@@ -15,6 +15,7 @@ async function refreshOne(n,manual){
 }
 function autoRefresh(n){if(Date.now()-(lastRef.get(n.issue_id)||0)>60000)refreshOne(n,false)}
 /* ---------- 첨부파일: 본문 첨부 + 댓글 첨부, 본인 파일 삭제 ---------- */
+const attBlock=n=>cf(n,"att","첨부파일",`<small id="attsm"></small>`,"","",`<div class="attcard" id="attwrap"></div>`,nlOpen("att",true)).replace('class="card cfold','style="display:none" class="card cfold');
 const attCache=new Map();
 const attVersions=new Map();
 function invalidateAtt(id){
@@ -27,14 +28,16 @@ async function loadAtt(n){
   let list=attCache.get(id+"|"+n.updated_on);
   if(!list){try{list=await api("/api/rm/attachments?issue_id="+id)}catch(e){return}if(version!==(attVersions.get(id)||0))return;attCache.set(id+"|"+n.updated_on,list)}
   const b2=$("#attwrap");if(!b2||cur!==id||view!=="note")return;
-  if(!list.length){b2.innerHTML="";return}
+  const card=$("#sec-att");nsCounts();
+  if(!list.length){b2.innerHTML="";if(card)card.style.display="none";return}
+  if(card)card.style.display="";$("#attsm").textContent=`${list.length}개 · 사진은 눌러서 크게 · 다른 파일은 눌러서 내려받기`;
   const src=a=>`/api/rm/attachment?id=${a.id}&name=${encodeURIComponent(a.filename)}`;
   const meta=a=>`${kb(a.filesize)} · ${esc(a.author)} · ${esc(lDay(a.created_on))} · ${a.source==="comment"?`댓글 (${esc(a.comment_by)} ${esc(lDay(a.comment_at).slice(5))})`:"본문"}`;
   const del=a=>a.can_delete&&canWrite(n)?`<button type="button" class="mini attdelete" data-delete-att="${a.id}" data-issue="${id}" title="${esc(a.filename)} 삭제" aria-label="${esc(a.filename)} 삭제" ${cmBusy.has(id)||rmManagePending.has(id)?"disabled":""}><svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 6h16M9 6V3h6v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg> <span class="attdelete-label">삭제</span></button>`:"";
-  b2.innerHTML=`<div class="card attcard"><div class="fhd"><span>첨부파일</span><small>${list.length}개 · 사진은 눌러서 크게 · 다른 파일은 눌러서 내려받기</small></div>
+  b2.innerHTML=`
     ${list.map(a=>{const remove=del(a);return `<div class="attitem${remove?" has-delete":""}">`+(isImgAtt(a)
       ?`<a class="attrow attmain img" href="${src(a)}" download="${esc(a.filename)}" title="${esc(a.filename)} · Enter: 다운로드 / Space: 확대 보기"><img class="rimg athumb" loading="lazy" src="${src(a)}" data-full="${src(a)}" alt="${esc(a.filename)}"><span class="ab"><span class="an">${esc(a.filename)}</span><span class="am">${meta(a)}</span></span><span class="dl">⬇ 다운로드</span></a>`
-      :`<a class="attrow attmain" href="${src(a)}" download="${esc(a.filename)}" title="${esc(a.description||a.filename)}"><span class="ai">📎</span><span class="an">${esc(a.filename)}</span><span class="am">${meta(a)}</span><span class="dl">⬇ 다운로드</span></a>`)+remove+"</div>"}).join("")}</div>`;
+      :`<a class="attrow attmain" href="${src(a)}" download="${esc(a.filename)}" title="${esc(a.description||a.filename)}"><span class="ai">📎</span><span class="an">${esc(a.filename)}</span><span class="am">${meta(a)}</span><span class="dl">⬇ 다운로드</span></a>`)+remove+"</div>"}).join("")}`;
   setTimeout(()=>{fillAttImgs();fillAttPlaces();updThumbs(list)},0);
 }
 const isImgAtt=a=>/^image\//i.test(a.content_type||"")||/\.(png|jpe?g|gif|bmp|webp)$/i.test(a.filename||"");
@@ -62,7 +65,7 @@ const ntabSel=new Map(),NT=[["ac","처리 내용"],["cc","수정한 코드/방�
 const ntabOf=n=>ntabSel.get(n.issue_id)||(["ac","cc","rs"].find(k=>(n[{ac:"action",cc:"code_change",rs:"reason"}[k]]||"").trim())||"ac");
 function nbCard(n){
   const has=k=>!!(n[{ac:"action",cc:"code_change",rs:"reason"}[k]]||"").trim(),any=["ac","cc","rs"].some(has),sel=ntabOf(n);
-  const key=foldKey(n,"notes"),open=foldOpen.has(key)?foldOpen.get(key):any;
+  const key=foldKey(n,"notes"),open=foldOpen.has(key)?foldOpen.get(key):nlOpen("notes",any);
   const PH={ac:"어떻게 처리했는지 적으세요",cc:"코드를 붙여넣거나 &#96;&#96;&#96; 를 입력하고 Enter 를 누르세요",rs:"왜 이렇게 고쳤는지 적으세요"};
   return `<div class="card cfold ${open?"":"collapsed"}" id="sec-notes" data-cf="notes"><div class="cfhd" role="button" tabindex="0" aria-expanded="${open}" title="눌러서 접기/펼치기"><span class="chev">▸</span><span>정리 기록</span> <small>일이 끝난 뒤 정리 · 날짜별 메모는 위의 진행 기록</small><span class="cfsum"></span><span class="sp"></span><button type="button" class="mini" data-addcode="@tab" title="지금 보는 칸에 코드 상자를 추가합니다">＋ 코드 상자</button></div>
     <div class="cfbody"><div class="ntabs"><div class="seg">${NT.map(([k,l])=>`<button type="button" data-ntab="${k}" class="${k===sel?"on":""}">${l}<i class="ntd" ${has(k)?"":"hidden"}>●</i></button>`).join("")}</div></div>
@@ -95,12 +98,13 @@ function wireNotes(n){
   updNotes();
 }
 /* ---------- 2.1 : 일감 안에서 이동 · 접는 카드 ---------- */
-const JUMPS=[["orig","원문","📄"],["notes","정리 기록","🗂"],["cm","댓글 이력","💬"],["rel","연결된 일감 ↓","🔗"]];   // 할 일 · 진행 기록은 노트 옆 칸에 있어서 이동 바에 두지 않는다 (2.27)
-const jumpEl=k=>({notes:()=>$("#sec-notes"),
-  cm:()=>$("#sec-cm"),rel:()=>$("#sec-rel"),orig:()=>$("#sec-orig")}[k]||(()=>null))();
+/* 2.29: 이동 바의 단추는 배치(notelayout.js)를 따른다 — 본문에 놓인 블록을 위에서부터 [블록, 이름, 아이콘] */
+let JUMPS=[];
+const jumpEl=k=>{const el=$("#sec-"+k);return el&&!el.closest(".nl-hidden")?el:null};
 function jumpHtml(n,nb){
-  const c={cm:n.journals.length,rel:nb.length};
-  return `<div id="jumpbar" role="navigation" aria-label="이 일감 안에서 이동">${peeking()?`<button type="button" id="jback" class="jback" title="${NAVLABEL[nav]} 화면으로 돌아가요 (Alt+←)">← 돌아가기 · ${NAVLABEL[nav]}</button>`:""}${JUMPS.map(([k,l,ic],i)=>`<button type="button" data-jump="${k}" title="${l} 로 이동 (Alt+${i+1})"><span class="ji">${ic}</span>${l}${c[k]?`<i>${c[k]}</i>`:""}</button>`).join("")}<span class="sp"></span><button type="button" id="jtop" title="맨 위로">↑</button></div>`;
+  const c={cm:n.journals.length,rel:nb.length,todo:nsCnt(n,"todo"),pg:(n._pg||[]).length};   // 할 일 · 진행 기록도 본문으로 옮기면 이동 바에 나온다
+  JUMPS=nlJumps();
+  return `<div id="jumpbar" role="navigation" aria-label="이 일감 안에서 이동">${peeking()?`<button type="button" id="jback" class="jback" title="${NAVLABEL[nav]} 화면으로 돌아가요 (Alt+←)">← 돌아가기 · ${NAVLABEL[nav]}</button>`:""}${JUMPS.map(([k,l,ic],i)=>`<button type="button" data-jump="${k}" title="${l} 로 이동 (Alt+${i+1})"><span class="ji">${ic}</span>${l}${c[k]?`<i>${c[k]}</i>`:""}</button>`).join("")}<span class="sp"></span><button type="button" id="jlay" class="jmax" title="블록 배치 · 숨기기 · 기본 접기를 바꿔요 (모든 노트에 같이 적용)">🧩 배치</button>${maxBtnHtml()}</div>`;
 }
 function jumpTo(n,k){
   const el=jumpEl(k);if(!el)return;
@@ -112,18 +116,19 @@ function jumpTo(n,k){
 }
 function wireJump(n){
   document.querySelectorAll("#jumpbar [data-jump]").forEach(b=>b.onclick=()=>jumpTo(n,b.dataset.jump));
-  $("#jtop").onclick=()=>$("#center").scrollTo({top:0,behavior:"smooth"});
+  $("#jmax").onclick=toggleNoteMax;$("#jlay").onclick=nlStart;
   if($("#jback"))$("#jback").onclick=closePeek;
 }
+const fabShown=()=>!nlEdit&&!cmSide()&&!(composerVisible()&&!cmOpen);   // 💬 단추: 배치 편집 중 · 댓글이 옆 칸에 있을 때 · 아래 댓글 쓰기 칸이 보일 때는 숨긴다
 function composerVisible(){
   const w=$("#sec-write"),c=$("#center");if(!w||view!=="note")return false;
   const r=w.getBoundingClientRect(),cr=c.getBoundingClientRect();return r.top<cr.bottom-70&&r.bottom>cr.top;
 }
 function spy(){   // 지금 보고 있는 위치에 맞춰 이동 바 강조
   const c=$("#center"),jb=$("#jumpbar");if(!jb||view!=="note")return;
-  const fab=$("#cmfab");if(fab&&curNote()){const d=composerVisible()&&!cmOpen?"none":"block";if(fab.style.display!==d){fab.style.display=d;placeCm()}}     // 💬 가 숨거나 나타나면 ↑ · ☑ 자리도 다시 (안 하면 ↑ 와 겹친다)
+  const fab=$("#cmfab");if(fab&&curNote()){const d=fabShown()?"block":"none";if(fab.style.display!==d){fab.style.display=d;placeCm()}}     // 💬 가 숨거나 나타나면 ↑ · ☑ 자리도 다시 (안 하면 ↑ 와 겹친다)
   if(cmOpen&&composerVisible())toggleCm(false);   // 스크롤해서 아래 댓글 쓰기 칸에 오면 팝업은 자동으로 닫는다 (초안은 두 곳이 같이 씀)
-  const top=c.getBoundingClientRect().top+jb.offsetHeight+40;let on=JUMPS[0][0];
+  const top=c.getBoundingClientRect().top+jb.offsetHeight+40;let on=JUMPS.length?JUMPS[0][0]:"";
   for(const [k] of JUMPS){const el=jumpEl(k);if(el&&el.getBoundingClientRect().top<=top)on=k}
   if(jumpLock&&Date.now()-jumpLock.t<1500)on=jumpLock.k;
   jb.querySelectorAll("[data-jump]").forEach(b=>b.classList.toggle("on",b.dataset.jump===on));
@@ -295,7 +300,7 @@ const richHtml=raw=>imgify(tablifyMd(renderMd(remoteText(raw))).replace(/\n(<div
 const cmBody=j=>{const raw=j.raw!=null?j.raw:j.notes;return (typeof commentSafeDisplay==="function"?commentSafeDisplay(raw,"source"):null)??richHtml(raw)};
 function origCard(n){
   const n2=noteImgs(n).length;
-  return cf(n,"orig","레드마인 원문",`<small>요건 · 본문 그대로${n2?` · 사진 ${n2}장`:""}</small>`,"","",`<div class="j orig">${richHtml(n.desc_raw||n.description||"")||"(없음)"}</div><div class="cmimgs" data-attj="0"></div>`,true);   // 노트의 첫 구역: 기본은 펼침
+  return cf(n,"orig","레드마인 원문",`<small>요건 · 본문 그대로${n2?` · 사진 ${n2}장`:""}</small>`,"","",`<div class="j orig">${richHtml(n.desc_raw||n.description||"")||"(없음)"}</div><div class="cmimgs" data-attj="0"></div>`,nlOpen("orig",(n.desc_raw||n.description||"").trim()));   // 기본은 펼침 (배치에서 바꾼다)
 }
 /* 예전에 직접 고쳐 쓴 요건이 있는 노트에만, 읽기 전용으로 접어서 남긴다 (지우지 않고 보존) */
 function legacyReqCard(n){
@@ -322,7 +327,7 @@ function cmNewMark(n){
   if(since)cmNew={id:n.issue_id,since,jumped:false};
 }
 function cmNewApply(n){
-  if(!cmNew||cmNew.id!==n.issue_id)return;
+  if(!cmNew||cmNew.id!==n.issue_id||!jumpEl("cm"))return;      // 댓글을 숨겨 두었으면 하지 않는다
   const els=[...document.querySelectorAll("#sec-cm [data-cmt]")].filter(e=>e.dataset.cmt>cmNew.since&&!("mine" in e.dataset));
   if(!els.length){cmNew.jumped=true;return}
   /* 새 댓글 · 변경을 하나씩 칠하지 않고, 첫 번째부터 마지막까지 한 영역으로 묶는다 (사이에 낀 내 댓글도 같이) */
