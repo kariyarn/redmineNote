@@ -14,7 +14,7 @@ async function refreshOne(n,manual){
   }catch(e){if(manual)toast("새로 읽지 못했어요: "+e.message,5000)}
 }
 function autoRefresh(n){if(Date.now()-(lastRef.get(n.issue_id)||0)>60000)refreshOne(n,false)}
-/* ---------- 첨부파일: 본문 첨부 + 댓글 첨부, 본인 파일 삭제 ---------- */
+/* ---------- 첨부파일: 본문 첨부 + 댓글 첨부, 다운로드 및 확대 보기 ---------- */
 const attBlock=n=>cf(n,"att","첨부파일",`<small id="attsm"></small>`,"","",`<div class="attcard" id="attwrap"></div>`,nlOpen("att",true)).replace('class="card cfold','style="display:none" class="card cfold');
 const attCache=new Map();
 const attVersions=new Map();
@@ -33,11 +33,10 @@ async function loadAtt(n){
   if(card)card.style.display="";$("#attsm").textContent=`${list.length}개 · 사진은 눌러서 크게 · 다른 파일은 눌러서 내려받기`;
   const src=a=>`/api/rm/attachment?id=${a.id}&name=${encodeURIComponent(a.filename)}`;
   const meta=a=>`${kb(a.filesize)} · ${esc(a.author)} · ${esc(lDay(a.created_on))} · ${a.source==="comment"?`댓글 (${esc(a.comment_by)} ${esc(lDay(a.comment_at).slice(5))})`:"본문"}`;
-  const del=a=>a.can_delete&&canWrite(n)?`<button type="button" class="mini attdelete" data-delete-att="${a.id}" data-issue="${id}" title="${esc(a.filename)} 삭제" aria-label="${esc(a.filename)} 삭제" ${cmBusy.has(id)||rmManagePending.has(id)?"disabled":""}><svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 6h16M9 6V3h6v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg> <span class="attdelete-label">삭제</span></button>`:"";
   b2.innerHTML=`
-    ${list.map(a=>{const remove=del(a);return `<div class="attitem${remove?" has-delete":""}">`+(isImgAtt(a)
+    ${list.map(a=>{return `<div class="attitem">`+(isImgAtt(a)
       ?`<a class="attrow attmain img" href="${src(a)}" download="${esc(a.filename)}" title="${esc(a.filename)} · Enter: 다운로드 / Space: 확대 보기"><img class="rimg athumb" loading="lazy" src="${src(a)}" data-full="${src(a)}" alt="${esc(a.filename)}"><span class="ab"><span class="an">${esc(a.filename)}</span><span class="am">${meta(a)}</span></span><span class="dl">⬇ 다운로드</span></a>`
-      :`<a class="attrow attmain" href="${src(a)}" download="${esc(a.filename)}" title="${esc(a.description||a.filename)}"><span class="ai">📎</span><span class="an">${esc(a.filename)}</span><span class="am">${meta(a)}</span><span class="dl">⬇ 다운로드</span></a>`)+remove+"</div>"}).join("")}`;
+      :`<a class="attrow attmain" href="${src(a)}" download="${esc(a.filename)}" title="${esc(a.description||a.filename)}"><span class="ai">📎</span><span class="an">${esc(a.filename)}</span><span class="am">${meta(a)}</span><span class="dl">⬇ 다운로드</span></a>`)+"</div>"}).join("")}`;
   setTimeout(()=>{fillAttImgs();fillAttPlaces();updThumbs(list)},0);
 }
 const isImgAtt=a=>/^image\//i.test(a.content_type||"")||/\.(png|jpe?g|gif|bmp|webp)$/i.test(a.filename||"");
@@ -315,7 +314,7 @@ function cmEntries(n){
 }
 const chgItem=it=>`<li><b>${esc(it.label)}</b> ${it.note?esc(it.note):(it.old&&it.new)?`${esc(it.old)} <span class="arr">→</span> <b>${esc(it.new)}</b>`:it.new?`<b>${esc(it.new)}</b>`:`${esc(it.old||"")} 제거`}</li>`;
 const chgHtml=c=>`<div class="chg" data-cmt="${esc(c.created_on||"")}"${cfg.meName&&c.user===cfg.meName?" data-mine":""}><span class="chgdot" aria-hidden="true">↻</span><div class="chgbody"><b>${esc(c.user)}</b> <span class="meta">· ${dTime(c.created_on)} · 변경</span><ul>${c.items.map(chgItem).join("")}</ul><div class="cmimgs" data-attj="${c.id||0}"></div></div></div>`;
-const cmHist=n=>manageRecoveryHtml(n)+(cmEntries(n).map(e=>e.c?chgHtml(e.c):managedJournalHtml(n,e.j)).join("")||`<span class="meta">댓글이 없습니다.</span>`);
+const cmHist=n=>cmEntries(n).map(e=>e.c?chgHtml(e.c):(j=>`<div class="cm ${j.user&&j.user.id===cfg.meId?"me":""}" data-cmt="${esc(j.created_on||"")}"${j.user&&cfg.meId&&j.user.id===cfg.meId?" data-mine":""}><div class="av">${esc(avatar((j.user||{}).name||"?"))}</div><div style="flex:1;min-width:0"><div class="who"><b>${esc((j.user||{}).name||"")}</b> · ${dTime(j.created_on)}</div><div class="bubble">${cmBody(j)}</div><div class="cmimgs" data-attj="${j.id||0}"></div></div></div>`)(e.j)).join("")||`<span class="meta">댓글이 없습니다.</span>`;
 /* ---------- 새 댓글로 바로 (2.22) ----------
    안 본 일감(목록에서 강조된 것)을 처음 열면, 마지막으로 본 뒤에 남이 단 댓글 · 변경을 NEW 영역 하나로 묶어 칠하고 그 자리로 바로 이동한다.
    기준은 안 본 일감 강조와 같다(rm_seen: 마지막으로 열어 본 때의 수정일). 한 번 열면 본 것이 되므로 다음에 열 때는 하지 않는다.

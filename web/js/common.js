@@ -45,7 +45,7 @@ async function refreshToday(){   // 레드마인 날짜를 오늘로 해서 가�
 async function ackFirst(){   // 처음 쓰기 기능(상태·담당자 고르기)을 쓸 때 한 번만. 올리기를 누를 때는 묻지 않는다.
   if(S.write_ack_first==="1")return true;
   return wdlg({title:"레드마인에 직접 올립니다",remember:"write_ack_first",ok:"알겠어요",
-    body:`이 프로그램에서 <b>댓글·파일을 올리고, 상태·담당자·개발담당자를 바꿀 수 있어요.</b><br>버튼은 고르기만 하고, <b>올리기</b>를 눌러야 올라가요.<br>본인 첨부파일 삭제와 본인 댓글 수정도 원본 Redmine에 직접 반영됩니다.${wcfg().test?`<br><br><b>시험 모드:</b> ${wcfg().allow.map(x=>"#"+x).join(", ")} 에서만 올라갑니다.`:""}`});
+    body:`이 프로그램에서 <b>댓글·파일을 올리고, 상태·담당자·개발담당자를 바꿀 수 있어요.</b><br>버튼은 고르기만 하고, <b>올리기</b>를 눌러야 올라가요.${wcfg().test?`<br><br><b>시험 모드:</b> ${wcfg().allow.map(x=>"#"+x).join(", ")} 에서만 올라갑니다.`:""}`});
 }
 async function doWrite(n,o){
   const id=n.issue_id;if(cmBusy.has(id))return false;                      // 두 번 눌러도 한 번만
@@ -130,7 +130,6 @@ function cmPanelRender(){
   p.innerHTML=`<div class="cmph"><b>#${n.issue_id} 댓글</b><span class="meta">${n.journals.length}건</span><span class="sp"></span><button type="button" class="icon" id="cmx" title="닫기 (Esc)">✕</button></div><div class="cmphist tl" id="cmphist">${cmHist(n)}</div>${composerHtml("p",n)}`;
   $("#cmx").onclick=()=>toggleCm(false);
   wireComposer(p,n);
-  mountJournalEditors();
   wireCp($("#cmphist"));fillAttImgs($("#cmphist"));fillAttPlaces();
   const h=$("#cmphist");h.scrollTop=h.scrollHeight;
 }

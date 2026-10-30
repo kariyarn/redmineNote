@@ -39,7 +39,14 @@
     const updated=curNote();
     check('remote fake journal retains p and br HTML',updated.journals.some(j=>(j.raw??j.notes)===raw));
     check('successful save clears draft and file state',draftOf(n.issue_id)===''&&filesOf(n.issue_id).length===0);
-    check('own uploaded attachment retains a sibling delete button',[...document.querySelectorAll('#attwrap .attitem')].some(item=>item.querySelector('.an')?.textContent===file.name&&item.querySelector('.attdelete')?.parentElement===item));
+    check('uploaded attachment is readable with no remote action buttons',[...document.querySelectorAll('#attwrap .attitem')].some(item=>item.querySelector('.an')?.textContent===file.name&&item.querySelector('a[download]'))&&!document.querySelector('#attwrap button'));
+    check('existing comments are read-only',!document.querySelector('[data-jedit], [data-jeditor]'));
+    const item=[...document.querySelectorAll('#attwrap .attitem')].find(item=>item.querySelector('.an')?.textContent===file.name);
+    const response=await fetch(item.querySelector('a').getAttribute('href'));
+    check('uploaded file remains downloadable',response.ok&&(await response.text())==='smoke '+ui.design);
+    cmAddFiles(curNote(),[new File(['only file'], 'file-only-'+ui.design+'.txt',{type:'text/plain'})]);
+    check('file-only save works with an empty comment',await doWrite(curNote(),{}));await wait(100);
+    check('file-only save refreshes the attachment list',[...document.querySelectorAll('#attwrap .an')].some(el=>el.textContent==='file-only-'+ui.design+'.txt'));
     check('no uncaught full-page script errors',window.__smokeErrors.length===0);
     result.textContent=JSON.stringify({ok:true,checks:checks.length});
   }catch(error){result.textContent=JSON.stringify({ok:false,checks:checks.length,error:String(error.stack||error),scriptErrors:window.__smokeErrors})}

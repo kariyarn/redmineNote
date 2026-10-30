@@ -150,7 +150,7 @@ async function main(){
   check("manual confirmation of an older request preserves newly edited draft and files",()=>{
     assert.equal(run("draftOf(93599)"),"new draft");assert.equal(run("filesOf(93599).length"),1);assert.equal(run("cmRecovery.has(93599)"),false);
   });
-  run('clearComposer(93599);cmSetFormat(93599,"html");setDraft(93599,"<p><b>서식 댓글</b></p>");cmAddFiles(n,[{name:"rich.txt",size:2}]);stageOf(93599).status_id=5');
+  run('clearComposer(93599);cmFormats.set(cmFormatKey(93599),"html");setDraft(93599,"<p><b>서식 댓글</b></p>");cmAddFiles(n,[{name:"rich.txt",size:2}]);stageOf(93599).status_id=5');
   transport(async body=>{const err=new Error("uncertain rich result");err.status=502;err.body={needs_review:true,request_id:body.request_id};throw err});
   assert.equal(await run("doWrite(n,{})"),false);
   check("formatted comment preserves file and status payload and failed draft",()=>{

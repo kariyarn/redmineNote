@@ -361,7 +361,7 @@ function renderCenter(){
   $("#fsz").onchange=$("#fwrap").onchange=$("#flnum").onchange=refmt;
   if($("#reltip"))$("#reltip").style.display="none";
   $("#save").onclick=()=>saveNote();
-  wireCf(n);wireJump(n);wireComposer($("#sec-write"),n);mountJournalEditors();loadAtt(n);fillAttImgs();
+  wireCf(n);wireJump(n);wireComposer($("#sec-write"),n);loadAtt(n);fillAttImgs();
   $("#refone").onclick=()=>refreshOne(n,true);autoRefresh(n);
   document.querySelectorAll("[data-cmnew]").forEach(b=>b.onclick=ev=>{ev.stopPropagation();toggleCm(true)});
   spy();cmNewApply(n);annPaint(n);

@@ -573,10 +573,3 @@ def rm_upload(filename, data):
     # 선택 항목인 ID는 오류/응답 유실 시 검증에만 사용한다. 토큰에서 ID를 추측하지 않는다.
     return {"token": token, "filename": filename,
             "attachment_id": aid if isinstance(aid, int) and not isinstance(aid, bool) and aid > 0 else None}
-
-
-def rm_delete(path):
-    """인증 DELETE. 응답 유실 시 중복 삭제를 피하기 위해 자동 재시도하지 않는다."""
-    req = urllib.request.Request(f"{conn.url}{path}", method="DELETE", headers={"X-Redmine-API-Key": conn.key})
-    with open_authenticated(req, timeout=30) as r:
-        return r.status

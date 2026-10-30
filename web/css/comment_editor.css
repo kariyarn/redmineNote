@@ -1,5 +1,5 @@
 /* 두 디자인이 공유하는 댓글 편집기. 모든 자원은 로컬에 포함한다. */
-.rte:has(>.cebar){padding:0;overflow:visible}.ce-journal{margin-top:6px;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.rte:has(>.cebar){padding:0;overflow:visible}
 .cebar,.cetools{display:flex;align-items:center;gap:5px;flex-wrap:wrap;padding:7px;background:var(--surface2);border-bottom:1px solid var(--line)}
 .cebar label,.cetools label{display:inline-flex;align-items:center;gap:4px;font-size:.84rem;color:var(--sub)}
 .cebar button,.cetools button,.cetools select,.cebar select{min-height:30px;max-width:100%}.cetools input[type=color]{width:32px;height:28px;padding:2px}

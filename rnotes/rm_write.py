@@ -583,8 +583,6 @@ def rm_attachments(iid):
     """일감의 첨부파일 목록(본문 첨부 + 댓글 첨부). 레드마인에서 바로 읽는다 (1분 캐시)."""
     def load():
         d = rm_get(f"/issues/{iid}.json", {"include": "attachments,journals"})["issue"]
-        me = my_id()
-        eligible = _access(iid) is None
         by_att = {}
         for j in d.get("journals", []):
             for x in j.get("details", []):
@@ -598,7 +596,6 @@ def rm_attachments(iid):
                 "content_type": a.get("content_type", ""), "description": a.get("description", ""),
                 "content_url": attachment_image_url(a.get("content_url"), a["id"], conn.url),
                 "author": (a.get("author") or {}).get("name", ""), "created_on": a.get("created_on", ""),
-                "can_delete": bool(me and eligible and (a.get("author") or {}).get("id") == me and a.get("deletable") is not False),
                 "source": "comment" if j else "body",
                 "comment_by": ((j.get("user") or {}).get("name", "") if j else ""),
                 "comment_at": (j.get("created_on", "") if j else ""),

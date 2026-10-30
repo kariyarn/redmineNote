@@ -7,7 +7,6 @@ from urllib.parse import urlparse, parse_qs, quote
 PORT = int(sys.argv[1])
 LOCK = threading.Lock()
 PUTS = []
-MANAGES, DELETED = [], set()
 BLOCKED = []
 ORIG_J = {}
 UPLOADS, UPLOAD_CALLS, ATT_DATA = {}, [], {}
@@ -124,8 +123,6 @@ class H(BaseHTTPRequestHandler):
             self.send_response(200); self.send_header("Content-Type", "text/html; charset=utf-8"); self.send_header("Content-Length", str(len(body)))
             self.send_header("Content-Security-Policy", "default-src 'none'; script-src 'unsafe-inline' http://127.0.0.1:*; style-src 'unsafe-inline' http://127.0.0.1:*; img-src blob: http://127.0.0.1:*; connect-src http://127.0.0.1:*; font-src http://127.0.0.1:*; base-uri 'none'; form-action 'none'; frame-src 'none'; object-src 'none'")
             self.end_headers(); self.wfile.write(body); return
-        if u.path == "/__manages":
-            return self.send(200, MANAGES)
         if u.path == "/__test/requests":
             return self.send(200, REQUESTS)
         if u.path == "/__redirect_target":
@@ -220,8 +217,6 @@ class H(BaseHTTPRequestHandler):
             if CONTROL.get("image_status") and CONTROL.get("apply_to_download"):
                 return self.send(int(CONTROL["image_status"]), {"error": "synthetic attachment access error"})
             aid = int(u.path.split("/")[3])
-            if aid in DELETED:
-                return self.send(404, {"error": "deleted"})
             if aid in ATT_DATA:
                 body = ATT_DATA[aid]
                 ct = next((a.get("content_type", "application/octet-stream") for issue in DB.values() for a in issue["attachments"] if a["id"] == aid), "application/octet-stream")
@@ -247,26 +242,8 @@ class H(BaseHTTPRequestHandler):
         body = json.loads(self.rfile.read(n) or b"{}")
         if self.redirect(u.path):
             return
-        if u.path.startswith("/journals/"):
-            jid = int(u.path.split("/")[2].split(".")[0])
-            with LOCK:
-                MANAGES.append({"method": "PUT", "target_id": jid, "body": body})
-                if CONTROL.get("manage_status"):
-                    return self.send(int(CONTROL["manage_status"]), {"errors": ["Journal update rejected"]})
-                pair = next(((d, j) for d in DB.values() for j in d["journals"] if j["id"] == jid), None)
-                if not pair:
-                    return self.send(404, {})
-                d, journal = pair
-                if journal["user"]["id"] != 7:
-                    return self.send(403, {})
-                if CONTROL.get("manage_delay"):
-                    time.sleep(float(CONTROL["manage_delay"]))
-                if set(body) != {"journal"} or set(body["journal"]) != {"notes"}:
-                    return self.send(422, {})
-                journal["notes"] = body["journal"]["notes"]
-                journal["updated_on"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
-                d["updated_on"] = journal["updated_on"]
-            return self.manage_response()
+        if not u.path.startswith("/issues/") or not u.path.endswith(".json"):
+            return self.send(404, {})
         i = int(u.path.split("/")[2].split(".")[0])
         iss = body["issue"]
         with LOCK:
@@ -346,44 +323,7 @@ class H(BaseHTTPRequestHandler):
             return
         self.send(204)
 
-    def manage_response(self):
-        mode = CONTROL.get("manage_response")
-        if mode in ("lost", "timeout"):
-            if mode == "timeout":
-                time.sleep(.25)
-            self.close_connection = True
-            return
-        return self.send(204)
 
-    def do_DELETE(self):
-        if self.headers.get("X-Redmine-API-Key") != "good-key":
-            return self.send(401, {})
-        path = urlparse(self.path).path
-        if self.redirect(path):
-            return
-        if not path.startswith("/attachments/") or not path.endswith(".json"):
-            return self.send(404, {})
-        aid = int(path.split("/")[2].split(".")[0])
-        with LOCK:
-            MANAGES.append({"method": "DELETE", "target_id": aid})
-            if CONTROL.get("manage_status"):
-                return self.send(int(CONTROL["manage_status"]), {"errors": ["Attachment delete rejected"]})
-            pair = next(((d, a) for d in DB.values() for a in d["attachments"] if a["id"] == aid), None)
-            if not pair:
-                return self.send(404, {})
-            d, attachment = pair
-            if attachment["author"]["id"] != 7:
-                return self.send(403, {})
-            if CONTROL.get("manage_delay"):
-                time.sleep(float(CONTROL["manage_delay"]))
-            d["attachments"].remove(attachment)
-            DELETED.add(aid); ATT_DATA.pop(aid, None)
-            jid = max((j["id"] for issue in DB.values() for j in issue["journals"]), default=0) + 1
-            now = datetime.datetime.now(datetime.timezone.utc).isoformat()
-            d["journals"].append({"id": jid, "user": {"id": 7, "name": "나"}, "notes": "", "created_on": now,
-                                  "details": [{"property": "attachment", "name": str(aid), "old_value": attachment["filename"]}]})
-            d["updated_on"] = now
-        return self.manage_response()
 
     def do_POST(self):  # 시험 도우미: 일감을 몰래 바꿔서 '충돌' 상황을 만든다
         global NEXT_AID

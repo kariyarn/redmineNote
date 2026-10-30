@@ -27,7 +27,6 @@ from .redmine import check_login, explain, fetch_ids, fetch_linked, my_id, rm_is
 from .rm_deploy import deploy_issues, deploy_state, rm_peek, rm_projects, rm_search
 from .rm_write import do_write, parse_write_request, preview_write, recover_write, refresh_local, rm_attachments, write_info
 from .http_client import open_authenticated
-from .rm_manage import journal_for_edit, manage_write, recover_manage
 from .sticky import sticky_row, sticky_save
 from .storage import backup_path, configured, db, get_settings, list_backups, note_count, restore_bytes, save_config, snapshot_zip, stamp
 from .holidays import extra_days, holiday_dates
@@ -275,9 +274,6 @@ class Handler(BaseHTTPRequestHandler):
                     self.send_json({"error": "이미지가 20MB 제한을 초과했어요", "kind": "size"}, 413)
                     return
             self.send_bytes(body, ct, 200, {"Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff"})
-        elif u.path == "/api/rm/journal":
-            code, obj = journal_for_edit(q)
-            self.send_json(obj, code)
         elif u.path == "/api/rm/attachments":
             try:
                 self.send_json(rm_attachments(int(q.get("issue_id") or 0)))
@@ -624,12 +620,6 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_json(obj, code)
             elif u.path == "/api/rm/write/recover":
                 code, obj = recover_write(d)
-                self.send_json(obj, code)
-            elif u.path in ("/api/rm/attachment/delete", "/api/rm/journal/edit"):
-                code, obj = manage_write(d, "delete_attachment" if u.path.endswith("delete") else "edit_journal")
-                self.send_json(obj, code)
-            elif u.path == "/api/rm/manage/recover":
-                code, obj = recover_manage(d)
                 self.send_json(obj, code)
             elif u.path == "/api/second-launch":  # 이미 켜져 있는데 또 실행됨
                 self.send_json({"ok": True, "opened": open_or_notify()})

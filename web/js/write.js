@@ -21,7 +21,7 @@ async function uploadEditorImage(n,state,decision=null){
   if(decision&&decision!=="check"&&!await wdlg({title:"Redmine에서 이미지 첨부를 직접 확인했나요?",ok:"확인 기록",body:decision==="applied"?"파일이 등록된 것을 직접 확인했을 때만 선택하세요. 파일을 다시 보내지 않습니다.":"파일이 전혀 등록되지 않은 것을 확인했을 때만 선택하세요. 여기서는 재전송하지 않습니다."}))return false;
   // 확인 대화상자 동안 다른 입력창에서 전송을 시작했을 수도 있다.
   if(cmBusy.has(id))return false;
-  state.requestId??=crypto.randomUUID();cmBusy.add(id);manageBusy(n,true);let completed=false;
+  state.requestId??=crypto.randomUUID();cmBusy.add(id);setCmBusy(n,true);let completed=false;
   try{
     const r=decision?await post("/api/rm/write/recover",{issue_id:id,request_id:state.requestId,decision}):
       await sendCommentWrite({issue_id:id,notes:"",request_id:state.requestId,loaded_updated_on:n.updated_on},[{file:state.file}]);
@@ -44,12 +44,11 @@ async function uploadEditorImage(n,state,decision=null){
     if(body.code==="changed"||e.code==="changed")state.message+=" 일감의 ↻ 새로 읽기 후 이미지 삽입 창을 다시 여세요.";
     if(decision&&e.status===404)state.message+=" 요청 기록이 없거나 연결이 달라졌어요. 현재 연결과 Redmine 반영 여부를 확인한 뒤 새로고침하고 파일을 다시 선택하세요.";
     return false;
-  }finally{cmBusy.delete(id);manageBusy(n,false)}
+  }finally{cmBusy.delete(id);setCmBusy(n,false)}
 }
 const cmImageOptions=n=>({imageState:()=>cmImageState(n.issue_id),onImageUpload:(state,decision)=>uploadEditorImage(n,state,decision)});
 const cmFormatKey=id=>(cfg.url||"")+"|"+id;
 function cmFormatOf(id){const key=cmFormatKey(id);if(!cmFormats.has(key))cmFormats.set(key,"html");return cmFormats.get(key)}
-function cmSetFormat(id,format){const key=cmFormatKey(id);cmFormats.set(key,format);try{localStorage.setItem("rncmformat:"+key,format)}catch(e){}}
 const filesOf=id=>cmFiles.get(id)||[];
 const cmLimits=()=>wcfg().uploads||{max_file:20*1024*1024,max_total:50*1024*1024,max_count:10};
 function cmAddFiles(n,files){
@@ -185,7 +184,7 @@ function wireComposer(root,n){
   root.querySelectorAll(".cmp").forEach(c=>{
     const ta=c.querySelector(".cmta"),sel=c.querySelector(".stsel");
     edInit(ta,draftOf(n.issue_id));
-    if(typeof mountCommentEditor==="function")mountCommentEditor(ta,{value:draftOf(n.issue_id),format:cmFormatOf(n.issue_id),issueId:n.issue_id,onFormat:f=>cmSetFormat(n.issue_id,f),...cmImageOptions(n)});
+    if(typeof mountCommentEditor==="function")mountCommentEditor(ta,{value:draftOf(n.issue_id),format:cmFormatOf(n.issue_id),issueId:n.issue_id,...cmImageOptions(n)});
     ta.addEventListener("input",()=>{setDraft(n.issue_id,edGet(ta));syncComposers(n,ta)});
     ta.addEventListener("keydown",e=>{if(!e.isComposing&&!ta._commentEditor?.composing&&e.keyCode!==229&&e.key==="Enter"&&(e.ctrlKey||e.metaKey)&&e.target.tagName!=="TEXTAREA"&&!e.target.closest?.(".ceimages")){e.preventDefault();if(ta._commentEditor?.codeAtSelection()){ta._commentEditor.exitCode();return}doWrite(n,{})}},true);   // 한국어 조합 중 Enter와 이미지 선택창에서는 전송하지 않는다.
     c.querySelectorAll("[data-w]").forEach(b=>b.onclick=async()=>{
@@ -226,125 +225,3 @@ function wireComposer(root,n){
   cmdWireComposer(root);
   syncComposers(n);
 }
-
-/* 기존 댓글·첨부 관리. 원문 편집 초안과 미확정 상태는 메모리에서 두 댓글 화면이 공유한다. */
-const rmEditDraft=new Map(),rmManageAttempts=new Map(),rmManagePending=new Map(),rmConfirmBusy=new Set(),rmEditLoading=new Set();
-const journalKey=(iid,jid)=>iid+":"+jid;
-const originalLink=n=>`<a class="meta" href="${esc((cfg.url||"")+"/issues/"+n.issue_id)}" target="_blank" rel="noopener noreferrer">원본 Redmine ↗</a>`;
-function manageRecoveryHtml(n){
-  const p=rmManagePending.get(n.issue_id);if(!p)return "";
-  return `<div class="manage-recovery" role="status"><div>이전 ${p.operation==="delete_attachment"?"첨부 삭제":"댓글 수정"} #${esc(p.target_id)}의 반영 여부를 직접 확인해 주세요. 자동으로 다시 보내지 않습니다. ${originalLink(n)}</div><div class="cmrow">${[["check","반영 상태 확인"],["applied","반영됨 확인"],["not_applied","미반영 확인 / 재시도 준비"]].map(([k,l])=>`<button type="button" class="mini" data-manage-recover="${k}" data-issue="${n.issue_id}" ${cmBusy.has(n.issue_id)?"disabled":""}>${l}</button>`).join("")}</div></div>`;
-}
-function managedJournalHtml(n,j){
-  const mine=j.user&&j.user.id===cfg.meId,allowed=mine&&j.editable!==false&&canWrite(n)&&j.id>0;
-  const key=journalKey(n.issue_id,j.id),st=rmEditDraft.get(key),busy=cmBusy.has(n.issue_id),attrs=`data-issue="${n.issue_id}" data-journal="${j.id}"`;
-  const edit=st?`<div class="journaledit"><label class="meta">댓글 원문 편집 · 코드와 서식 표기를 유지합니다</label><textarea data-jeditor="${key}" ${busy?"disabled":""} aria-label="댓글 원문">${"\n"+esc(st.raw)}</textarea>${st.error?`<div class="meta" role="alert">${esc(st.error)}</div>`:""}<div class="cmrow"><button type="button" class="primary" data-jsave ${attrs} ${busy||!allowed||rmManagePending.has(n.issue_id)?"disabled":""}>수정 저장</button><button type="button" class="mini" data-jcancel ${attrs} ${busy||rmManagePending.has(n.issue_id)?"disabled":""}>취소</button><button type="button" class="mini" data-jcode ${attrs} ${busy?"disabled":""}>＋ 코드 상자</button><button type="button" class="mini" data-jreload ${attrs} ${busy||rmManagePending.has(n.issue_id)?"disabled":""}>원본 다시 불러오기</button>${originalLink(n)}</div></div>`:`<div class="bubble">${cmBody(j)}</div>`;
-  return `<div class="cm ${mine?"me":""}" data-cmt="${esc(j.created_on||"")}"${mine?" data-mine":""}><div class="av">${esc(avatar((j.user||{}).name||""))}</div><div style="flex:1;min-width:0"><div class="who"><b>${esc((j.user||{}).name||"")}</b> · ${dTime(j.created_on)}${allowed&&!st?`<button type="button" class="mini jedit" data-jedit ${attrs} title="내 댓글 수정" aria-label="내 댓글 수정" ${busy?"disabled":""}>✎</button>`:""}</div>${edit}<div class="cmimgs" data-attj="${j.id||0}"></div></div></div>`;
-}
-function manageRender(){
-  const c=$("#center"),y=c?c.scrollTop:0;renderAll();if(c)c.scrollTop=y;if(cmOpen)cmPanelRender();mountJournalEditors();
-}
-function mountJournalEditors(){
-  if(typeof mountCommentEditor!=="function")return;
-  document.querySelectorAll("[data-jeditor]").forEach(textarea=>{
-    if(textarea._commentHost)return;const key=textarea.dataset.jeditor,st=rmEditDraft.get(key);if(!st)return;
-    const host=document.createElement("div");host.className="ce-journal";textarea.after(host);textarea.hidden=true;textarea._commentHost=host;
-    const note=all.find(n=>n.issue_id===+key.split(":")[0]);
-    st.format??=commentEditFormat(st.raw);
-    mountCommentEditor(host,{value:st.raw,format:st.format,allowLegacy:false,issueId:+key.split(":")[0],...(note?cmImageOptions(note):{}),onFormat:f=>{st.format=f},onChange:value=>{
-      st.raw=value;st.error="";textarea.value=value;
-      document.querySelectorAll(`[data-jeditor="${key}"]`).forEach(other=>{if(other!==textarea){other.value=value;other._commentHost?._commentEditor.setPeer(value,st.format||"source")}});
-    }});
-    if(st.format==="html"&&host._commentEditor.sourceMode)st.format="source"; // 지원 밖 원본 HTML은 기존 안전한 원문 수정 경로로 보존.
-    host._commentEditor.setDisabled(cmBusy.has(+key.split(":")[0]));
-  });
-}
-function manageBusy(n,on){
-  on?cmBusy.add(n.issue_id):cmBusy.delete(n.issue_id);setCmBusy(n,on);
-  document.querySelectorAll("[data-delete-att],[data-jedit],[data-jsave],[data-jcancel],[data-jcode],[data-jreload],[data-manage-recover]").forEach(b=>{
-    if(+b.dataset.issue===n.issue_id){
-      const mutates=b.hasAttribute("data-jsave")||b.hasAttribute("data-delete-att");
-      b.disabled=on||(mutates&&!canWrite(n))||((mutates||b.hasAttribute("data-jcancel")||b.hasAttribute("data-jreload"))&&rmManagePending.has(n.issue_id));
-    }
-  });
-  document.querySelectorAll(`[data-jeditor^="${n.issue_id}:"]`).forEach(t=>t.disabled=on);
-  document.querySelectorAll(`[data-jeditor^="${n.issue_id}:"]`).forEach(t=>t._commentHost?._commentEditor.setDisabled(on));
-}
-function applyManaged(n,r){
-  const tgt=all.find(x=>x.issue_id===n.issue_id)||n;
-  if(r.note){Object.assign(tgt,r.note);prep(tgt);buildTokens();markSeen(tgt)}
-  invalidateAtt(n.issue_id);manageRender();
-  if(!r.note)toast("원격 처리는 완료됐어요. 최신 이력은 새로 읽기로 확인해 주세요",7000);
-}
-async function openJournalEdit(n,jid,reload=false){
-  const key=journalKey(n.issue_id,jid);
-  if(cmBusy.has(n.issue_id)||!canWrite(n)||rmEditLoading.has(key)||(reload&&rmManagePending.has(n.issue_id)))return false;
-  if(rmEditDraft.has(key)&&!reload){manageRender();return true}
-  rmEditLoading.add(key);
-  try{
-    if(reload&&!await askC("편집 중인 내용을 버리고 최신 원문을 다시 불러올까요?"))return false;
-    const r=await api(`/api/rm/journal?issue_id=${n.issue_id}&journal_id=${jid}`);
-    rmEditDraft.set(key,{raw:r.raw,version:r.version,error:""});manageRender();return true;
-  }catch(e){toast(e.message+" — 원본 Redmine에서 확인해 주세요",8000);return false}
-  finally{rmEditLoading.delete(key)}
-}
-async function sendManaged(n,operation,target,fields){
-  const iid=n.issue_id,key=operation+":"+iid+":"+target;
-  if(cmBusy.has(iid)||!canWrite(n))return false;
-  if(rmManagePending.has(iid)){toast("이전 삭제·수정 결과를 먼저 확인해 주세요",6000);return false}
-  const sig=JSON.stringify(fields),old=rmManageAttempts.get(key),attempt=old&&old.sig===sig?old:{sig,id:crypto.randomUUID()};
-  rmManageAttempts.set(key,attempt);manageBusy(n,true);
-  try{
-    const path=operation==="delete_attachment"?"/api/rm/attachment/delete":"/api/rm/journal/edit";
-    const r=await post(path,{issue_id:iid,target_id:target,request_id:attempt.id,...fields});
-    rmManageAttempts.delete(key);
-    if(operation==="edit_journal"&&rmEditDraft.get(journalKey(iid,target))?.raw===fields.notes)rmEditDraft.delete(journalKey(iid,target));
-    applyManaged(n,r);toast(operation==="delete_attachment"?"첨부파일을 삭제했어요":"기존 댓글을 수정했어요",3500);return true;
-  }catch(e){
-    const b=e.body||{},draft=rmEditDraft.get(journalKey(iid,target));
-    if(draft)draft.error=e.message+(b.code==="unsupported"?" — 원본 Redmine에서 수정하세요":"");
-    if(b.retry_allowed)rmManageAttempts.delete(key);
-    if(b.needs_review)rmManagePending.set(iid,{...b,originalRaw:b.operation===operation&&b.target_id===target?fields.notes:undefined});
-    manageRender();toast(e.message+(b.hint?" — "+b.hint:"")+" · 편집 내용은 유지했어요",10000);return false;
-  }finally{manageBusy(n,false)}
-}
-async function deleteRemoteAttachment(n,a){
-  const iid=n.issue_id;if(!a.can_delete||!canWrite(n)||cmBusy.has(iid)||rmConfirmBusy.has(iid))return false;
-  rmConfirmBusy.add(iid);
-  try{
-    if(!await askC(`Redmine 일감 #${iid}의 첨부 #${a.id}\n${a.filename}\n\n원본 파일을 삭제합니다. 되돌릴 수 없습니다.`,{title:"첨부파일 삭제",ok:"파일 삭제"}))return false;
-    return await sendManaged(n,"delete_attachment",a.id,{filename:a.filename});
-  }finally{rmConfirmBusy.delete(iid)}
-}
-async function recoverManaged(n,decision){
-  const iid=n.issue_id,p=rmManagePending.get(iid);if(!p||cmBusy.has(iid))return false;
-  manageBusy(n,true);
-  try{
-    if(decision!=="check"&&!await askC(decision==="applied"?"원본 Redmine에서 요청이 반영된 것을 직접 확인했나요? 다시 전송하지 않습니다.":"원본 Redmine에서 전혀 반영되지 않은 것을 직접 확인했나요? 여기서는 재전송하지 않습니다."))return false;
-    const r=await post("/api/rm/manage/recover",{issue_id:iid,request_id:p.request_id,decision});
-    rmManagePending.delete(iid);rmManageAttempts.delete(p.operation+":"+iid+":"+p.target_id);
-    const key=journalKey(iid,p.target_id),draft=rmEditDraft.get(key);
-    if(r.ok&&draft&&p.originalRaw!==undefined&&draft.raw===p.originalRaw)rmEditDraft.delete(key);
-    if(r.ok)applyManaged(n,r);else manageRender();
-    toast(r.retry_allowed?"미반영 확인을 기록했어요. 내용을 확인하고 직접 다시 시도하세요":"반영 확인을 기록했어요. 다시 전송하지 않았어요",6000);return true;
-  }catch(e){toast(e.message+" — 원본 Redmine에서 직접 확인해 주세요",9000);return false}
-  finally{manageBusy(n,false)}
-}
-document.addEventListener("input",e=>{
-  const key=e.target.dataset&&e.target.dataset.jeditor,st=rmEditDraft.get(key);if(!st)return;
-  st.raw=e.target.value;st.error="";
-  document.querySelectorAll(`[data-jeditor="${key}"]`).forEach(t=>{if(t!==e.target)t.value=st.raw});
-});
-document.addEventListener("click",async e=>{
-  const b=e.target.closest("[data-delete-att],[data-jedit],[data-jsave],[data-jcancel],[data-jcode],[data-jreload],[data-manage-recover]");if(!b||b.disabled)return;
-  const n=all.find(x=>x.issue_id===+b.dataset.issue);if(!n)return;e.preventDefault();e.stopPropagation();
-  const jid=+b.dataset.journal,key=journalKey(n.issue_id,jid),st=rmEditDraft.get(key);
-  if(b.hasAttribute("data-delete-att")){const a=curAtts().find(x=>x.id===+b.dataset.deleteAtt);if(a)await deleteRemoteAttachment(n,a)}
-  else if(b.hasAttribute("data-jedit"))await openJournalEdit(n,jid);
-  else if(b.hasAttribute("data-jreload"))await openJournalEdit(n,jid,true);
-  else if(b.hasAttribute("data-jsave")&&st)await sendManaged(n,"edit_journal",jid,{notes:st.raw,version:st.version,...(st.format&&st.format!=="source"?{notes_format:st.format}:{})});
-  else if(b.hasAttribute("data-jcancel")&&!cmBusy.has(n.issue_id)&&!rmManagePending.has(n.issue_id)){rmEditDraft.delete(key);manageRender()}
-  else if(b.hasAttribute("data-jcode")&&st&&!cmBusy.has(n.issue_id)){
-    const ta=document.querySelector(`[data-jeditor="${key}"]`);if(ta?._commentHost?._commentEditor)ta._commentHost._commentEditor.addCode();else{st.raw+="\n<pre><code>\n코드를 입력하세요\n</code></pre>";manageRender()}
-  }else if(b.hasAttribute("data-manage-recover"))await recoverManaged(n,b.dataset.manageRecover);
-});

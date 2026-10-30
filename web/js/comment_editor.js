@@ -187,7 +187,6 @@ const CommentCodec=(()=>{
 function commentTextHTML(raw){
   return String(raw||"").split(/(```[^\n]*\n[\s\S]*?```)/).map((part,i)=>i%2?'<pre><code>'+CommentCodec.escape(part.replace(/^```[^\n]*\n|```$/g,""))+'</code></pre>':part.split(/\r?\n/).map(line=>'<p>'+(CommentCodec.escape(line)||'<br>')+'</p>').join("")).join("");
 }
-function commentEditFormat(raw){const outside=String(raw).replace(/```[^\n]*\n[\s\S]*?```|`[^`\n]*`/g,"");return /<(?:p|div|span|br|img|table|pre|h[1-6]|ul|ol|a|font|strong|b|em|i|u|s|blockquote)\b/i.test(outside)?"html":"source"}
 function commentIcon(key){
   const letters={bold:'<b>B</b>',italic:'<i>I</i>',underline:'<u>U</u>',strikeThrough:'<s>S</s>',source:'&lt;/&gt;',code:'{ }',row:'↧+',column:'⇥+',removeRow:'↧−',removeColumn:'⇥−',imageSize:'↔',imageBefore:'↑▧',imageAfter:'↓▧',imageRemove:'▧×',undo:'↶',redo:'↷',indent:'⇥',outdent:'⇤'};
   if(letters[key])return '<span aria-hidden="true">'+letters[key]+'</span>';
@@ -196,20 +195,18 @@ function commentIcon(key){
   return '<svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'+(paths[key]||'')+'</svg>';
 }
 class CommentEditor{
-  constructor(root,{value="",format="html",issueId=0,onFormat=()=>{},onChange=()=>{},allowLegacy=true,imageState=null,onImageUpload=null}={}){
-    this.root=root;this.raw=String(value);this.format=format;this.issueId=issueId;this.onFormat=onFormat;this.onChange=onChange;this.composing=false;this.history=[this.raw];this.pos=0;this.range=null;this.sourceMode=["source","legacy"].includes(format);this.disabled=false;
+  constructor(root,{value="",format="html",issueId=0,onChange=()=>{},imageState=null,onImageUpload=null}={}){
+    this.root=root;this.raw=String(value);this.format=format;this.issueId=issueId;this.onChange=onChange;this.composing=false;this.history=[this.raw];this.pos=0;this.range=null;this.sourceMode=["source","legacy"].includes(format);this.disabled=false;
     this.localImageState={};this.imageState=imageState||(()=>this.localImageState);this.onImageUpload=onImageUpload;this.imageLoading=false;this.imageSelecting=false;this.selectedImage=null;
-    this.allowLegacy=allowLegacy;root._commentEditor=this;this.build();
+    root._commentEditor=this;this.build();
   }
   build(){
-    const e=CommentCodec.escape;
     this.root.innerHTML=`<div class="cebar"><span class="cemode">HTML 편집기</span><input type="hidden" class="ceformat"><button type="button" class="mini ceicon" data-ce="source" title="HTML 소스 / 시각 편집" aria-label="HTML 소스 / 시각 편집">${commentIcon("source")}</button></div><div class="cetools" role="toolbar" aria-label="댓글 서식"></div><div class="cehint meta" role="status"></div><div class="cevisual" role="textbox" aria-multiline="true" aria-label="댓글 시각 편집" contenteditable="true"></div><div class="celegacy rte cmta" hidden></div><textarea class="cesource" aria-label="댓글 소스" spellcheck="false"></textarea>`;
     this.select=this.root.querySelector(".ceformat");this.visual=this.root.querySelector(".cevisual");this.source=this.root.querySelector(".cesource");this.tools=this.root.querySelector(".cetools");this.hint=this.root.querySelector(".cehint");
     this.path=document.createElement("div");this.path.className="cepath";this.path.setAttribute("role","status");this.path.setAttribute("aria-live","off");this.path.setAttribute("aria-label","현재 커서의 요소 경로");this.root.appendChild(this.path);this.path.textContent="body";
     this.images=document.createElement("div");this.images.className="ceimages";this.images.setAttribute("role","dialog");this.images.setAttribute("aria-modal","true");this.images.setAttribute("aria-label","이미지 선택 및 업로드");this.images.hidden=true;this.hint.after(this.images);
     this.images.addEventListener("click",ev=>{if(ev.target===this.images)this.closeImages()});
     this.select.value=this.format;
-    if(!this.allowLegacy)this.select.querySelector('option[value="legacy"]')?.remove();
     this.legacy=this.root.querySelector(".celegacy");
     this.root.addEventListener("mousedown",ev=>{if(ev.target.closest("button")){this.remember();ev.preventDefault()}});
     this.root.addEventListener("click",ev=>{const b=ev.target.closest("[data-ce]");if(b&&!b.disabled){ev.preventDefault();ev.stopPropagation();this.command(b.dataset.ce)}});
@@ -254,7 +251,7 @@ class CommentEditor{
     this.select.value=this.format;const rich=!["source","legacy"].includes(this.format);
     this.toolbar();this.source.value=this.raw;
       if(rich){const parsed=CommentCodec.parse(this.raw,this.format);this.visual.innerHTML=parsed.html;if((parsed.changed&&this.format==="html")||parsed.unsupported){this.sourceMode=true;this.hint.textContent="지원 밖 또는 위험한 서식이 있어 원문을 유지했습니다. 소스에서 확인하세요."}else if(typeof document.execCommand!=="function"){this.sourceMode=true;this.hint.textContent="이 브라우저에서는 소스 편집을 사용하세요."}else this.hint.textContent=""}
-    else this.hint.textContent="과거 비HTML 댓글은 원문 호환 모드로 보존합니다. 내용을 변환하지 않고 수정합니다.";
+    else this.hint.textContent="기존 형식의 초안은 원문 호환 모드로 보존합니다. 내용을 확인한 뒤 새 댓글로 등록하세요.";
     this.root.querySelector(".cemode").textContent=this.format==="html"?(this.sourceMode?"HTML 소스":"HTML 시각 편집"):"원문 호환 편집";
     this.root.querySelector('[data-ce="source"]').setAttribute("aria-pressed",String(this.sourceMode));
     this.source.hidden=rich&&!this.sourceMode;this.visual.hidden=!rich||this.sourceMode;this.tools.hidden=!rich||this.sourceMode;
@@ -464,7 +461,7 @@ setDisabled(on){this.disabled=on;this.visual.contentEditable=on?"false":"true";t
     const src=a.reference_url?CommentCodec.url(a.reference_url,true):CommentCodec.attachmentURL(a);if(this.disabled||!src)return false;
     const before=this.raw;this.insert(CommentCodec.clean(`<img src="${CommentCodec.escape(src)}" alt="${CommentCodec.escape(a.filename)}">`,{preview:true}).html);
     if(this.raw===before){this.images.querySelector(".ceimagestatus").textContent="브라우저가 본문에 이미지를 삽입하지 못했어요. 본문의 삽입 위치를 선택한 뒤 다시 누르거나 소스 모드에서 확인하세요. 파일은 다시 첨부하지 마세요.";return false}
-    this.closeImages();this.restore();this.hint.textContent="본문에 이미지를 넣었어요. 이어서 글을 쓰고 댓글 올리기 또는 수정 저장을 누르세요.";return true;
+    this.closeImages();this.restore();this.hint.textContent="본문에 이미지를 넣었어요. 이어서 글을 쓰고 댓글 올리기를 누르세요.";return true;
   }
   editImage(key){
     const img=this.selectedImage;if(!img||!this.visual.contains(img)){toast("먼저 본문의 이미지를 클릭하세요",4000);return}

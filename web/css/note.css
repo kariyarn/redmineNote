@@ -117,14 +117,7 @@ table.vptab{border-collapse:collapse}table.vptab th,table.vptab td{text-align:le
 .drcard .dract{margin-top:8px}
 .drrow{padding:6px 10px;font-size:.92rem}
 .attcard .attitem{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;align-items:stretch;width:100%;min-width:0;box-sizing:border-box;margin-bottom:6px}
-.attcard .attitem.has-delete{grid-template-columns:minmax(0,1fr) auto}
 .attcard .attrow{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--surface2);width:100%;min-width:0;box-sizing:border-box;color:var(--text)}
-.attcard .attitem>.attdelete{margin:0;align-self:stretch;display:flex;align-items:center;justify-content:center;gap:.3em;min-width:0}
-.attcard .attdelete{color:#c73545;color:color-mix(in srgb,#df3349 80%,var(--text));background:var(--surface2);border:1px solid var(--line);border-radius:10px;white-space:nowrap;min-height:34px;padding:6px 10px;flex-shrink:0}
-.attcard .attdelete-label{color:inherit;font-weight:700}
-.attcard .attdelete:hover{background:var(--accent-soft);border-color:var(--accent)}
-.attcard .attdelete:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
-.attcard .attdelete:disabled{opacity:.55;cursor:wait}
 .remote-html{white-space:normal;line-height:var(--lh);overflow-wrap:anywhere}
 .remote-html p{margin:0 0 .5em;padding:0}.remote-html> :last-child{margin-bottom:0}
 .remote-html div{margin:0;padding:0}.remote-html pre,.remote-html code{white-space:pre-wrap}
@@ -380,9 +373,6 @@ mark.ann.m{border-bottom:2px dotted var(--accent);border-radius:0}
 .lexp{display:flex;justify-content:flex-end;margin:0 0 6px}
 .attcard .attmain{display:flex;flex-wrap:wrap;align-items:center;gap:10px;flex:1 1 12rem;min-width:0;min-height:34px;color:inherit;text-decoration:none;overflow-wrap:anywhere}
 .attcard .attmain .an,.attcard .attmain .am{min-width:0}
-.attcard .attdelete{flex:none;margin-left:auto}.cm .who .jedit{margin-left:8px}
-.journaledit{margin-top:6px;display:grid;gap:6px}.journaledit textarea{width:100%;min-height:160px;resize:vertical;font:inherit;line-height:1.6;color:var(--text);background:var(--surface2);border:1px solid var(--line);border-radius:8px;padding:10px;box-sizing:border-box;white-space:pre-wrap}
-.journaledit .cmrow,.manage-recovery .cmrow{display:flex;align-items:center;gap:6px;flex-wrap:wrap}.manage-recovery{padding:10px;margin-bottom:10px;border:1px solid var(--line);border-radius:8px;background:var(--surface2)}
 /* ===== 2.29 : 노트 배치 (notelayout.js). 블록을 본문 / 옆 칸 / 숨김으로 =====
    옆 칸에 놓인 블록은 본문과 같은 카드를 작게 그린다. 옆 칸이 비면 칸째 뺀다 */
 .notewrap.noside{--sw:0px;--gap:0px}

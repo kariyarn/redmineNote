@@ -33,7 +33,7 @@ async function suite(design){
   await post('/api/fetch',{ids:[93599,200]});await post(FAKE+'/__test/control',{upload_token_only:true});
   const n=(await request('/api/notes')).find(n=>n.issue_id===93599),body=new Element('div'),cmp=new Element('div'),editor=new Element('div'),attbox=new Element('div'),attcard={style:{}},attcaption={},center=new Element('div');
   cmp.className='cmp';cmp.dataset.issue=n.issue_id;editor.className='cmta';cmp.appendChild(editor);body.appendChild(cmp);center.scrollTop=0;
-  document.addEventListener=()=>{};document.querySelector=()=>null;document.querySelectorAll=selector=>selector.startsWith('[data-jeditor')?[]:body.querySelectorAll(selector);
+  document.addEventListener=()=>{};document.querySelector=()=>null;document.querySelectorAll=selector=>body.querySelectorAll(selector);
   let liveEditor;document.execCommand=(key,_,html)=>{if(key==='insertHTML')liveEditor.visual.innerHTML+=html;return true};
   const selection={rangeCount:0,anchorNode:null,setBaseAndExtent(a,ao,f,fo){Object.assign(this,{anchorNode:a,anchorOffset:ao,focusNode:f,focusOffset:fo})}};
   const notices=[],context=vm.createContext({document,URL,Event:class{constructor(type,o={}){this.type=type;Object.assign(this,o)}},crypto,FormData,console,
@@ -55,7 +55,7 @@ async function suite(design){
     run('ui.nl=NL_PRESET.cmSide[1]');assert.equal(run('cmSide()'),true);assert.ok(run('nlPlace({cm:"comment",att:attBlock(n)}).side.includes("cm")'));
     run('ui.nl=NL_PRESET.focus[1]');assert.match(run('nlPlace({cm:"comment",att:attBlock(n)}).hidden'),/id="sec-att"/);run('ui.nl={}');
   });
-  // Simulate a native first-p unwrap before exercising the existing real HTTP image/save/edit flow.
+  // Simulate a native first-p unwrap before exercising the existing real HTTP image/save flow.
   const p=run('ce.visual.querySelector("p")'),text=p.firstChild;selection.setBaseAndExtent(text,0,text,0);
   run('ce.visual.dispatchEvent({type:"beforeinput",inputType:"deleteContentBackward"})');p.before(text);p.remove();
   run('ce.visual.dispatchEvent({type:"input",inputType:"deleteContentBackward"})');
@@ -70,7 +70,7 @@ async function suite(design){
   check(design+' explicit upload creates ID and actual content_url once',()=>{assert.ok(Number.isInteger(a.id)&&a.id>0);assert.match(a.content_url,new RegExp('/attachments/download/'+a.id+'/'));assert.equal(run('cmImageState(n.issue_id).file'),undefined)});
   assert.deepEqual(await counts(),[before[0]+1,before[1]+1]);
   check(design+' upload automatically refreshes editor choices and main attachment box',()=>{assert.ok(run('ce.images.querySelector(`[data-image-id="${attachment.id}"]`)'));assert.match(run('ce.images.querySelector(".ceimageliststatus").textContent'),/등록된 이미지/);assert.match(run('ce.images.querySelector(".ceimagephase").textContent'),/등록 완료/)});
-  await run('loadAtt(n)');assert.match(attbox.innerHTML,new RegExp('data-delete-att="'+a.id+'"'));
+  await run('loadAtt(n)');assert.match(attbox.innerHTML,new RegExp('/api/rm/attachment\\?id='+a.id));
   run('ce.images.querySelector(`[data-image-id="${attachment.id}"]`).onclick()');
   run('ce.visual.innerHTML+="<p>새 이미지 뒤에도 한국어를 계속 작성</p>";ce.changed(ce.visual)');
   const raw=run('ce.getRaw()');check(design+' chosen registered image coexists with CKEditor image table and following text',()=>{assert.ok(raw.includes(a.content_url));assert.equal(run('ce.visual.querySelectorAll("img").length'),2);assert.match(raw,/<table/);assert.match(raw,/뒤에도 한국어/);assert.doesNotMatch(raw,/blob:|\/api\/rm\//)});
@@ -82,10 +82,6 @@ async function suite(design){
   const html=run('cmBody(saved)');const display=new Element('div');display.innerHTML=html;const img=display.querySelectorAll('img').find(img=>img.dataset.aid===String(a.id));assert.ok(img);check(design+' saved history renders both images using local read-only proxies',()=>{assert.equal(display.querySelectorAll('img').length,2);assert.match(img.getAttribute('src'),new RegExp('^/api/rm/attachment\\?id='+a.id));assert.equal(img.getAttribute('data-ce-src'),a.content_url)});
   const response=await request(img.getAttribute('src'),{binary:true});assert.equal(response.status,200);assert.equal(response.headers['content-type'],'image/png');assert.deepEqual(response.bytes,png);
   check(design+' rendered image downloads exact PNG bytes',()=>true);
-  const journal=await request('/api/rm/journal?issue_id='+n.issue_id+'&journal_id='+saved.id),notes=raw+'<p>기존 댓글 수정</p>';
-  const countBefore=(await request('/api/notes')).find(x=>x.issue_id===n.issue_id).journals.length;
-  await post('/api/rm/journal/edit',{issue_id:n.issue_id,target_id:saved.id,request_id:crypto.randomUUID(),version:journal.version,notes,notes_format:'html'});
-  const after=(await request('/api/notes')).find(x=>x.issue_id===n.issue_id);
-  check(design+' editing keeps both image addresses and existing journal count',()=>{assert.equal(after.journals.length,countBefore);assert.equal(after.journals.find(j=>j.id===saved.id).raw,notes)});
+
 }
 (async()=>{await suite('classic');await suite('v2');console.log(`ALL PASS (${checks} flow checks; actual local HTTP, DOM doubles)`)})().catch(e=>{console.error(e);process.exitCode=1});
