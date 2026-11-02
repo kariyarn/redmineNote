@@ -109,11 +109,17 @@ function placeFabRow(base){
   let x=base;
   const put=el=>{if(!el||el.style.display==="none")return;el.style.right=x+"px";x+=el.offsetWidth+10};
   put($("#cmfab"));
+  const top=$("#topfab"),main=$("#center .notemain");
+  if(top&&top.style.display!=="none"&&view==="note"&&cmSide()&&main){
+    top.style.right=Math.max(12,innerWidth-main.getBoundingClientRect().right+12)+"px";
+    return;
+  }
   put($("#topfab"));
 }
 function updTopFab(){   // 노트를 아래로 내렸을 때만 ↑ 맨 위로 단추를 보인다
   const b=$("#topfab");if(!b)return;
-  const show=view==="note"&&!!cur&&!!curNote()&&$("#center").scrollTop>400;
+  const c=$("#center"),limit=Math.min(400,Math.max(0,(c.scrollHeight-c.clientHeight)/2));
+  const show=view==="note"&&!!cur&&!!curNote()&&c.scrollTop>limit;
   if((b.style.display!=="none")===show&&b.style.display)return;
   b.style.display=show?"block":"none";placeCm();
 }
@@ -184,4 +190,3 @@ document.addEventListener("keydown",e=>{
   document.addEventListener("mouseover",ev=>{const t=ev.target.closest&&ev.target.closest("[data-tok]");if(t&&t.dataset.tok)show(t)});
   document.addEventListener("mouseout",ev=>{const t=ev.target.closest&&ev.target.closest("[data-tok]");if(t)hide()});
 })();
-

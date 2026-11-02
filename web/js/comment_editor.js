@@ -196,12 +196,12 @@ function commentIcon(key){
 }
 class CommentEditor{
   constructor(root,{value="",format="html",issueId=0,onChange=()=>{},imageState=null,onImageUpload=null}={}){
-    this.root=root;this.raw=String(value);this.format=format;this.issueId=issueId;this.onChange=onChange;this.composing=false;this.history=[this.raw];this.pos=0;this.range=null;this.sourceMode=["source","legacy"].includes(format);this.disabled=false;
+    this.root=root;this.raw=String(value);this.format=format;this.issueId=issueId;this.onChange=onChange;this.composing=false;this.history=[this.raw];this.pos=0;this.range=null;this.sourceMode=["source","legacy"].includes(format);this.toolsHidden=false;this.disabled=false;
     this.localImageState={};this.imageState=imageState||(()=>this.localImageState);this.onImageUpload=onImageUpload;this.imageLoading=false;this.imageSelecting=false;this.selectedImage=null;
     root._commentEditor=this;this.build();
   }
   build(){
-    this.root.innerHTML=`<div class="cebar"><span class="cemode">HTML 편집기</span><input type="hidden" class="ceformat"><button type="button" class="mini ceicon" data-ce="source" title="HTML 소스 / 시각 편집" aria-label="HTML 소스 / 시각 편집">${commentIcon("source")}</button></div><div class="cetools" role="toolbar" aria-label="댓글 서식"></div><div class="cehint meta" role="status"></div><div class="cevisual" role="textbox" aria-multiline="true" aria-label="댓글 시각 편집" contenteditable="true"></div><div class="celegacy rte cmta" hidden></div><textarea class="cesource" aria-label="댓글 소스" spellcheck="false"></textarea>`;
+    this.root.innerHTML=`<div class="cebar"><span class="cemode">HTML 편집기</span><input type="hidden" class="ceformat"><button type="button" class="mini ceicon" data-ce="source" title="HTML 소스 / 시각 편집" aria-label="HTML 소스 / 시각 편집">${commentIcon("source")}</button><button type="button" class="mini ce-tools-toggle" data-ce-tools-toggle aria-expanded="true">서식 숨기기</button></div><div class="cetools" role="toolbar" aria-label="댓글 서식"></div><div class="cehint meta" role="status"></div><div class="cevisual" role="textbox" aria-multiline="true" aria-label="댓글 시각 편집" contenteditable="true"></div><div class="celegacy rte cmta" hidden></div><textarea class="cesource" aria-label="댓글 소스" spellcheck="false"></textarea>`;
     this.select=this.root.querySelector(".ceformat");this.visual=this.root.querySelector(".cevisual");this.source=this.root.querySelector(".cesource");this.tools=this.root.querySelector(".cetools");this.hint=this.root.querySelector(".cehint");
     this.path=document.createElement("div");this.path.className="cepath";this.path.setAttribute("role","status");this.path.setAttribute("aria-live","off");this.path.setAttribute("aria-label","현재 커서의 요소 경로");this.root.appendChild(this.path);this.path.textContent="body";
     this.images=document.createElement("div");this.images.className="ceimages";this.images.setAttribute("role","dialog");this.images.setAttribute("aria-modal","true");this.images.setAttribute("aria-label","이미지 선택 및 업로드");this.images.hidden=true;this.hint.after(this.images);
@@ -210,6 +210,7 @@ class CommentEditor{
     this.legacy=this.root.querySelector(".celegacy");
     this.root.addEventListener("mousedown",ev=>{if(ev.target.closest("button")){this.remember();ev.preventDefault()}});
     this.root.addEventListener("click",ev=>{const b=ev.target.closest("[data-ce]");if(b&&!b.disabled){ev.preventDefault();ev.stopPropagation();this.command(b.dataset.ce)}});
+    this.root.addEventListener("click",ev=>{const b=ev.target.closest("[data-ce-tools-toggle]");if(b&&!b.disabled){ev.preventDefault();this.toggleTools()}});
     for(const area of [this.visual,this.source]){
       area.addEventListener("compositionstart",()=>{this.composing=true;this.paragraphEdit=null});
       area.addEventListener("compositionend",()=>{this.composing=false;this.changed(area)});
@@ -245,6 +246,10 @@ class CommentEditor{
     if(size)size.onchange=ev=>this.wrapStyle("font-size",ev.target.value+"px");
     if(color)color.onchange=ev=>this.wrapStyle("color",ev.target.value);
   }
+  toggleTools(){
+    this.toolsHidden=!this.toolsHidden;this.tools.hidden=this.toolsHidden||!["html","markdown","textile"].includes(this.format)||this.sourceMode;
+    const button=this.root.querySelector("[data-ce-tools-toggle]");button.textContent=this.toolsHidden?"서식 보이기":"서식 숨기기";button.setAttribute("aria-expanded",String(!this.toolsHidden));
+  }
   render(){
     this.updatePath(null);
     if(!this.images.hidden)this.closeImages();this.selectedImage=null;
@@ -254,7 +259,8 @@ class CommentEditor{
     else this.hint.textContent="기존 형식의 초안은 원문 호환 모드로 보존합니다. 내용을 확인한 뒤 새 댓글로 등록하세요.";
     this.root.querySelector(".cemode").textContent=this.format==="html"?(this.sourceMode?"HTML 소스":"HTML 시각 편집"):"원문 호환 편집";
     this.root.querySelector('[data-ce="source"]').setAttribute("aria-pressed",String(this.sourceMode));
-    this.source.hidden=rich&&!this.sourceMode;this.visual.hidden=!rich||this.sourceMode;this.tools.hidden=!rich||this.sourceMode;
+    this.source.hidden=rich&&!this.sourceMode;this.visual.hidden=!rich||this.sourceMode;this.tools.hidden=!rich||this.sourceMode||this.toolsHidden;
+    const toggle=this.root.querySelector("[data-ce-tools-toggle]");toggle.hidden=!rich||this.sourceMode;toggle.textContent=this.toolsHidden?"서식 보이기":"서식 숨기기";toggle.setAttribute("aria-expanded",String(!this.toolsHidden));
     this.path.hidden=!rich||this.sourceMode;
     const legacy=this.format==="legacy"&&typeof edInit==="function";
     this.legacy.hidden=!legacy;if(legacy){this.source.hidden=true;edInit(this.legacy,this.raw)}
@@ -263,7 +269,7 @@ class CommentEditor{
   setRaw(raw){raw=String(raw??"");if(raw===this.raw)return;this.raw=raw;this.render()}
   setPeer(raw,format){if(format&&format!==this.format){this.format=format;this.sourceMode=["source","legacy"].includes(format)}this.setRaw(raw);if(this.select.value!==this.format)this.render()}
   getRaw(){return this.raw}
-setDisabled(on){this.disabled=on;this.visual.contentEditable=on?"false":"true";this.source.disabled=on;this.select.disabled=on;this.tools.querySelectorAll("button,select,input").forEach(b=>b.disabled=on);this.legacy.querySelectorAll("button,select,input,textarea").forEach(b=>b.disabled=on);this.legacy.querySelectorAll("[contenteditable]").forEach(el=>{if(on){el.dataset.ceOldEditable??=el.getAttribute("contenteditable")==="false"?"plaintext-only":el.getAttribute("contenteditable");el.setAttribute("contenteditable","false")}else if(el.dataset.ceOldEditable!==undefined&&el.dataset.ceOldEditable!==null){el.setAttribute("contenteditable",el.dataset.ceOldEditable);delete el.dataset.ceOldEditable}});this.root.querySelector('[data-ce="source"]').disabled=on||["source","legacy"].includes(this.format);const undo=this.tools.querySelector('[data-ce="undo"]'),redo=this.tools.querySelector('[data-ce="redo"]');if(undo)undo.disabled=on||this.pos===0;if(redo)redo.disabled=on||this.pos>=this.history.length-1;if(this.images&&!this.images.hidden){if(on)this.images.querySelectorAll("button,input").forEach(b=>b.disabled=true);else this.paintImages(this.imageList||[])}}
+setDisabled(on){this.disabled=on;this.visual.contentEditable=on?"false":"true";this.source.disabled=on;this.select.disabled=on;this.tools.querySelectorAll("button,select,input").forEach(b=>b.disabled=on);this.legacy.querySelectorAll("button,select,input,textarea").forEach(b=>b.disabled=on);this.legacy.querySelectorAll("[contenteditable]").forEach(el=>{if(on){el.dataset.ceOldEditable??=el.getAttribute("contenteditable")==="false"?"plaintext-only":el.getAttribute("contenteditable");el.setAttribute("contenteditable","false")}else if(el.dataset.ceOldEditable!==undefined&&el.dataset.ceOldEditable!==null){el.setAttribute("contenteditable",el.dataset.ceOldEditable);delete el.dataset.ceOldEditable}});this.root.querySelector('[data-ce="source"]').disabled=on||["source","legacy"].includes(this.format);this.root.querySelector("[data-ce-tools-toggle]").disabled=on;const undo=this.tools.querySelector('[data-ce="undo"]'),redo=this.tools.querySelector('[data-ce="redo"]');if(undo)undo.disabled=on||this.pos===0;if(redo)redo.disabled=on||this.pos>=this.history.length-1;if(this.images&&!this.images.hidden){if(on)this.images.querySelectorAll("button,input").forEach(b=>b.disabled=true);else this.paintImages(this.imageList||[])}}
   remember(){const s=window.getSelection();if(s.rangeCount&&this.visual.contains(s.anchorNode))this.range=s.getRangeAt(0).cloneRange();this.updatePath(this.visual.contains(s.anchorNode)?s.anchorNode:null);this.tools.querySelectorAll("[data-ce]").forEach(b=>{let active=false;try{active=!!document.queryCommandState?.(b.dataset.ce)}catch{}b.setAttribute("aria-pressed",String(active));b.classList.toggle("is-active",active)})}
   updatePath(node){
     if(this.currentP){this.currentP.removeAttribute("data-ce-current");this.currentP=null}

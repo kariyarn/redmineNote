@@ -8,6 +8,14 @@ const nsKeys=()=>[...document.querySelectorAll("#noteside [data-nsb]")].map(b=>b
 const nsRail=ks=>ks.length>0&&ks.every(k=>!nsOn(k));   // 옆 칸 블록을 모두 잠깐 숨기면 얇은 띠(단추만)
 const nsW=()=>Math.max(220,Math.min(600,ui.nsW||NS_W));
 const nsPill=(k,cnt)=>`<button type="button" class="ns-pill ${nsOn(k)?"on":""}" data-ns="${k}" title="${NL[k].name} ${nsOn(k)?"숨기기":"보이기"}">${NL[k].ic}<span class="l"> ${NL[k].name}</span><i ${cnt?"":"hidden"}>${cnt||""}</i></button>`;
+function nsScrollLatestComment(){
+  const side=$("#noteside"),card=side&&side.querySelector("#sec-cm");
+  if(!card||card.classList.contains("collapsed"))return;
+  const comments=card.querySelectorAll(".tl .cm[data-cmt]"),latest=comments[comments.length-1];
+  if(!latest)return;
+  side.scrollTop=Math.max(0,side.scrollTop+latest.getBoundingClientRect().bottom-side.getBoundingClientRect().bottom+12);
+}
+const nsScrollLatestCommentLater=()=>setTimeout(nsScrollLatestComment,60);
 /* 2.29: 옆 칸에는 배치(notelayout.js)에서 옆 칸에 놓은 블록이 차례로 들어가고, 위의 단추도 그 블록마다 생긴다 */
 function nsHtml(n,keys,B){
   if(!keys.length)return "";
@@ -67,4 +75,6 @@ function wireNs(n){
   });
   sp.addEventListener("dblclick",()=>{ui.nsW=NS_W;saveUI();wrap.style.setProperty("--nsw",nsW()+"px")});
   nsCounts();nsCenter();
+  const comments=side.querySelector("#sec-cm");
+  if(comments&&!comments.classList.contains("collapsed"))nsScrollLatestCommentLater();
 }

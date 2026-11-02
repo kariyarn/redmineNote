@@ -143,7 +143,7 @@ const cf=(n,id,label,small,sum,extra,body,defOpen=false)=>{
   const key=foldKey(n,id),open=foldOpen.has(key)?foldOpen.get(key):defOpen;
   return `<div class="card cfold ${open?"":"collapsed"}" id="sec-${id}" data-cf="${id}"><div class="cfhd" role="button" tabindex="0" aria-expanded="${open}" title="눌러서 접기/펼치기"><span class="chev">▸</span><span>${label}</span> ${small}<span class="cfsum">${sum}</span><span class="sp"></span>${extra}</div><div class="cfbody">${body}</div></div>`;
 };
-function setCf(n,card,open){card.classList.toggle("collapsed",!open);if(open&&card.id==="sec-notes"){const k=ntabOf(n);if($("#"+k))applyFmt($("#"+k))}card.querySelector(".cfhd").setAttribute("aria-expanded",open);foldOpen.set(foldKey(n,card.dataset.cf),open)}
+function setCf(n,card,open){card.classList.toggle("collapsed",!open);if(open&&card.id==="sec-notes"){const k=ntabOf(n);if($("#"+k))applyFmt($("#"+k))}if(open&&card.id==="sec-cm"&&card.closest("#noteside"))nsScrollLatestCommentLater();card.querySelector(".cfhd").setAttribute("aria-expanded",open);foldOpen.set(foldKey(n,card.dataset.cf),open)}
 function wireCf(n){
   if($("#sec-cm"))wireCp($("#sec-cm"));
   document.querySelectorAll("#center .cfold").forEach(card=>{
@@ -347,4 +347,3 @@ function cmSum(n){   // 접혀 있을 때 한 줄 미리보기: 마지막 댓글
   const t=remoteText(j.raw!=null?j.raw:j.notes).replace(/\|_\. /g,"|").replace(/```[A-Za-z0-9_+#.-]*/g," ").replace(/`/g,"").replace(/\s+/g," ").trim();
   return `· 마지막 ${esc(j.user.name)} ${dTime(j.created_on)} — ${esc(t.slice(0,60))}${t.length>60?"…":""}`;
 }
-

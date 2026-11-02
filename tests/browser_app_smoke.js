@@ -14,6 +14,14 @@
     check('upstream layout and maximize controls survive',$('#jlay')&&$('#jmax'));
     check('upstream attachment block is collapsible',$('#sec-att')?.dataset.cf==='att');
     check('full attachment link is not nested with a delete button',!!$('#attwrap .attrow')&&![...document.querySelectorAll('#attwrap .attrow')].some(a=>a.querySelector('button')));
+    const savedJournals=n.journals,savedLayout=ui.nl;
+    n.journals=[...savedJournals,...Array.from({length:18},(_,i)=>({id:9000+i,created_on:`2026-10-${String(i+1).padStart(2,"0")}T10:00:00Z`,user:{id:99,name:`스크롤 시험 ${i}`},notes:`최신 댓글 ${i}`}))];
+    ui.nl=nlNorm({...NL_PRESET.cmSide[1],fold:{cm:"open"}});renderCenter();await wait(100);
+    const side=$("#noteside"),comments=side?.querySelectorAll("#sec-cm .tl .cm[data-cmt]"),latest=comments?.[comments.length-1];
+    check('right-side expanded comments scroll to the latest comment',!!latest&&side.scrollTop>0&&latest.getBoundingClientRect().top>=side.getBoundingClientRect().top-1&&latest.getBoundingClientRect().bottom<=side.getBoundingClientRect().bottom+1);
+    $("#sec-cm .cfhd").click();await wait(50);side.scrollTop=0;$("#sec-cm .cfhd").click();await wait(100);
+    check('reopening right-side comments scrolls to the latest comment',side.scrollTop>0&&latest.getBoundingClientRect().top>=side.getBoundingClientRect().top-1&&latest.getBoundingClientRect().bottom<=side.getBoundingClientRect().bottom+1);
+    n.journals=savedJournals;ui.nl=savedLayout;renderCenter();await wait(50);
     const raw='<p>전체 화면 문단</p><p>같은 문단<br>다음 줄</p>';
     root()._commentEditor.visual.innerHTML=raw;root()._commentEditor.changed(root()._commentEditor.visual);
     const file=new File(['smoke '+ui.design], 'browser-smoke-'+ui.design+'.txt', {type:'text/plain'});cmAddFiles(n,[file]);
