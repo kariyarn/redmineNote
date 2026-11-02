@@ -195,3 +195,26 @@ input,select,textarea{border-color:var(--line);border-radius:10px}
 .sortbar{padding:2px 12px 6px}.sorthint{padding:0;cursor:help}
 .okbox{margin:2px 12px 4px;padding:12px 14px;font-size:.92rem}
 .trow{margin:0 4px}
+/* 우클릭 메뉴 (ctxmenu.js) · 다운로드 목록 (downloads.js) */
+.ctxmenu{min-width:170px;z-index:95}
+.ctxmenu button{padding:6px 12px}
+.ctxsep{height:1px;background:var(--line);margin:3px 4px}
+#btnDl{position:relative}
+#btnDl[data-n]:not([data-n=""])::after{content:attr(data-n);position:absolute;top:-2px;right:-3px;min-width:15px;height:15px;padding:0 3px;border-radius:8px;background:var(--accent);color:var(--accent-ink,#fff);font-size:.62rem;font-weight:700;line-height:15px;text-align:center;box-sizing:border-box}
+#dlpanel{position:fixed;left:12px;bottom:12px;z-index:90;width:min(420px,calc(100vw - 24px));max-height:min(70vh,560px);display:none;flex-direction:column;background:var(--surface);color:var(--text);border:1px solid var(--line);border-radius:14px;box-shadow:0 16px 44px rgba(0,0,0,.28);overflow:hidden}
+#dlpanel.show{display:flex}
+#dlpanel .dlh{display:flex;align-items:center;gap:6px;padding:10px 12px;border-bottom:1px solid var(--line)}
+#dlpanel .dlh .sp{flex:1}
+#dlpanel .dllist{overflow:auto;padding:4px 6px}
+#dlpanel .dlrow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 8px;padding:8px 8px;border-radius:10px}
+#dlpanel .dlrow:hover{background:color-mix(in srgb,var(--text) 5%,transparent)}
+#dlpanel .dlnm{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#dlpanel .dlrow .meta{grid-column:1}
+#dlpanel .dlbtns{grid-column:2;grid-row:1/span 2;display:flex;align-items:center;gap:4px}
+#dlpanel .dlrow.gone .dlnm{opacity:.55;text-decoration:line-through}
+#dlpanel .dlempty{padding:18px 8px;text-align:center}
+#dlpanel .dlfoot{padding:6px 12px 9px;border-top:1px solid var(--line);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ctxopt{flex-direction:column;align-items:flex-start!important;gap:6px}
+.ctxopt .ctxg{display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px}
+.ctxopt .ctxg>.meta{min-width:5.5em}
+
