@@ -28,6 +28,11 @@
     n.journals=[...savedJournals,...Array.from({length:18},(_,i)=>({id:9000+i,created_on:`2026-10-${String(i+1).padStart(2,"0")}T10:00:00Z`,user:{id:99,name:`스크롤 시험 ${i}`},notes:`최신 댓글 ${i}`}))];
     ui.nl=nlNorm({...NL_PRESET.cmSide[1],fold:{cm:"open"}});renderCenter();await wait(100);
     const side=$("#noteside"),comments=side?.querySelectorAll("#sec-cm .tl .cm[data-cmt]"),latest=comments?.[comments.length-1];
+    const sideToolsToggle=side?.querySelector("#sec-write [data-ce-tools-toggle]"),sideTools=side?.querySelector("#sec-write .cetools");
+    check('right-side composer hides formatting toolbar initially',!!sideToolsToggle&&sideTools.hidden&&sideToolsToggle.textContent==="서식 보이기");
+    sideToolsToggle.click();check('right-side toolbar can be shown temporarily',!sideTools.hidden&&sideToolsToggle.textContent==="서식 숨기기");
+    sideToolsToggle.click();check('right-side toolbar can be hidden again',sideTools.hidden&&sideToolsToggle.textContent==="서식 보이기");
+    check('right-side scrolling is contained within its pane',getComputedStyle(side).overscrollBehaviorY==="contain");
     check('right-side expanded comments scroll to the latest comment',!!latest&&side.scrollTop>0&&latest.getBoundingClientRect().top>=side.getBoundingClientRect().top-1&&latest.getBoundingClientRect().bottom<=side.getBoundingClientRect().bottom+1);
     $("#sec-cm .cfhd").click();await wait(50);side.scrollTop=0;$("#sec-cm .cfhd").click();await wait(100);
     check('reopening right-side comments scrolls to the latest comment',side.scrollTop>0&&latest.getBoundingClientRect().top>=side.getBoundingClientRect().top-1&&latest.getBoundingClientRect().bottom<=side.getBoundingClientRect().bottom+1);
