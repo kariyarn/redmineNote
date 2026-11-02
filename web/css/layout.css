@@ -232,7 +232,8 @@ input,select,textarea{border-color:var(--line);border-radius:10px}
 #dlpanel .dlbtns{grid-column:2;grid-row:1/span 2;display:flex;align-items:center;gap:4px}
 #dlpanel .dlrow.gone .dlnm{opacity:.55;text-decoration:line-through}
 #dlpanel .dlempty{padding:18px 8px;text-align:center}
-#dlpanel .dlfoot{padding:6px 12px 9px;border-top:1px solid var(--line);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#dlpanel .dlfoot{display:flex;align-items:center;gap:8px;padding:6px 12px 9px;border-top:1px solid var(--line)}
+#dlpanel .dlfoot>span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ctxopt{flex-direction:column;align-items:flex-start!important;gap:6px}
 .ctxopt .ctxg{display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px}
 .ctxopt .ctxg>.meta{min-width:5.5em}

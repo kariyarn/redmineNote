@@ -34,6 +34,8 @@ async function renderSettings(){
      <div class="srow"><span class="sl">프로그램</span><div class="sc"><button class="danger" id="cQuit" title="서버를 끕니다. 다시 쓰려면 프로그램을 실행하세요">프로그램 종료</button></div></div>`)}
 
    ${updSection(sec)}
+   ${sec("gen","다운로드","첨부파일 · 내보내기 · 백업을 내려받으면 브라우저 팝업 없이 이 폴더에 바로 저장해요. 받은 파일은 왼쪽 아래 ⬇ 단추 · Ctrl+J 로 모아 봐요.",`
+     <div class="srow"><span class="sl">저장 폴더</span><div class="sc"><code class="ic" id="dlDirNow">…</code><button type="button" id="dlDirBtn">바꾸기</button><button type="button" id="dlDirOpen">폴더 열기</button></div></div>`)}
 
    ${sec("gen","알림 방식","앱 창을 <b>보고 있지 않을 때</b>(최소화 · 다른 창에 가려짐 · 다른 앱 사용 중 · 창을 닫아 트레이에만 있음) 알림을 놓치지 않게 해요.",`
      <div><label class="chk"><input type="checkbox" id="nFlash" ${S.notify_flash!=="0"?"checked":""}> 작업 표시줄 아이콘 반짝이기 <span class="hint">창을 다시 볼 때까지</span></label></div>
@@ -140,6 +142,7 @@ async function renderSettings(){
   q("#dsOld").onclick=()=>setDs("classic");q("#dsV2").onclick=()=>setDs("v2");
   const setNd=v=>{ui.navDense=v;saveUI();applyTheme();renderSettings()};
   q("#ndNorm").onclick=()=>setNd(false);q("#ndDense").onclick=()=>setNd(true);
+  if($("#dlDirBtn")){$("#dlDirBtn").onclick=dlFolderDialog;$("#dlDirOpen").onclick=()=>dlAct("reveal");api("/api/dl").then(r=>{if($("#dlDirNow"))$("#dlDirNow").textContent=r.folder}).catch(()=>{})}
   $("#ctxNative").onchange=e=>{ui.ctxNative=e.target.checked;saveUI();$("#modal").querySelectorAll("[data-ctxopt]").forEach(c=>c.disabled=ui.ctxNative);toast(ui.ctxNative?"우클릭하면 브라우저 기본 메뉴가 떠요":"우클릭하면 앱 메뉴가 떠요",2200)};
   $("#modal").querySelectorAll("[data-ctxopt]").forEach(c=>c.onchange=()=>{const h=new Set(ui.ctxOff||[]);if(c.checked)h.delete(c.dataset.ctxopt);else h.add(c.dataset.ctxopt);ui.ctxOff=[...h];saveUI()});
   $("#modal").querySelectorAll("[data-navopt]").forEach(c=>c.onchange=()=>{const k=c.dataset.navopt,h=new Set(ui.navHide||[]);

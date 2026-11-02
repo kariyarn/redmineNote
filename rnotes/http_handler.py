@@ -530,7 +530,7 @@ class Handler(BaseHTTPRequestHandler):
             elif u.path == "/api/ping":  # 화면이 열려 있다는 신호 (몇십 초마다)
                 STATE["last_ping"] = time.time()
                 self.send_json({"ok": True})
-            elif u.path in ("/api/dl/save", "/api/dl/open", "/api/dl/reveal", "/api/dl/forget"):   # 앱 안 다운로드 (브라우저 다운로드 팝업 대신)
+            elif u.path in ("/api/dl/save", "/api/dl/open", "/api/dl/reveal", "/api/dl/forget", "/api/dl/folder", "/api/dl/pick"):   # 앱 안 다운로드 (브라우저 다운로드 팝업 대신)
                 try:
                     act = u.path.rsplit("/", 1)[1]
                     if act == "save":
@@ -539,6 +539,10 @@ class Handler(BaseHTTPRequestHandler):
                         r = dl.open_item(d.get("id"))
                     elif act == "reveal":
                         r = dl.reveal(d.get("id"))
+                    elif act == "folder":           # 저장 폴더 바꾸기 (빈 값 = 기본 '다운로드' 폴더)
+                        r = dl.set_folder(d.get("path"))
+                    elif act == "pick":             # 윈도우 폴더 고르기 창 (고르기만, 저장은 folder 로)
+                        r = dl.pick_folder()
                     else:
                         r = dl.forget(d.get("id"))
                     self.send_json(r)

@@ -26,11 +26,20 @@ class DownloadError(Exception):
     """화면에 그대로 보여 줄 한국어 설명."""
 
 
-def downloads_dir():
-    """윈도우의 '다운로드' 폴더 (사용자가 옮겼으면 옮긴 곳). 시험 · 다른 OS 는 환경 변수 또는 ~/Downloads."""
+DIR_KEY = "download_dir"       # settings: 사용자가 고른 저장 폴더 (비어 있으면 윈도우 '다운로드' 폴더)
+
+
+def downloads_dir(s=None):
+    """저장할 폴더: 설정에서 고른 폴더, 없으면 윈도우의 '다운로드' 폴더. 시험은 환경 변수가 먼저."""
     forced = os.environ.get("REDMINE_NOTES_DOWNLOAD_DIR")
     if forced:
         return Path(forced)
+    custom = ((get_settings() if s is None else s).get(DIR_KEY) or "").strip()
+    return Path(custom) if custom else default_dir()
+
+
+def default_dir():
+    """윈도우의 '다운로드' 폴더 (사용자가 옮겼으면 옮긴 곳). 다른 OS 는 ~/Downloads."""
     if sys.platform == "win32":
         try:
             import ctypes
@@ -136,7 +145,67 @@ def listing_item(it):
 
 
 def listing():
-    return {"folder": str(downloads_dir()), "items": [listing_item(it) for it in _items()]}
+    s = get_settings()
+    return {"folder": str(downloads_dir(s)), "default": str(default_dir()), "custom": bool((s.get(DIR_KEY) or "").strip()),
+            "items": [listing_item(it) for it in _items(s)]}
+
+
+def set_folder(path):
+    """저장 폴더를 바꾼다. 빈 값이면 기본('다운로드' 폴더)으로. 절대 경로여야 하고, 없으면 만들고, 쓸 수 있는지 확인한다."""
+    path = (path or "").strip().strip('"')
+    if path:
+        p = Path(os.path.expandvars(os.path.expanduser(path)))
+        if not p.is_absolute():
+            raise DownloadError("폴더는 C:\\… 처럼 전체 경로로 적어 주세요")
+        try:
+            p.mkdir(parents=True, exist_ok=True)
+            probe = p / f".rn-write-test-{os.getpid()}"
+            probe.write_bytes(b"")
+            probe.unlink()
+        except OSError as e:
+            raise DownloadError(f"이 폴더에는 저장할 수 없어요 ({e.strerror or e})") from None
+        path = str(p)
+    with db() as c:
+        c.execute("INSERT INTO settings (key,value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", (DIR_KEY, path))
+    return listing()
+
+
+def pick_folder():
+    """윈도우 폴더 고르기 창을 띄워 고른 폴더를 돌려준다 ({path} · 취소하면 {cancel: True}). 저장은 하지 않는다."""
+    if DRY_RUN:
+        v = os.environ.get("REDMINE_NOTES_DL_PICK", "")
+        return {"path": v} if v else {"cancel": True}
+    if sys.platform != "win32":
+        raise DownloadError("폴더 고르기 창은 윈도우에서만 열 수 있어요 — 경로를 직접 적어 주세요")
+    import ctypes
+    from ctypes import wintypes
+
+    class BROWSEINFOW(ctypes.Structure):
+        _fields_ = [("hwndOwner", wintypes.HWND), ("pidlRoot", ctypes.c_void_p), ("pszDisplayName", wintypes.LPWSTR),
+                    ("lpszTitle", wintypes.LPCWSTR), ("ulFlags", wintypes.UINT), ("lpfn", ctypes.c_void_p),
+                    ("lParam", wintypes.LPARAM), ("iImage", ctypes.c_int)]
+    shell32, ole32, user32 = ctypes.windll.shell32, ctypes.windll.ole32, ctypes.windll.user32
+    shell32.SHBrowseForFolderW.restype = ctypes.c_void_p
+    shell32.SHBrowseForFolderW.argtypes = [ctypes.POINTER(BROWSEINFOW)]
+    shell32.SHGetPathFromIDListW.argtypes = [ctypes.c_void_p, wintypes.LPWSTR]
+    ole32.CoTaskMemFree.argtypes = [ctypes.c_void_p]
+    ole32.OleInitialize(None)   # 새 모양 창(BIF_NEWDIALOGSTYLE)은 OLE 초기화가 필요하다 (이 요청을 처리하는 스레드에서)
+    try:
+        name = ctypes.create_unicode_buffer(260)
+        bi = BROWSEINFOW(hwndOwner=user32.GetForegroundWindow(), pszDisplayName=name,
+                         lpszTitle="다운로드한 파일을 저장할 폴더를 고르세요", ulFlags=0x0001 | 0x0040)   # 파일 시스템 폴더만 · 새 모양(새 폴더 만들기)
+        pidl = shell32.SHBrowseForFolderW(ctypes.byref(bi))
+        if not pidl:
+            return {"cancel": True}
+        try:
+            buf = ctypes.create_unicode_buffer(32768)
+            if not shell32.SHGetPathFromIDListW(pidl, buf) or not buf.value:
+                raise DownloadError("그 폴더는 고를 수 없어요 (실제 폴더를 골라 주세요)")
+            return {"path": buf.value}
+        finally:
+            ole32.CoTaskMemFree(pidl)
+    finally:
+        ole32.OleUninitialize()
 
 
 def _find(item_id):
@@ -152,12 +221,36 @@ def _launch(path, select=False):
         return {"ok": True, "dry_run": True, "path": str(path), "select": select}
     if sys.platform == "win32":
         if select:
-            subprocess.Popen(["explorer", f"/select,{path}"], close_fds=True)
+            _select_in_explorer(str(path))
         else:
             os.startfile(str(path))   # noqa: S606 — 이 앱이 저장한 파일 · 다운로드 폴더만
     else:
         subprocess.Popen(["xdg-open", str(Path(path).parent if select else path)], close_fds=True)
     return {"ok": True}
+
+
+def _select_in_explorer(path):
+    """탐색기에서 그 파일을 골라 보여 준다. 셸 함수(SHOpenFolderAndSelectItems)로 경로를 그대로 넘긴다.
+    예전에는 ['explorer', '/select,경로'] 로 넘겨, 경로에 빈칸이 있으면 파이썬이 '/select,…' 전체를 따옴표로 감싸
+    탐색기가 알아듣지 못하고 엉뚱한 폴더(문서)를 열었다. 셸 함수가 안 되면 따옴표를 경로에만 붙인 명령으로."""
+    import ctypes
+    try:
+        shell32, ole32 = ctypes.windll.shell32, ctypes.windll.ole32
+        shell32.ILCreateFromPathW.restype = ctypes.c_void_p
+        shell32.ILCreateFromPathW.argtypes = [ctypes.c_wchar_p]
+        shell32.SHOpenFolderAndSelectItems.argtypes = [ctypes.c_void_p, ctypes.c_uint, ctypes.c_void_p, ctypes.c_uint]
+        shell32.ILFree.argtypes = [ctypes.c_void_p]
+        ole32.CoInitialize(None)
+        pidl = shell32.ILCreateFromPathW(path)
+        if pidl:
+            try:
+                if shell32.SHOpenFolderAndSelectItems(pidl, 0, None, 0) == 0:
+                    return
+            finally:
+                shell32.ILFree(pidl)
+    except Exception:
+        pass
+    subprocess.Popen(f'explorer /select,"{path}"', close_fds=True)   # 문자열 그대로: 따옴표는 경로에만
 
 
 def open_item(item_id):
