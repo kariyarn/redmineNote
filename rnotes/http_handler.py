@@ -818,5 +818,7 @@ class Handler(BaseHTTPRequestHandler):
 
 
 class Server(ThreadingHTTPServer):
-    # 윈도우에서는 재사용 허용 시 같은 포트에 서버가 중복으로 붙어 버린다.
-    allow_reuse_address = False
+    # 윈도우에서는 재사용 허용 시 같은 포트에 서버가 중복으로 붙어 버린다 (그래서 끈다).
+    # 리눅스·맥에서는 SO_REUSEADDR 가 켜져 있어도 이미 듣고 있는 서버가 있으면 bind 가 실패하므로 중복 실행 감지는 그대로이고,
+    # 꺼 두면 방금 끈 서버의 TIME_WAIT 연결 때문에 재시작이 bind 실패 → "이미 실행 중" 으로 오판되어 조용히 끝나 버린다.
+    allow_reuse_address = os.name != "nt"
