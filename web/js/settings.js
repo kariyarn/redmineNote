@@ -72,6 +72,9 @@ async function renderSettings(){
      <div class="srow"><span class="sl">DR 제목 모아보기</span><div class="sc"><div class="seg"><button type="button" id="drAutoMode" class="${ui.drMode==="manual"?"":"on"}">자동</button><button type="button" id="drManualMode" class="${ui.drMode==="manual"?"on":""}">수동</button></div><span class="hint">자동은 기존 조건으로 일감을 모으고, 수동은 노트에서 직접 추가한 일감만 보여요.</span></div></div>
      <div class="srow"><span class="sl">메뉴 줄 간격</span><div class="sc"><div class="seg"><button type="button" id="ndNorm" class="${ui.navDense?"":"on"}">보통</button><button type="button" id="ndDense" class="${ui.navDense?"on":""}">촘촘</button></div></div></div>
      <div class="srow"><span class="sl">메뉴에 보일 항목</span><div class="sc navopt">${NAV_OPT.map(([k,l])=>`<label class="chk"><input type="checkbox" data-navopt="${k}" ${(ui.navHide||[]).includes(k)?"":"checked"}> ${l}</label>`).join("")}<span class="hint">끈 항목은 왼쪽 메뉴에서 숨겨요 · <b>오늘</b>과 지금 보는 화면은 늘 보여요</span></div></div>
+     <div class="srow"><span class="sl">우클릭 메뉴</span><div class="sc ctxopt"><label class="chk"><input type="checkbox" id="ctxNative" ${ui.ctxNative?"checked":""}> 브라우저 기본 메뉴 쓰기</label>
+       ${Object.entries(CTX_GROUPS).map(([g,gl])=>`<div class="ctxg"><span class="meta">${gl}</span>${CTX_ITEMS.filter(x=>x[2]===g).map(([k,l])=>`<label class="chk"><input type="checkbox" data-ctxopt="${k}" ${ctxOn(k)?"checked":""} ${ui.ctxNative?"disabled":""}> ${esc(l)}</label>`).join("")}</div>`).join("")}
+       <span class="hint">앱의 우클릭 메뉴에 보일 항목이에요. 그 자리에서 쓸 수 있는 것만 나와요 · <b>Shift+우클릭</b>은 언제나 브라우저 기본 메뉴</span></div></div>
      <div class="srow"><span class="sl">확대/축소</span><div class="sc"><label class="chk"><input type="checkbox" id="zAllow" ${ui.allowZoom?"checked":""}> 허용</label><span class="hint">기본은 막혀 있어요 · Ctrl+0 = 100%</span></div></div>
      ${sMore(`<b>새 디자인</b>: 선 아이콘 · 밑줄 탭 · 묶은 메뉴로 화면을 덜어 낸 모양이에요. 정리 기록 자동 저장, 댓글 상태 선택칸, 목록형 오늘 화면 같은 동작도 함께 바뀌어요. 저장된 데이터는 똑같아요.<br><b>노트 모양</b>: 한 장의 문서(굵은 구분선 + 큰 제목)처럼 보거나 예전처럼 카드로 나눠 봐요.<br><b>메뉴 줄 간격</b>: 메뉴가 길어 스크롤이 생기면 촘촘으로. 새 디자인에서는 메뉴 묶음 제목을 눌러 접고, 가져오기 단추 옆 ▸ 로 아래 안내를 접어요.<br><b>확대/축소</b>: 크롬 기반이라 확대하면 화면이 어긋날 수 있어 기본은 막아 둬요(Ctrl+휠 · Ctrl +/- · 두 손가락). 글자 크기는 <b>글꼴</b> 탭에서 바꾸세요.`)}`)}
 
@@ -137,6 +140,8 @@ async function renderSettings(){
   q("#dsOld").onclick=()=>setDs("classic");q("#dsV2").onclick=()=>setDs("v2");
   const setNd=v=>{ui.navDense=v;saveUI();applyTheme();renderSettings()};
   q("#ndNorm").onclick=()=>setNd(false);q("#ndDense").onclick=()=>setNd(true);
+  $("#ctxNative").onchange=e=>{ui.ctxNative=e.target.checked;saveUI();$("#modal").querySelectorAll("[data-ctxopt]").forEach(c=>c.disabled=ui.ctxNative);toast(ui.ctxNative?"우클릭하면 브라우저 기본 메뉴가 떠요":"우클릭하면 앱 메뉴가 떠요",2200)};
+  $("#modal").querySelectorAll("[data-ctxopt]").forEach(c=>c.onchange=()=>{const h=new Set(ui.ctxOff||[]);if(c.checked)h.delete(c.dataset.ctxopt);else h.add(c.dataset.ctxopt);ui.ctxOff=[...h];saveUI()});
   $("#modal").querySelectorAll("[data-navopt]").forEach(c=>c.onchange=()=>{const k=c.dataset.navopt,h=new Set(ui.navHide||[]);
     if(c.checked)h.delete(k);else h.add(k);ui.navHide=[...h];
     if(k==="dict"&&!c.checked){if(isNarrow())dictOv=false;else ui.hr=true;applyUI();renderDict()}     // 주제 사전 단추를 숨기면 열고 닫을 곳이 없어지니 칸도 닫는다

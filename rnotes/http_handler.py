@@ -21,6 +21,7 @@ from .autosync import status as autosync_status
 from .config import APP_TITLE, BETA, BUILD, CHANNEL, VERSION_LABEL
 from .config import WEB_DIR, APP_VERSION, BACKUP_DIR, DATA_DIR, DB_PATH, DEFAULT_URL, FONT_DIR, FONT_EXT, FROZEN, HOME_DIR, MAX_UPLOAD, POINTER_PATH, PORT, RUN, SETTING_KEYS, STATE, conn
 from .fonts import font_files
+from . import downloads as dl
 from .comment_format import image_path
 from .lifecycle import open_or_notify, shutdown
 from .redmine import check_login, explain, fetch_ids, fetch_linked, my_id, rm_issue, rm_members, rm_statuses, sync
@@ -331,6 +332,8 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_json({r["token"]: r["description"] for r in c.execute("SELECT token, description FROM code_notes")})
         elif u.path == "/api/backups":
             self.send_json(list_backups())
+        elif u.path == "/api/dl":                # 앱 안 다운로드 목록 (다운로드 레이어)
+            self.send_json(dl.listing())
         elif u.path == "/api/backup/download":
             if q.get("name"):
                 p = backup_path(q["name"])
@@ -527,6 +530,20 @@ class Handler(BaseHTTPRequestHandler):
             elif u.path == "/api/ping":  # 화면이 열려 있다는 신호 (몇십 초마다)
                 STATE["last_ping"] = time.time()
                 self.send_json({"ok": True})
+            elif u.path in ("/api/dl/save", "/api/dl/open", "/api/dl/reveal", "/api/dl/forget"):   # 앱 안 다운로드 (브라우저 다운로드 팝업 대신)
+                try:
+                    act = u.path.rsplit("/", 1)[1]
+                    if act == "save":
+                        r = dl.save(d.get("name"), url=d["url"]) if is_json else dl.save(q.get("name"), data=raw)
+                    elif act == "open":
+                        r = dl.open_item(d.get("id"))
+                    elif act == "reveal":
+                        r = dl.reveal(d.get("id"))
+                    else:
+                        r = dl.forget(d.get("id"))
+                    self.send_json(r)
+                except (dl.DownloadError, KeyError) as e:
+                    self.send_json({"error": str(e) if isinstance(e, dl.DownloadError) else "저장할 주소가 없어요"}, 400)
             elif u.path == "/api/open-external":  # 레드마인 같은 바깥 링크는 평소 쓰는 기본 브라우저(로그인돼 있는)로 연다
                 target = (d.get("url") or "").strip()
                 if not target.lower().startswith(("http://", "https://")):

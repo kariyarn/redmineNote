@@ -102,6 +102,7 @@ python tests/test_comment_browser.py
 | `test_gitbackup.py` | 깃허브 백업 (가짜 깃허브: 올리기 · 변경 없음 · 충돌 · 복원 · 올리는 때) |
 | `test_update.py` | 앱 업데이트 (가짜 Releases: 확인 · 받기 · 크기/SHA-256/실행 파일 검증 · 바꾸기 준비 · 자동 확인) |
 | `test_beta.py` | 베타 채널 (포트 · 제목 · 데이터 폴더 공유 · 가장 새 베타 확인 · 같은 빌드/낮은 버전 무시 · 다른 채널이 켜져 있으면 끝내기) |
+| `test_downloads.py` | 앱 안 다운로드 (다운로드 폴더에 저장 · 같은 이름 (1) · 목록 · 열기/폴더에서 보기 · 바깥 주소 거절 · 목록에서 빼기) |
 | `test_attention.py` | 안 보고 있을 때 알림 (보고 있는지 판단 · 작업 표시줄 반짝임 · 윈도우 알림 · 설정 끄기 · 메모 알림) |
 | `test_queries.py` | 보관함의 코드/쿼리 로직 |
 | `test_commands.py` | 보관함의 명령어 로직 |
