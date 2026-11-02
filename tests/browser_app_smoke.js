@@ -7,6 +7,16 @@
     for(let i=0;i<100&&!(typeof all!=='undefined'&&all.some(n=>n.issue_id===93599));i++)await wait(50);
     check('configured fake origin',new URL(cfg.url).hostname==='127.0.0.1'&&new URL(cfg.url).origin!==location.origin);
     ui.design=new URLSearchParams(location.search).get('design');applyTheme();
+    const navMoreWas=ui.navMore,navCollapsedWas=!!ui.navCollapsed;
+    if(!$('#nav [data-nav="vaultCode"]')&&$('#navmore')){$('#navmore').click()}
+    const historyNav=$('#nav [data-nav="history"]'),vaultNav=$('#nav [data-nav="vaultCode"]');
+    check('vault submenu aligns with regular navigation items',!!historyNav&&!!vaultNav&&Math.abs(historyNav.getBoundingClientRect().left-vaultNav.getBoundingClientRect().left)<1&&Math.abs(historyNav.querySelector('.ic').getBoundingClientRect().left-vaultNav.querySelector('.ic').getBoundingClientRect().left)<1);
+    ui.navCollapsed=false;applyUI();renderNav();
+    const navToggle=$('#navToggle');navToggle.click();
+    check('left navigation collapses to icon rail',ui.navCollapsed&&Math.abs($('#nav').getBoundingClientRect().width-56)<1&&navToggle.getAttribute('aria-label')==='왼쪽 메뉴 펼치기');
+    navToggle.click();
+    check('left navigation expands on second toggle',!ui.navCollapsed&&Math.abs($('#nav').getBoundingClientRect().width-216)<1&&navToggle.getAttribute('aria-label')==='왼쪽 메뉴 접기');
+    ui.navCollapsed=navCollapsedWas;ui.navMore=navMoreWas;saveUI();applyUI();renderNav();
     S.patchnote_seen=cfg.appVersion;S.write_ack_first='1';openNote(93599);
     await wait(150);
     const n=curNote(),root=()=>$('#sec-write .cmta');

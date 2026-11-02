@@ -1,5 +1,5 @@
 /* ---------- 목록·사전 너비 / 숨김 ---------- */
-const NAVW=216;
+const NAVW=216,NAV_COLLAPSED_W=56;
 /* 주제 사전: 기본으로 보인다. 창이 좁으면(1560px 미만) 가운데가 찌그러지지 않게, 칸 대신 오른쪽에 겹쳐서 연다(열 때만). */
 const isNarrow=()=>innerWidth<1560;
 let dictOv=false;
@@ -19,7 +19,7 @@ function toggleNoteMax(){
 }
 function applyUI(){
   const vault=nav.startsWith("vault"),max=noteMax();
-  $("#nav").style.display=max?"none":"";$("#center").classList.toggle("nmax",max);
+  $("#nav").style.display=max?"none":"";$("#nav").classList.toggle("nav-collapsed",!!ui.navCollapsed);$("#center").classList.toggle("nmax",max);
   const hideL=max||ui.hl||nav==="mine"||nav==="code"||nav==="memo"||nav==="deploy"||nav==="trouble"||nav==="queries"||nav==="commands"||vault;      // 내 기록·보관함은 가운데 화면만 넓게 쓴다
   const col=!max&&!isNarrow()&&!ui.hr&&nav!=="memo"&&nav!=="deploy"&&nav!=="trouble"&&nav!=="queries"&&nav!=="commands"&&!vault;      // 넓은 창: 사전을 오른쪽 칸으로. 좁은 창: 칸을 만들지 않고 필요할 때만 겹쳐서 연다
   const strip=!hideL&&listStrip();     // 노트를 연 동안 목록은 아이콘 줄로 (노트 폭을 지킨다)
@@ -41,7 +41,7 @@ function dragSplit(id,fn){   // 2.29.1: 포인터를 손잡이에 붙잡아(setP
     el.onpointermove=ev=>{fn(ev.clientX);applyUI()};
     el.onpointerup=el.onpointercancel=()=>{el.onpointermove=el.onpointerup=el.onpointercancel=null;el.classList.remove("drag");document.body.style.userSelect="";saveUI();if(view==="graph")renderGraph()}};
 }
-dragSplit("#s1",x=>ui.lw=Math.max(260,Math.min(640,x-NAVW)));
+dragSplit("#s1",x=>ui.lw=Math.max(260,Math.min(640,x-(ui.navCollapsed?NAV_COLLAPSED_W:NAVW))));
 dragSplit("#s2",x=>ui.rw=Math.max(220,Math.min(600,innerWidth-x)));
 
 /* ---------- 렌더 ---------- */
@@ -69,7 +69,7 @@ const NAV_OPT=[["history","이력"],["mine","내 기록"],["memo","메모"],["de
 const navShown=id=>id==="today"||id===nav||!(ui.navHide||[]).includes(id);
 function renderNav(){
   const nowN=all.filter(isNow).length;
-  const mk=(id,label,cnt,ex)=>!navShown(id)?"":`<button class="nv-item ${nav===id?"on":""}" data-nav="${id}">${NAVICON[id]}<span>${label}</span>${ex||""}${cnt?`<span class="cnt">${cnt}</span>`:""}</button>`;
+  const mk=(id,label,cnt,ex)=>!navShown(id)?"":`<button class="nv-item ${nav===id?"on":""}" data-nav="${id}" title="${label}" aria-label="${label}">${NAVICON[id]}<span>${label}</span>${ex||""}${cnt?`<span class="cnt">${cnt}</span>`:""}</button>`;
   const dpIc=dpIcon(false);
   const vaultNav=()=>{const x=mk("vaultCode","코드")+mk("vaultQuery","쿼리")+mk("vaultCommands","명령어");return x?`<div class="nv-vault-hd">보관함</div>${x}`:""};
   const more=ui.navMore||["summary","graph","code","deploy","trouble","queries","commands","vaultCode","vaultQuery","vaultCommands"].includes(nav);
@@ -79,7 +79,7 @@ function renderNav(){
   if(V2()){   // 새 디자인: 하는 일 기준 4묶음. 묶음 제목을 누르면 접히고(저장), 지금 보는 화면이 든 묶음은 항상 펼친다. 접힌 묶음은 제목 옆에 숫자 · 🔔 · 🚀 만 보여 준다
     const fold=ui.navFold||{};
     const g=(k,t,ids,items,ex)=>{if(!items)return "";const here=ids.includes(nav),open=!fold[k]||here;
-      return `<button type="button" class="nv-grp ${open?"":"shut"}" data-grp="${k}" ${here?"data-here":""} title="${open?"접기":"펼치기"}${here&&fold[k]?" (지금 보는 화면이 있어서 펼쳐 둠)":""}"><span>${t}</span>${open?"":`<span class="nv-gx">${ex||""}</span>`}${chev(open&&!fold[k])}</button>`+(open?items:"")};
+      return `<button type="button" class="nv-grp ${open?"":"shut"}" data-grp="${k}" data-short="${({work:"일",tools:"도",vault:"보",anal:"분"})[k]}" ${here?"data-here":""} title="${t} · ${open?"접기":"펼치기"}${here&&fold[k]?" (지금 보는 화면이 있어서 펼쳐 둠)":""}" aria-label="${t} · ${open?"접기":"펼치기"}"><span>${t}</span>${open?"":`<span class="nv-gx">${ex||""}</span>`}${chev(open&&!fold[k])}</button>`+(open?items:"")};
     $("#navitems").innerHTML=g("work","일감",["today","history","mine","deploy"],mk("today","오늘",nowN)+mk("history","이력")+dictBtn+mk("mine","내 기록")+mk("deploy","배포요청",0,dpIc),(nowN?`<span class="cnt">${nowN}</span>`:"")+dpIc)
       +g("tools","내 도구",["memo","trouble"],mk("memo","메모",0,memoEx)+mk("trouble","트러블슈팅"),memoEx)
       +g("vault","보관함",["vaultCode","vaultQuery","vaultCommands","queries","commands"],mk("vaultCode","코드")+mk("vaultQuery","쿼리")+mk("vaultCommands","명령어"))
@@ -90,13 +90,15 @@ function renderNav(){
   }else
   {const moreItems=mk("summary","요약")+mk("graph","그래프")+mk("code","코드 이력")+mk("deploy","배포요청",0,dpIc)+mk("trouble","트러블슈팅")+vaultNav()+dictBtn;
   $("#navitems").innerHTML=mk("today","오늘",nowN)+mk("history","이력")+mk("mine","내 기록")+mk("memo","메모",0,memoEx)
-    +(moreItems?`<div class="nv-sec" id="navmore"><span>더 보기${!more&&dpIc&&navShown("deploy")?" "+dpIcon(true):""}</span>${chev(more)}</div>`+(more?moreItems:""):"")}
+    +(moreItems?`<div class="nv-sec" id="navmore" role="button" tabindex="0" aria-label="더 보기 메뉴 ${more?"접기":"펼치기"}" data-short="⋯"><span>더 보기${!more&&dpIc&&navShown("deploy")?" "+dpIcon(true):""}</span>${chev(more)}</div>`+(more?moreItems:""):"")}
   document.querySelectorAll("#nav [data-nav]").forEach(b=>{const k=b.dataset.nav,nt=e=>{const o=tabOpt(e);if((o.bg||o.newTab)&&TAB_SCREENS.includes(k)){e.preventDefault();tabOpenNew(k,o);return true}};
     b.onclick=e=>{if(nt(e))return;setNav(k);toTop();setTimeout(toTop,60)};     // 이미 그 화면이어도 맨 위로 · 휠 클릭 / Ctrl+클릭 = 새 탭
     b.onmousedown=e=>{if(e.button===1)e.preventDefault()};b.onauxclick=e=>{if(e.button===1)nt(e)}});
   document.querySelectorAll("#nav [data-nvb]").forEach(i=>i.onclick=e=>{e.stopPropagation();if(i.dataset.nvb==="al"){alr.hide.clear();alDraw()}else sbcGo(todayStr())});
   sbcDraw();
-  if($("#navmore"))$("#navmore").onclick=()=>{ui.navMore=!more;saveUI();renderNav()};
+  if($("#navmore")){const toggleMore=()=>{ui.navMore=!more;saveUI();renderNav()};$("#navmore").onclick=toggleMore;$("#navmore").onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();toggleMore()}}}
+  const navToggle=$("#navToggle");
+  if(navToggle){navToggle.setAttribute("aria-label",ui.navCollapsed?"왼쪽 메뉴 펼치기":"왼쪽 메뉴 접기");navToggle.title=navToggle.getAttribute("aria-label");navToggle.textContent=ui.navCollapsed?"›":"‹";navToggle.setAttribute("aria-expanded",String(!ui.navCollapsed));navToggle.onclick=()=>{ui.navCollapsed=!ui.navCollapsed;saveUI();applyUI();renderNav()}}
   document.querySelectorAll("#nav [data-dpal]").forEach(i=>i.onclick=e=>{e.stopPropagation();openDeploy(todayStr())});
   const d=document.querySelector("#nav [data-act=dict]");
   if(d)d.onclick=toggleDict;
