@@ -51,7 +51,8 @@ async function dlPaint(){
         <div class="meta">${it.exists?kb(it.size):"파일이 없어요 (옮기거나 지웠어요)"} · ${esc(when(it.at))}</div>
         <div class="dlbtns">${it.exists?`<button type="button" class="mini" data-dlo>열기</button><button type="button" class="mini" data-dlr>폴더에서 보기</button>`:""}<button type="button" class="icon" data-dlf title="목록에서 빼기 (파일은 그대로)">✕</button></div>
       </div>`).join("")||`<div class="meta dlempty">아직 내려받은 파일이 없어요.<br>첨부파일 · 내보내기 · 백업을 내려받으면 여기에 모여요.</div>`}</div>
-    <div class="meta dlfoot">저장 위치: ${esc(st.folder)}</div>`;
+    <div class="meta dlfoot"><span title="${esc(st.folder)}">저장 위치: ${esc(st.folder)}</span><button type="button" class="mini" data-dldir>바꾸기</button></div>`;
+  p.querySelector("[data-dldir]").onclick=dlFolderDialog;
   p.querySelector("[data-dlx]").onclick=dlClose;
   p.querySelector("[data-dlfolder]").onclick=()=>dlAct("reveal");
   const clr=p.querySelector("[data-dlclear]");if(clr)clr.onclick=()=>dlAct("forget");
@@ -60,6 +61,20 @@ async function dlPaint(){
     if(q("[data-dlr]"))q("[data-dlr]").onclick=()=>dlAct("reveal",id);
     q("[data-dlf]").onclick=()=>dlAct("forget",id);
     r.ondblclick=e=>{if(!e.target.closest("button")&&!r.classList.contains("gone"))dlAct("open",id)}});
+}
+/* 저장 폴더 바꾸기: 경로를 적거나 '찾아보기…'(윈도우 폴더 고르기 창)로 고른다. 비우면 기본(윈도우 '다운로드' 폴더) */
+async function dlFolderDialog(){
+  let st;try{st=await api("/api/dl")}catch(e){toast(e.message,5000);return}
+  const pr=wdlg({title:"다운로드 저장 폴더",ok:"저장",cancel:"취소",wide:true,
+    body:`<div class="frow" style="margin-top:0"><input type="text" id="dlDir" value="${esc(st.custom?st.folder:"")}" placeholder="${esc(st.default)} (기본)" spellcheck="false" style="flex:1"><button type="button" id="dlPick">찾아보기…</button></div>
+      <div class="meta" style="margin-top:8px">비워 두면 기본 <b>다운로드</b> 폴더(${esc(st.default)})에 저장해요. 이미 받은 파일은 그 자리에 그대로 있어요.</div>`,
+    collect:()=>$("#dlDir").value.trim()});
+  $("#dlPick").onclick=async()=>{const b=$("#dlPick");b.disabled=true;b.textContent="고르는 중…";
+    try{const r=await post("/api/dl/pick",{});if(r.path&&$("#dlDir"))$("#dlDir").value=r.path}catch(e){toast(e.message,5000)}
+    if($("#dlPick")){b.disabled=false;b.textContent="찾아보기…"}};
+  const v=await pr;if(v===false)return;
+  try{const r=await post("/api/dl/folder",{path:v});toast(r.custom?`이제 ${r.folder} 에 저장해요`:"기본 다운로드 폴더에 저장해요",3000);if($("#dlpanel.show"))dlPaint();if($("#dlDirNow"))$("#dlDirNow").textContent=r.folder}
+  catch(e){toast("폴더를 바꾸지 못했어요: "+e.message,6000)}
 }
 /* 왼쪽 아래(설정 옆) ⬇ 단추 · Ctrl+J (크롬의 다운로드 단축키) · Esc 로 닫기 */
 (()=>{const f=document.querySelector("#nav .nv-foot");if(f&&!$("#btnDl")){const b=document.createElement("button");b.id="btnDl";b.className="icon";b.title="다운로드 목록 (Ctrl+J)";b.innerHTML=DL_IC;b.onclick=()=>$("#dlpanel.show")?dlClose():dlOpen();f.appendChild(b)}})();
