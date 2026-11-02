@@ -239,11 +239,15 @@ try:
     before_u, before_p = len(uploads()), len(puts())
     app.terminate(); app.wait(timeout=10)
     app = subprocess.Popen([sys.executable, SRV], env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    for _ in range(100):
+    for _ in range(150):
         try:
             call("GET", "/api/config"); break
         except Exception:
+            if app.poll() is not None:
+                raise SystemExit(f"ABORT 재시작한 앱 서버가 바로 끝남 (종료 코드 {app.returncode}: 포트 bind 실패 등)")
             time.sleep(0.1)
+    else:
+        raise SystemExit("ABORT 재시작한 앱 서버가 15초 안에 뜨지 않음")
     s, r = attach([("restart.txt", b"restart")], "재시작 중복 방지", replay_id)
     check("서버 재시작 후에도 성공한 요청 ID 중복 방지", s == 200 and r.get("replayed") and len(uploads()) == before_u and len(puts()) == before_p)
     s, r = attach([("unknown.txt", b"unknown")], "5XXNOTAPPLIED 첨부", unknown_id)
