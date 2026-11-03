@@ -134,20 +134,25 @@ function wkDrawCols(){
   wkApplyFull();
   if(wkQ){      // 찾기: 열 대신 찾은 문서 목록
     const q=wkQ.toLowerCase(),hit=wikis.filter(w=>wkText(w).includes(q)).slice(0,200);
-    wkColsSize(el,2,true);
+    wkColsSize(el,1);
     el.innerHTML=`<div class="wk-col wk-hits"><div class="wk-ch"><span>찾은 문서 ${hit.length}개</span></div>${hit.map(w=>`<button type="button" class="wk-row${w.id===cur?" cur":""}" data-wid="${w.id}"><span class="nm">${esc(w.title)}</span><span class="wk-trail">${esc(wkTrail(w.id).slice(0,-1).map(x=>x.title).join(" › ")||"최상위")}</span></button>`).join("")||`<div class="wk-none">찾는 문서가 없어요</div>`}</div>`;
     $("#wkCrumbs").innerHTML="";return;
   }
   const lists=[{list:wkKids(null),parent:null}];
   wkPath.forEach(id=>{const k=wkKids(id);if(k.length)lists.push({list:k,parent:wkById(id)})});
-  /* 2.37: 앞 단계를 접지 않고 모든 단계를 열로 그린다. 공간에 맞는 만큼(최대 4) 보이고, 넘치면 열 보기 아래 가로 스크롤로 전체 구조를 본다 */
-  const max=Math.max(1,Math.min(5,ui.wkCols||4)),fit=wkColsSize(el,Math.min(max,lists.length)),hidden=0,keepX=el.scrollLeft,same=el.dataset.path===wkPath.join(",");
+  const cw=wkCur();if(cw&&!wkShut(cw)&&!wkKids(cw.id).length)lists.push({list:[],parent:cw,leaf:true});      // 2.38: 하위가 없는 문서도 '하위 문서' 열을 보인다 (＋ 만들기 · 끌어다 놓을 자리)
+  /* 2.37: 앞 단계를 접지 않고 모든 단계를 열로 그린다. 2.38: 열 보기 폭(손잡이로 조절, 기본 3칸)만큼 칸을 늘 채우고, 단계가 더 많으면 아래 가로 스크롤 */
+  const fit=wkColsSize(el),hidden=0,keepX=el.scrollLeft,same=el.dataset.path===wkPath.join(","),blank=Math.max(0,fit-lists.length);
   el.dataset.path=wkPath.join(",");el.classList.toggle("over",lists.length>fit);
   el.innerHTML=!wikis.length?`<div class="wk-col"><div class="wk-none"><b>아직 문서가 없어요</b>업무 주제를 나무처럼 엮어 두는 곳이에요.<br>예) 법인콘도 › 경기도청 › 성수기 신청<br><button type="button" class="primary" data-wknew="">＋ 첫 주제 만들기</button></div></div>`
-    :lists.map(c=>`<div class="wk-col" data-pid="${c.parent?c.parent.id:""}" role="group" aria-label="${esc(c.parent?c.parent.title:"주제")}"><div class="wk-ch"><span>${esc(c.parent?c.parent.title:"주제")}</span><button type="button" class="icon" data-wknew="${c.parent?c.parent.id:""}" title="여기에 새 문서" aria-label="여기에 새 문서">＋</button></div>
+    :lists.map(c=>c.leaf?`<div class="wk-col wk-leaf" data-pid="${c.parent.id}" role="group" aria-label="${esc(c.parent.title)} 의 하위 문서"><div class="wk-ch"><span>${esc(c.parent.title)}</span><button type="button" class="icon" data-wknew="${c.parent.id}" title="여기에 새 문서" aria-label="여기에 새 문서">＋</button></div><div class="wk-leafm">하위 문서가 없어요<button type="button" class="mini" data-wknew="${c.parent.id}">＋ 하위 문서 만들기</button><small>다른 문서를 여기에 끌어다 놓아도 돼요</small></div></div>`
+      :`<div class="wk-col" data-pid="${c.parent?c.parent.id:""}" role="group" aria-label="${esc(c.parent?c.parent.title:"주제")}"><div class="wk-ch"><span>${esc(c.parent?c.parent.title:"주제")}</span><button type="button" class="icon" data-wknew="${c.parent?c.parent.id:""}" title="여기에 새 문서" aria-label="여기에 새 문서">＋</button></div>
       ${c.list.map(w=>{const n=wkKids(w.id).length,on=w.id===cur,inP=wkPath.includes(w.id),shut=wkShut(w),emp=!shut&&wkBodyEmpty(w.body)&&!n;
         return `<button type="button" class="wk-row${on?" cur":inP?" path":""}${emp?" empty":""}${shut?" shut":""}" draggable="${!shut}" role="treeitem" aria-selected="${on}" data-wid="${w.id}" title="${esc(w.title)}${shut?" (잠긴 주제 · 눌러서 암호 넣기)":w.locked?" (잠긴 주제 · 지금은 열려 있어요)":emp?" (본문이 비어 있어요)":""}">${shut?WK_LOCK_IC:n?NAVICON.wiki:IC('<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/>')}<span class="nm">${esc(w.title)}</span>${w.locked&&!shut?`<span class="wk-lk" aria-label="잠금 열림">${WK_UNLOCK_IC}</span>`:""}${n?`<span class="cn">${wkCount(w.id)}</span><span class="ar">›</span>`:shut&&(w.hidden||[]).length?`<span class="cn">${w.hidden.length}</span>`:""}</button>`}).join("")}</div>`).join("");
-  el.scrollLeft=same?keepX:el.scrollWidth;      // 다른 문서로 가면 지금 단계(오른쪽 끝)가 보이게, 저장 등으로 다시 그릴 땐 보던 자리 그대로
+  if(wikis.length)el.insertAdjacentHTML("beforeend",'<div class="wk-col wk-blank" aria-hidden="true"></div>'.repeat(blank));
+  const cols=[...el.querySelectorAll(".wk-col")],ci=cols.findIndex(c=>c.querySelector(".wk-row.cur")),leaf=!!el.querySelector(".wk-leaf"),cwPx=el.scrollWidth/Math.max(1,cols.length);
+  const endI=ci<0?lists.length-1:ci+(leaf&&fit>1?1:0);      // 지금 문서가 있는 열(칸이 남으면 그 '하위 문서' 열까지)이 오른쪽 끝에 오게
+  el.scrollLeft=same?keepX:Math.max(0,Math.round((endI+1-fit)*cwPx));      // 저장 등으로 다시 그릴 땐 보던 자리 그대로
   const tr=wkPath.map(wkById).filter(Boolean);
   $("#wkCrumbs").innerHTML=tr.map((w,i)=>`<span class="sep">›</span><button type="button" data-wkcr="${i}" data-wdrop="${w.id}" title="이 단계로 (문서를 끌어다 놓으면 이 아래로 옮겨요)">${esc(w.title)}</button>`).join("");
 }
@@ -210,28 +215,31 @@ function wkWireDrag(el){
   el.ondragleave=crumbs.ondragleave=e=>{if(!e.relatedTarget||!e.currentTarget.contains(e.relatedTarget))wkDropShow(null)};
   if(!wkWireDrag.on){wkWireDrag.on=1;document.addEventListener("dragend",()=>{if(wkDrag)end()})}      // 행을 다시 그려 원래 행이 사라져도 끝은 정리한다
 }
-const wkColW=()=>Math.max(160,Math.min(360,ui.wkColW||210));      // 열 하나의 폭 (손잡이로 끌어서 바꾼다)
-/* 열 맞추기 (2.36): 창이 좁으면 문서 쪽 최소 폭(WK_ED_MIN)을 남기고 열 하나의 폭을 줄여서라도 원하는 열 수(최대 4)를 보인다.
-   열 하나가 WK_COL_MIN 보다 좁아져야 하면 그때만 보이는 열 수를 줄인다 (나머지는 가로 스크롤, 2.37) */
-const WK_ED_MIN=480,WK_COL_MIN=150;
-function wkColsFit(want){
-  const body=$(".wk-body"),W=body?body.clientWidth:0;want=Math.max(1,want);
-  if(!W||getComputedStyle(body).flexDirection==="column")return {n:want,w:wkColW()};      // 좁은 창(위아래로 쌓임)은 CSS 가 폭을 정한다
-  const avail=W-WK_ED_MIN-8;let n3=Math.min(want,3);while(n3>1&&avail/n3<WK_COL_MIN)n3--;      // 3열까지는 열 폭을 줄여서라도 보이고,
-  const n=Math.max(1,Math.min(want,Math.max(n3,Math.floor(avail/wkColW()))));                    // 그 이상(4열)은 기본 폭으로 들어갈 때만
-  return {n,w:Math.max(WK_COL_MIN,Math.min(wkColW(),Math.floor(avail/n)))};
+const wkColW=()=>Math.max(160,Math.min(360,ui.wkColW||210));      // 좁은 창(위아래로 쌓임)에서 열 하나의 폭
+/* 열 보기 폭 (2.38): 가운데 손잡이로 '열 보기 전체 폭'(ui.wkColsW)을 정하고, 그 폭에 맞게 열 개수(1~6)가 바뀐다 — 열 하나는 대략 200px.
+   기본은 3칸(630px). 창이 좁으면 문서 쪽 최소 폭(WK_ED_MIN)을 남기고 줄인다 (그래도 3칸은 열 하나 150px 까지 유지) */
+const WK_ED_MIN=480,WK_COL_MIN=150,WK_COL_PREF=200;
+function wkColsLayout(){
+  const body=$(".wk-body"),W=body?body.clientWidth:0;
+  if(!W||getComputedStyle(body).flexDirection==="column")return {n:3,w:wkColW(),max:0};      // 좁은 창(위아래로 쌓임)은 CSS 가 폭을 정한다
+  const max=Math.max(WK_COL_MIN,W-WK_ED_MIN-8),T=Math.max(Math.min(WK_COL_PREF,max),Math.min(max,ui.wkColsW||3*Math.max(WK_COL_PREF,ui.wkColW||210)));
+  const n=Math.max(1,Math.min(6,Math.round(T/WK_COL_PREF)));
+  return {n,w:Math.floor(T/n),max};
 }
-function wkColsSize(el,want,fixed){const f=wkColsFit(want),n=fixed?want:f.n;el.dataset.n=n;el.style.setProperty("--wk-cols",n);el.style.setProperty("--wk-cw",f.w+"px");el.style.width=n*f.w+"px";return n}
+function wkColsSize(el,fixedN){const f=wkColsLayout(),n=fixedN||f.n,w=fixedN?Math.floor(f.n*f.w/n):f.w;el.dataset.n=n;el.style.setProperty("--wk-cols",n);el.style.setProperty("--wk-cw",w+"px");el.style.width=n*w+"px";return n}
 let wkRO=null,wkROn=0;
 function wkWatchSize(){      // 창 크기 · 왼쪽 메뉴 접기/펴기로 폭이 바뀌면 열을 다시 맞춘다
   if(wkRO)wkRO.disconnect();const b=$(".wk-body");if(!b||typeof ResizeObserver==="undefined")return;
   wkRO=new ResizeObserver(()=>{const w=b.clientWidth;if(!b.isConnected){wkRO.disconnect();return}if(w===wkROn)return;wkROn=w;requestAnimationFrame(()=>{if($("#wkCols"))wkDrawColsSoft()})});wkRO.observe(b);
 }
-function wkWireSplit(){
-  const s=$("#wkSplit"),cols=$("#wkCols");
-  s.onpointerdown=e=>{if(e.button!==0)return;e.preventDefault();s.setPointerCapture(e.pointerId);s.classList.add("drag");const x0=e.clientX,w0=cols.offsetWidth,n=+cols.dataset.n||1;
-    s.onpointermove=ev=>{ui.wkColW=Math.max(160,Math.min(360,Math.round((w0+ev.clientX-x0)/n)));const w=wkColsFit(n).w;cols.style.setProperty("--wk-cw",w+"px");cols.style.width=n*w+"px"};
-    s.onpointerup=s.onpointercancel=()=>{s.onpointermove=s.onpointerup=s.onpointercancel=null;s.classList.remove("drag");saveUI()}};
+function wkWireSplit(){      // 끌면 열 보기 전체 폭이 바뀌고, 폭에 맞게 열 개수도 바뀐다 (두 번 누르면 기본 3칸)
+  const s=$("#wkSplit"),cols=$("#wkCols");s.title="끌어서 열 보기 폭 · 열 개수 조절 (두 번 누르면 기본 3칸)";
+  s.ondblclick=()=>{delete ui.wkColsW;saveUI();wkDrawColsSoft()};
+  s.onmousedown=e=>e.preventDefault();      // 끄는 동안 화면 글자가 선택되지 않게
+  s.onpointerdown=e=>{if(e.button!==0)return;e.preventDefault();s.setPointerCapture(e.pointerId);s.classList.add("drag");const x0=e.clientX,w0=cols.offsetWidth;let raf=0;
+    s.onpointermove=ev=>{const m=wkColsLayout().max||9999;ui.wkColsW=Math.max(WK_COL_MIN,Math.min(m,w0+ev.clientX-x0));if(!raf)raf=requestAnimationFrame(()=>{raf=0;wkDrawColsSoft()})};
+    document.body.classList.add("wk-resizing");
+    s.onpointerup=s.onpointercancel=()=>{s.onpointermove=s.onpointerup=s.onpointercancel=null;s.classList.remove("drag");document.body.classList.remove("wk-resizing");saveUI();cols.dataset.path="";wkDrawColsSoft()}};
 }
 function wkOpen(id){wkFlush();const tr=wkTrail(id);if(!tr.length)return;wkPath=tr.map(w=>w.id);wkDrawCols();wkDrawEd()}
 

@@ -241,7 +241,7 @@ span.fs-s{font-size:.85em}span.fs-l{font-size:1.2em}span.fs-xl{font-size:1.5em;l
 .wk-cols{grid-template-columns:none;grid-auto-flow:column;grid-auto-columns:var(--wk-cw,210px);overflow-x:auto;overflow-y:hidden;scrollbar-width:thin}
 .wk-cols .wk-col{min-height:0}
 .wk-cols.over .wk-col:last-child{border-right-color:var(--line)}
-.wk-cols .wk-hits{grid-column:span 2}
+.wk-cols .wk-hits{grid-column:1/-1}
 
 /* 끌어다 놓기 (2.37) */
 .wk-row.dragging{opacity:.45}
@@ -283,3 +283,10 @@ span.fs-s{font-size:.85em}span.fs-l{font-size:1.2em}span.fs-xl{font-size:1.5em;l
 .wk-rdh .mini{opacity:.55}.wk-rds:hover .wk-rdh .mini{opacity:1}
 .wk-rdp{font-size:.78rem;color:var(--sub);margin:2px 0 8px}
 .wk-rdb{min-height:0}
+
+/* 열 보기 칸 (2.38): 하위 없는 문서의 '하위 문서' 열 · 남는 빈 칸 */
+.wk-leafm{display:flex;flex-direction:column;align-items:flex-start;gap:8px;padding:10px 8px;font-size:.82rem;color:var(--sub)}
+.wk-leafm small{font-size:.74rem;opacity:.85}
+.wk-col.wk-blank{background:color-mix(in srgb,var(--surface2) 35%,transparent)}
+.wk-cols{scroll-snap-type:x mandatory}.wk-cols>.wk-col{scroll-snap-align:start}
+body.wk-resizing,body.wk-resizing *{user-select:none!important;cursor:col-resize!important}
