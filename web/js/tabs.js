@@ -6,7 +6,7 @@
    Ctrl+W = 지금 탭 닫기 · Ctrl+Tab / Ctrl+Shift+Tab = 다음 / 이전 탭 · Ctrl+1~9 (Alt+PageUp / Alt+PageDown · Alt+W 도 된다). 열어 둔 탭은 기억했다가 다시 켜면 그대로 (ui.tabs · ui.tabCur) */
 const TAB_MAX=12;                 // 넘으면 가장 왼쪽(지금 탭이 아닌 것)부터 닫는다
 /* 탭 하나 = 노트(일감 번호) 또는 화면(메뉴 이름). 화면은 하나씩만 열리고(이미 열려 있으면 그 탭으로), 오늘 · 이력은 노트 목록이라 탭이 아니다 */
-const TAB_SCREENS=["mine","summary","graph","code","memo","deploy","trouble","queries","commands","vaultCode","vaultQuery","vaultCommands"];
+const TAB_SCREENS=["mine","summary","graph","code","memo","deploy","trouble","wiki","queries","commands","vaultCode","vaultQuery","vaultCommands"];
 let tabs=[],tabAt=-1;             // 열어 둔 탭 (왼쪽부터) / 마지막으로 보던 탭 자리
 const tabScroll=new Map();        // 탭마다 마지막으로 보던 위치 (탭을 오갈 때 그대로)
 const tabOpt=e=>!e||!(e.ctrlKey||e.metaKey||e.button===1)?{}:e.shiftKey?{newTab:true}:{bg:true};   // 누른 방법 -> openNote 옵션

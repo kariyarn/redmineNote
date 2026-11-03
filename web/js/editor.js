@@ -283,6 +283,7 @@ function renderCenter(){
   if(view==="memo")return renderMemo();
   if(view==="deploy")return renderDeploy();
   if(view==="trouble")return renderTrouble();
+  if(view==="wiki")return renderWiki();
   if(view==="queries")return renderQueries();
   if(view==="commands")return renderCommands();
   if(view==="summary")return renderSummary();

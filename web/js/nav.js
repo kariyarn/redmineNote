@@ -1,5 +1,5 @@
 /* ---------- 화면 이동 ---------- */
-const NAVVIEW={today:"note",history:"note",mine:"mine",summary:"summary",graph:"graph",code:"code",memo:"memo",deploy:"deploy",trouble:"trouble",queries:"queries",commands:"commands",
+const NAVVIEW={today:"note",history:"note",mine:"mine",summary:"summary",graph:"graph",code:"code",memo:"memo",deploy:"deploy",trouble:"trouble",wiki:"wiki",queries:"queries",commands:"commands",
   vaultCode:"queries",vaultQuery:"queries",vaultCommands:"commands"};
 function setNav(n,o={}){
   tabLeave();      // 지금 탭(노트 · 화면)의 보던 위치를 기억해 둔다
@@ -14,7 +14,7 @@ function setNav(n,o={}){
 }
 /* 일감 열기: 오늘·이력에서는 그대로, 그 밖의 화면(요약·그래프·코드 이력·배포요청·트러블슈팅·내 기록·메모)에서는 메뉴를 '이력'으로 바꾸지 않고
    그 화면 자리에 일감을 열고, 위쪽의 '← 돌아가기' 버튼(또는 Alt+←)으로 원래 화면으로 돌아온다. */
-const NAVLABEL={mine:"내 기록",summary:"요약",graph:"그래프",code:"코드 이력",memo:"메모",deploy:"배포요청",trouble:"트러블슈팅",queries:"보관함",commands:"보관함 · 명령어",
+const NAVLABEL={mine:"내 기록",summary:"요약",graph:"그래프",code:"코드 이력",memo:"메모",deploy:"배포요청",trouble:"트러블슈팅",wiki:"업무 위키",queries:"보관함",commands:"보관함 · 명령어",
   vaultCode:"보관함 · 코드",vaultQuery:"보관함 · 쿼리",vaultCommands:"보관함 · 명령어"};
 const peeking=()=>view==="note"&&!!NAVLABEL[nav];
 function closePeek(){if(!peeking())return;view=NAVVIEW[nav];renderAll()}
