@@ -36,7 +36,7 @@ from . import updater
 from .attention import notify as attention_notify
 from .commands import command_delete, command_list, command_reorder, command_save, var_delete, var_list, var_save
 from .trouble import trouble_row, trouble_save
-from .wiki import wiki_delete, wiki_list, wiki_move, wiki_save
+from .wiki import Locked as WikiLocked, img_get as wiki_img_get, img_save as wiki_img_save, wiki_delete, wiki_list, wiki_lock, wiki_move, wiki_save, wiki_unlock, wiki_unlock_remove
 from . import gitbackup
 from . import memoimg
 
@@ -81,6 +81,10 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header(k, v)
         self.end_headers()
         self.wfile.write(body)
+
+    def _wiki_keys(self):
+        """업무 위키 잠금을 연 열쇠들 (화면이 X-Wiki-Keys 머리글로 보낸다)."""
+        return [k for k in (self.headers.get("X-Wiki-Keys") or "").split(",") if 10 < len(k) < 80][:50]
 
     def read_raw(self):
         n = int(self.headers.get("Content-Length", 0))
@@ -173,7 +177,7 @@ class Handler(BaseHTTPRequestHandler):
         elif u.path == "/api/cmdvars":           # 명령어 변수 (상수 · 함수)
             self.send_json(var_list())
         elif u.path == "/api/wiki":             # 업무 위키 문서 전부 (나무는 화면에서 엮는다)
-            self.send_json(wiki_list())
+            self.send_json(wiki_list(self._wiki_keys()))
         elif u.path == "/api/trouble":          # 트러블슈팅 전부 (최근 수정 순)
             with db() as c:
                 self.send_json([trouble_row(r) for r in c.execute("SELECT * FROM trouble ORDER BY updated_at DESC, id DESC LIMIT 5000")])
@@ -364,6 +368,11 @@ class Handler(BaseHTTPRequestHandler):
                     "Content-Disposition": f'attachment; filename="redmine-notes-github-{sha[:7]}.zip"'})
             except gitbackup.BackupError as e:
                 self.send_json({"error": str(e), "kind": e.kind}, 400)
+        elif u.path.startswith("/api/wiki/img/"):     # 업무 위키 사진 (DB)
+            got = wiki_img_get(urllib.parse.unquote(u.path[len("/api/wiki/img/"):]))
+            if not got:
+                return self.send_json({"error": "없는 사진이에요"}, 404)
+            self.send_bytes(got[0], got[1], headers={"Cache-Control": "max-age=31536000, immutable", "X-Content-Type-Options": "nosniff"})
         elif u.path.startswith("/api/memo/img/"):
             p = memoimg.path_of(urllib.parse.unquote(u.path[len("/api/memo/img/"):]))
             if not p:
@@ -596,9 +605,13 @@ class Handler(BaseHTTPRequestHandler):
                     self.send_json(var_save(d))
                 except (ValueError, TypeError) as e:
                     self.send_json({"error": str(e)}, 400)
-            elif u.path in ("/api/wiki", "/api/wiki/move"):
+            elif u.path in ("/api/wiki", "/api/wiki/move", "/api/wiki/lock", "/api/wiki/unlock", "/api/wiki/unlock-remove"):
+                fn = {"/api/wiki": wiki_save, "/api/wiki/move": wiki_move, "/api/wiki/lock": wiki_lock}.get(u.path)
                 try:
-                    self.send_json((wiki_move if u.path.endswith("/move") else wiki_save)(d))
+                    keys = self._wiki_keys() + [k for k in (d.get("_keys") or [])[:50] if isinstance(k, str) and 10 < len(k) < 80]   # 창을 닫을 때 저장(sendBeacon)은 머리글을 못 붙인다
+                    self.send_json(fn(d, keys) if fn else (wiki_unlock if u.path.endswith("/unlock") else wiki_unlock_remove)(d))
+                except WikiLocked as e:
+                    self.send_json({"error": str(e), "code": "locked"}, 403)
                 except (ValueError, TypeError) as e:
                     self.send_json({"error": str(e)}, 400)
             elif u.path == "/api/trouble":
@@ -767,6 +780,11 @@ class Handler(BaseHTTPRequestHandler):
                         self.send_json({"error": "not found"}, 404)
                 except gitbackup.BackupError as e:
                     self.send_json({"error": str(e), "kind": e.kind}, 400)
+            elif u.path == "/api/wiki/img":   # 업무 위키에 넣은 사진 (본문 = 사진 그대로)
+                try:
+                    self.send_json({"name": wiki_img_save(raw, self.headers.get("Content-Type"))})
+                except ValueError as e:
+                    self.send_json({"error": str(e)}, 400)
             elif u.path == "/api/memo/img":   # 메모에 붙여 넣은 사진 (본문 = 사진 그대로)
                 try:
                     self.send_json({"name": memoimg.save(raw, self.headers.get("Content-Type"))})
@@ -830,8 +848,10 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_json({"error": str(e)}, 400)
         elif u.path.startswith("/api/wiki/"):
             try:
-                wiki_delete(name)
+                wiki_delete(name, self._wiki_keys())
                 self.send_json({"ok": True})
+            except WikiLocked as e:
+                self.send_json({"error": str(e), "code": "locked"}, 403)
             except (ValueError, TypeError) as e:
                 self.send_json({"error": str(e)}, 400)
         elif u.path.startswith("/api/trouble/"):

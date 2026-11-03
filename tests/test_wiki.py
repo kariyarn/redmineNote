@@ -75,5 +75,55 @@ err("delete with children", lambda: W.wiki_delete(b["id"]))
 W.wiki_delete(g["id"]); W.wiki_delete(b["id"])
 t("delete leaf then parent", all(x["id"] not in (b["id"], g["id"]) for x in W.wiki_list()))
 
+# ---- 사진 ----
+N = "a" * 40 + ".webp"
+t("img kept by name only", C(f'<img data-img="{N}" src="http://evil/x.png" onerror="x()" alt="a">') == f'<img data-img="{N}">')
+t("img self-closing", C(f'<p><img data-img="{N}"/>x</p>') == f'<p><img data-img="{N}">x</p>')
+t("img without our name dropped", C('<img src="https://example.com/a.png">ok') == "ok")
+t("img bad name dropped", C('<img data-img="../../etc.png">ok') == "ok")
+png = b"\x89PNG\r\n\x1a\n" + b"x" * 20
+nm = W.img_save(png, "image/png")
+t("img save", nm.endswith(".png") and W.img_get(nm) == (png, "image/png"))
+t("img save idempotent", W.img_save(png, "image/png") == nm)
+err("img wrong type", lambda: W.img_save(b"<svg/>", "image/svg+xml"))
+err("img signature mismatch", lambda: W.img_save(b"not a png at all", "image/png"))
+t("img get bad name", W.img_get("../x.png") is None and W.img_get("b" * 40 + ".png") is None)
+with storage.db() as c: c.execute("UPDATE wiki_img SET created_at='2000-01-01T00:00:00'")
+keep = W.wiki_save({"title": "사진 문서", "body": f'<p><img data-img="{nm}"></p>'})
+nm2 = W.img_save(b"\xff\xd8\xff" + b"y" * 20, "image/jpeg")
+with storage.db() as c: c.execute("UPDATE wiki_img SET created_at='2000-01-01T00:00:00' WHERE name=?", (nm2,))
+nm3 = W.img_save(b"GIF89a" + b"z" * 20, "image/gif")
+t("img gc removes only old unused", W.img_gc() == 1 and W.img_get(nm) and not W.img_get(nm2) and W.img_get(nm3))
+
+# ---- 주제 잠금 ----
+W._PBKDF2_N = 1000          # 시험만 빠르게
+root = W.wiki_save({"title": "비밀 주제", "body": "<p>비밀 본문</p>"})
+kid = W.wiki_save({"title": "비밀 하위", "parent_id": root["id"], "body": "<p>하위 본문</p>"})
+gkid = W.wiki_save({"title": "더 깊은", "parent_id": kid["id"]})
+err("short password", lambda: W.wiki_lock({"id": root["id"], "password": "12"}))
+W.wiki_lock({"id": root["id"], "password": "abcd"})
+err("lock twice", lambda: W.wiki_lock({"id": root["id"], "password": "abcd"}))
+lst = {x["id"]: x for x in W.wiki_list()}
+t("locked stub hides body", lst[root["id"]]["locked"] and not lst[root["id"]]["open"] and lst[root["id"]]["body"] == "")
+t("descendants hidden", kid["id"] not in lst and gkid["id"] not in lst and sorted(lst[root["id"]]["hidden"]) == sorted([kid["id"], gkid["id"]]))
+t("no hash leak", all("lock_hash" not in x and "lock_salt" not in x for x in lst.values()))
+for name, fn in [("save locked", lambda: W.wiki_save({"id": root["id"], "title": "x", "body": ""})),
+                 ("save child locked", lambda: W.wiki_save({"id": kid["id"], "title": "x"})),
+                 ("create under locked", lambda: W.wiki_save({"title": "x", "parent_id": kid["id"]})),
+                 ("move locked out", lambda: W.wiki_move({"id": kid["id"], "parent_id": None})),
+                 ("move into locked", lambda: W.wiki_move({"id": a["id"], "parent_id": root["id"]})),
+                 ("delete locked", lambda: W.wiki_delete(gkid["id"]))]:
+    try: fn(); t(name, False)
+    except W.Locked: t(name, True)
+err("wrong password", lambda: W.wiki_unlock({"id": root["id"], "password": "nope"}))
+k = W.wiki_unlock({"id": root["id"], "password": "abcd"})["key"]
+lst = {x["id"]: x for x in W.wiki_list([k])}
+t("unlocked shows all", lst[root["id"]]["open"] and lst[root["id"]]["body"] == "<p>비밀 본문</p>" and kid["id"] in lst and gkid["id"] in lst)
+t("save with key", W.wiki_save({"id": kid["id"], "title": "비밀 하위 2", "body": "<p>x</p>"}, [k])["title"] == "비밀 하위 2")
+t("other key useless", kid["id"] not in {x["id"] for x in W.wiki_list(["bogus-key-1234567890"])})
+W.wiki_unlock_remove({"id": root["id"], "password": "abcd"})
+t("lock removed", kid["id"] in {x["id"] for x in W.wiki_list()} and not any(x.get("locked") for x in W.wiki_list()))
+t("old key dropped", not W._open_ids([k]))
+
 print(f"wiki: {ok} ok, {fail} fail")
 sys.exit(1 if fail else 0)
