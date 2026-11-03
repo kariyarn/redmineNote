@@ -134,19 +134,20 @@ function wkDrawCols(){
   wkApplyFull();
   if(wkQ){      // 찾기: 열 대신 찾은 문서 목록
     const q=wkQ.toLowerCase(),hit=wikis.filter(w=>wkText(w).includes(q)).slice(0,200);
-    wkColsSize(el,2,true);
+    wkColsSize(el,1);
     el.innerHTML=`<div class="wk-col wk-hits"><div class="wk-ch"><span>찾은 문서 ${hit.length}개</span></div>${hit.map(w=>`<button type="button" class="wk-row${w.id===cur?" cur":""}" data-wid="${w.id}"><span class="nm">${esc(w.title)}</span><span class="wk-trail">${esc(wkTrail(w.id).slice(0,-1).map(x=>x.title).join(" › ")||"최상위")}</span></button>`).join("")||`<div class="wk-none">찾는 문서가 없어요</div>`}</div>`;
     $("#wkCrumbs").innerHTML="";return;
   }
   const lists=[{list:wkKids(null),parent:null}];
   wkPath.forEach(id=>{const k=wkKids(id);if(k.length)lists.push({list:k,parent:wkById(id)})});
-  /* 2.37: 앞 단계를 접지 않고 모든 단계를 열로 그린다. 공간에 맞는 만큼(최대 4) 보이고, 넘치면 열 보기 아래 가로 스크롤로 전체 구조를 본다 */
-  const max=Math.max(1,Math.min(5,ui.wkCols||4)),fit=wkColsSize(el,Math.min(max,lists.length)),hidden=0,keepX=el.scrollLeft,same=el.dataset.path===wkPath.join(",");
+  /* 2.37: 앞 단계를 접지 않고 모든 단계를 열로 그린다. 2.38: 보이는 열 수 = 손잡이로 정한 칸 수(기본 3)와 단계 수 중 작은 쪽, 단계가 더 많으면 아래 가로 스크롤 */
+  const fit=wkColsSize(el,0,lists.length),hidden=0,keepX=el.scrollLeft,same=el.dataset.path===wkPath.join(",");
   el.dataset.path=wkPath.join(",");el.classList.toggle("over",lists.length>fit);
   el.innerHTML=!wikis.length?`<div class="wk-col"><div class="wk-none"><b>아직 문서가 없어요</b>업무 주제를 나무처럼 엮어 두는 곳이에요.<br>예) 법인콘도 › 경기도청 › 성수기 신청<br><button type="button" class="primary" data-wknew="">＋ 첫 주제 만들기</button></div></div>`
     :lists.map(c=>`<div class="wk-col" data-pid="${c.parent?c.parent.id:""}" role="group" aria-label="${esc(c.parent?c.parent.title:"주제")}"><div class="wk-ch"><span>${esc(c.parent?c.parent.title:"주제")}</span><button type="button" class="icon" data-wknew="${c.parent?c.parent.id:""}" title="여기에 새 문서" aria-label="여기에 새 문서">＋</button></div>
       ${c.list.map(w=>{const n=wkKids(w.id).length,on=w.id===cur,inP=wkPath.includes(w.id),shut=wkShut(w),emp=!shut&&wkBodyEmpty(w.body)&&!n;
         return `<button type="button" class="wk-row${on?" cur":inP?" path":""}${emp?" empty":""}${shut?" shut":""}" draggable="${!shut}" role="treeitem" aria-selected="${on}" data-wid="${w.id}" title="${esc(w.title)}${shut?" (잠긴 주제 · 눌러서 암호 넣기)":w.locked?" (잠긴 주제 · 지금은 열려 있어요)":emp?" (본문이 비어 있어요)":""}">${shut?WK_LOCK_IC:n?NAVICON.wiki:IC('<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/>')}<span class="nm">${esc(w.title)}</span>${w.locked&&!shut?`<span class="wk-lk" aria-label="잠금 열림">${WK_UNLOCK_IC}</span>`:""}${n?`<span class="cn">${wkCount(w.id)}</span><span class="ar">›</span>`:shut&&(w.hidden||[]).length?`<span class="cn">${w.hidden.length}</span>`:""}</button>`}).join("")}</div>`).join("");
+  wkColGrips(el);
   el.scrollLeft=same?keepX:el.scrollWidth;      // 다른 문서로 가면 지금 단계(오른쪽 끝)가 보이게, 저장 등으로 다시 그릴 땐 보던 자리 그대로
   const tr=wkPath.map(wkById).filter(Boolean);
   $("#wkCrumbs").innerHTML=tr.map((w,i)=>`<span class="sep">›</span><button type="button" data-wkcr="${i}" data-wdrop="${w.id}" title="이 단계로 (문서를 끌어다 놓으면 이 아래로 옮겨요)">${esc(w.title)}</button>`).join("");
@@ -171,7 +172,7 @@ function wkWireCols(){
     const c=$("#wkCols .wk-row.cur");if(c)c.scrollIntoView({block:"nearest"});
   };
   el.oncontextmenu=e=>{const r=e.target.closest("[data-wid]");if(!r||wkQ)return;e.preventDefault();wkMenu(+r.dataset.wid,e)};
-  wkWireDrag(el);
+  wkWireDrag(el);wkWireColGrip(el);
 }
 /* 끌어다 놓기 (2.37): 행의 위쪽 ⅓ = 그 앞, 아래쪽 ⅓ = 그 뒤(같은 단계), 가운데 = 그 문서의 하위로(맨 끝). 열 빈 곳 = 그 열의 맨 끝.
    하위가 있는 행 위에 잠깐 머무르면 그 문서를 열어(파인더처럼) 더 깊은 곳으로 옮길 수 있다. 경로 표시줄 단계 위에 놓아도 그 아래로.
@@ -210,28 +211,52 @@ function wkWireDrag(el){
   el.ondragleave=crumbs.ondragleave=e=>{if(!e.relatedTarget||!e.currentTarget.contains(e.relatedTarget))wkDropShow(null)};
   if(!wkWireDrag.on){wkWireDrag.on=1;document.addEventListener("dragend",()=>{if(wkDrag)end()})}      // 행을 다시 그려 원래 행이 사라져도 끝은 정리한다
 }
-const wkColW=()=>Math.max(160,Math.min(360,ui.wkColW||210));      // 열 하나의 폭 (손잡이로 끌어서 바꾼다)
-/* 열 맞추기 (2.36): 창이 좁으면 문서 쪽 최소 폭(WK_ED_MIN)을 남기고 열 하나의 폭을 줄여서라도 원하는 열 수(최대 4)를 보인다.
-   열 하나가 WK_COL_MIN 보다 좁아져야 하면 그때만 보이는 열 수를 줄인다 (나머지는 가로 스크롤, 2.37) */
-const WK_ED_MIN=480,WK_COL_MIN=150;
-function wkColsFit(want){
-  const body=$(".wk-body"),W=body?body.clientWidth:0;want=Math.max(1,want);
-  if(!W||getComputedStyle(body).flexDirection==="column")return {n:want,w:wkColW()};      // 좁은 창(위아래로 쌓임)은 CSS 가 폭을 정한다
-  const avail=W-WK_ED_MIN-8;let n3=Math.min(want,3);while(n3>1&&avail/n3<WK_COL_MIN)n3--;      // 3열까지는 열 폭을 줄여서라도 보이고,
-  const n=Math.max(1,Math.min(want,Math.max(n3,Math.floor(avail/wkColW()))));                    // 그 이상(4열)은 기본 폭으로 들어갈 때만
-  return {n,w:Math.max(WK_COL_MIN,Math.min(wkColW(),Math.floor(avail/n)))};
+/* 열 보기 크기 (2.38): 손잡이 두 개를 따로 둔다 (위치가 겹치지 않게)
+   - 열 보기 넓이 = 열과 문서 사이 손잡이 → 보일 열 개수(ui.wkColN, 1~8, 기본 3)가 한 칸씩 늘고 준다. 넓이는 늘 '개수 × 열 너비'에 딱 맞는다
+     (단계가 그보다 적으면 단계 수만큼만 — 빈 칸은 만들지 않는다)
+   - 열 너비 = 열과 열 사이 경계의 손잡이 → 모든 열의 너비(ui.wkColW, 140~420, 기본 210). 개수는 그대로
+   창이 좁으면 문서 쪽 최소 폭(WK_ED_MIN)을 남기고 열 너비를 줄여 맞추고, 열 하나가 WK_COL_MIN 보다 좁아져야 하면 그때만 개수를 줄인다 */
+const WK_ED_MIN=480,WK_COL_MIN=140,WK_COL_MAX=420,WK_N_MAX=8;
+const wkColW=()=>Math.max(WK_COL_MIN,Math.min(WK_COL_MAX,ui.wkColW||210));
+const wkColN=()=>Math.max(1,Math.min(WK_N_MAX,ui.wkColN||3));
+function wkColsLayout(){
+  const body=$(".wk-body"),W=body?body.clientWidth:0,cw=wkColW();
+  if(!W||getComputedStyle(body).flexDirection==="column")return {n:wkColN(),w:cw,max:0};      // 좁은 창(위아래로 쌓임)은 CSS 가 폭을 정한다
+  const max=Math.max(WK_COL_MIN,W-WK_ED_MIN-8);let n=wkColN(),w=Math.min(cw,Math.floor(max/n));
+  while(n>1&&w<WK_COL_MIN){n--;w=Math.min(cw,Math.floor(max/n))}
+  return {n,w:Math.max(WK_COL_MIN,w),max};
 }
-function wkColsSize(el,want,fixed){const f=wkColsFit(want),n=fixed?want:f.n;el.dataset.n=n;el.style.setProperty("--wk-cols",n);el.style.setProperty("--wk-cw",f.w+"px");el.style.width=n*f.w+"px";return n}
+// cap = 단계 수: 보일 칸 수가 단계 수보다 많아도 빈 칸은 만들지 않는다
+function wkColsSize(el,fixedN,cap){const f=wkColsLayout(),n=fixedN||Math.max(1,Math.min(f.n,cap||f.n)),w=fixedN?Math.floor(f.n*f.w/n):f.w;el.dataset.n=n;el.dataset.w=w;el.style.setProperty("--wk-cols",n);el.style.setProperty("--wk-cw",w+"px");el.style.width=n*w+"px";return n}
+function wkColGrips(el){      // 열 너비 손잡이: 열과 열 사이 경계에만 (첫 열 왼쪽 · 맨 끝 오른쪽 = 열 보기 넓이 손잡이와 겹치지 않게)
+  el.querySelectorAll(".wk-cgrip").forEach(g=>g.remove());if(el.querySelector(".wk-hits"))return;
+  const k=el.querySelectorAll(".wk-col").length,w=+el.dataset.w||wkColW();
+  el.insertAdjacentHTML("beforeend",Array.from({length:Math.max(0,k-1)},(_,i)=>`<div class="wk-cgrip" data-cg="${i+1}" style="left:${(i+1)*w-4}px" title="끌어서 열 너비 조절 (두 번 누르면 기본 너비)" aria-hidden="true"></div>`).join(""));
+}
+function wkWireColGrip(el){
+  el.addEventListener("dblclick",e=>{if(!e.target.closest(".wk-cgrip"))return;delete ui.wkColW;saveUI();wkDrawColsSoft()});
+  el.addEventListener("pointerdown",e=>{const g=e.target.closest(".wk-cgrip");if(!g||e.button!==0)return;e.preventDefault();e.stopPropagation();
+    g.setPointerCapture(e.pointerId);g.classList.add("drag");document.body.classList.add("wk-resizing");
+    const x0=e.clientX,w0=+el.dataset.w||wkColW(),i=+g.dataset.cg,n=+el.dataset.n||1,max=wkColsLayout().max||1e5;let moved=false;
+    g.onpointermove=ev=>{if(Math.abs(ev.clientX-x0)<2&&!moved)return;moved=true;const w=Math.max(WK_COL_MIN,Math.min(WK_COL_MAX,Math.floor(max/n),Math.round(w0+(ev.clientX-x0)/i)));ui.wkColW=w;el.dataset.w=w;      // 다시 그리지 않고 폭만 바꾼다 (손잡이를 잡은 채로)
+      el.style.setProperty("--wk-cw",w+"px");el.style.width=n*w+"px";el.querySelectorAll(".wk-cgrip").forEach(x=>x.style.left=(+x.dataset.cg*w-4)+"px")};
+    g.onpointerup=g.onpointercancel=()=>{g.onpointermove=g.onpointerup=g.onpointercancel=null;g.classList.remove("drag");document.body.classList.remove("wk-resizing");if(moved){saveUI();wkDrawColsSoft()}}});      // 그냥 누른 것은 다시 그리지 않는다 (두 번 누르기가 먹게)
+  el.addEventListener("mousedown",e=>{if(e.target.closest(".wk-cgrip"))e.preventDefault()});
+}
 let wkRO=null,wkROn=0;
 function wkWatchSize(){      // 창 크기 · 왼쪽 메뉴 접기/펴기로 폭이 바뀌면 열을 다시 맞춘다
   if(wkRO)wkRO.disconnect();const b=$(".wk-body");if(!b||typeof ResizeObserver==="undefined")return;
   wkRO=new ResizeObserver(()=>{const w=b.clientWidth;if(!b.isConnected){wkRO.disconnect();return}if(w===wkROn)return;wkROn=w;requestAnimationFrame(()=>{if($("#wkCols"))wkDrawColsSoft()})});wkRO.observe(b);
 }
-function wkWireSplit(){
-  const s=$("#wkSplit"),cols=$("#wkCols");
-  s.onpointerdown=e=>{if(e.button!==0)return;e.preventDefault();s.setPointerCapture(e.pointerId);s.classList.add("drag");const x0=e.clientX,w0=cols.offsetWidth,n=+cols.dataset.n||1;
-    s.onpointermove=ev=>{ui.wkColW=Math.max(160,Math.min(360,Math.round((w0+ev.clientX-x0)/n)));const w=wkColsFit(n).w;cols.style.setProperty("--wk-cw",w+"px");cols.style.width=n*w+"px"};
-    s.onpointerup=s.onpointercancel=()=>{s.onpointermove=s.onpointerup=s.onpointercancel=null;s.classList.remove("drag");saveUI()}};
+function wkWireSplit(){      // 열 보기 넓이: 끌면 열 개수가 한 칸씩 (두 번 누르면 기본 3칸)
+  const s=$("#wkSplit"),cols=$("#wkCols");s.title="끌어서 열 보기 넓이 = 열 개수 조절 (두 번 누르면 기본 3칸) · 열 너비는 열과 열 사이 경계를 끌어요";
+  s.innerHTML='<span class="wk-sgrip"></span>';
+  s.ondblclick=()=>{delete ui.wkColN;saveUI();cols.dataset.path="";wkDrawColsSoft()};
+  s.onmousedown=e=>e.preventDefault();      // 끄는 동안 화면 글자가 선택되지 않게
+  s.onpointerdown=e=>{if(e.button!==0)return;e.preventDefault();s.setPointerCapture(e.pointerId);s.classList.add("drag");document.body.classList.add("wk-resizing");
+    const x0=e.clientX,w0=cols.offsetWidth,cw=+cols.dataset.w||wkColW();s.dataset.n=wkColN();
+    s.onpointermove=ev=>{const n=Math.max(1,Math.min(WK_N_MAX,Math.round((w0+ev.clientX-x0)/cw)));if(n!==wkColN()){ui.wkColN=n;wkDrawColsSoft();s.dataset.n=n}};      // 열 너비 단위로 딱 맞춰 늘고 준다
+    s.onpointerup=s.onpointercancel=()=>{s.onpointermove=s.onpointerup=s.onpointercancel=null;s.classList.remove("drag");document.body.classList.remove("wk-resizing");saveUI();cols.dataset.path="";wkDrawColsSoft()}};
 }
 function wkOpen(id){wkFlush();const tr=wkTrail(id);if(!tr.length)return;wkPath=tr.map(w=>w.id);wkDrawCols();wkDrawEd()}
 
