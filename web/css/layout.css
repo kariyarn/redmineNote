@@ -216,7 +216,18 @@ input,select,textarea{border-color:var(--line);border-radius:10px}
 .trow{margin:0 4px}
 /* 우클릭 메뉴 (ctxmenu.js) · 다운로드 목록 (downloads.js) */
 .ctxmenu{min-width:170px;z-index:95}
-.ctxmenu button{padding:6px 12px}
+.ctxmenu button{padding:6px 10px 6px 12px;display:flex;align-items:center;gap:24px}
+.ctxmenu button .cl{flex:1}
+.ctxmenu button.on{background:var(--accent-soft)}
+.ctxmenu .ck,.ctxtbl .ck{font:600 .78rem/1 ui-monospace,Consolas,monospace;color:var(--sub);background:none;border:0;padding:0}
+.ctxtbl{border-collapse:collapse;font-size:.9rem;width:100%;max-width:560px}
+.ctxtbl th{text-align:left;font-weight:600;color:var(--sub);font-size:.8rem;padding:4px 8px;border-bottom:1px solid var(--line)}
+.ctxtbl td{padding:3px 8px;vertical-align:middle}
+.ctxtbl .ctxgh td{padding-top:10px;font-size:.8rem;font-weight:700;color:var(--sub)}
+.ctxtbl .ctxkey kbd{font:600 .8rem ui-monospace,Consolas,monospace}
+.ctxtbl .ctxkey.rec{border-color:var(--accent);color:var(--accent)}
+.ctxtbl .ctxkeyx{padding:2px 6px}
+.ctxtbl .ctxwarn{color:#c77700;margin-left:4px;cursor:help}
 .ctxsep{height:1px;background:var(--line);margin:3px 4px}
 #btnDl{position:relative}
 #btnDl[data-n]:not([data-n=""])::after{content:attr(data-n);position:absolute;top:-2px;right:-3px;min-width:15px;height:15px;padding:0 3px;border-radius:8px;background:var(--accent);color:var(--accent-ink,#fff);font-size:.62rem;font-weight:700;line-height:15px;text-align:center;box-sizing:border-box}
