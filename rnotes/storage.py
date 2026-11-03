@@ -181,6 +181,10 @@ def init_db():
                 created_at TEXT, updated_at TEXT
             );
             CREATE INDEX IF NOT EXISTS idx_wiki_parent ON wiki(parent_id, pos);
+            -- 업무 위키 사진 (2.35): 파일이 아니라 DB 에 둔다 → 깃허브 · 로컬 백업에 같이 들어간다. 이름 = 내용 해시 + 확장자
+            CREATE TABLE IF NOT EXISTS wiki_img (
+                name TEXT PRIMARY KEY, ctype TEXT NOT NULL, data BLOB NOT NULL, created_at TEXT
+            );
             -- 트러블슈팅: 레드마인·사전·검색과 상관없는 독립 정리집 (한 건 = 증상/원인/해결/참고 한 장)
             CREATE TABLE IF NOT EXISTS trouble (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -235,6 +239,10 @@ def init_db():
             """
         )
         # 기존 DB에 새 칸이 없으면 추가한다.
+        wcols = {r["name"] for r in c.execute("PRAGMA table_info(wiki)")}
+        for col in ("lock_salt", "lock_hash"):   # 2.35: 업무 위키 주제 잠금 (암호의 PBKDF2 해시만 둔다)
+            if col not in wcols:
+                c.execute(f"ALTER TABLE wiki ADD COLUMN {col} TEXT DEFAULT ''")
         cols = {r["name"] for r in c.execute("PRAGMA table_info(notes)")}
         for col in ("code_change", "reason"):
             if col not in cols:
