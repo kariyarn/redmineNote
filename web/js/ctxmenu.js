@@ -46,7 +46,8 @@ const APP_KEYS=Object.assign({
   "Ctrl+N":"새 포스트잇","Alt+N":"새 포스트잇","Alt+R":"메모 배치(랜덤)","Alt+S":"메모 배치(스프레드)","Alt+D":"메모 배치(스프레드)","Alt+T":"메모 배치(정렬)",
   "Alt+Left":"뒤로","Alt+Right":"앞으로","Ctrl+Enter":"올리기 · 저장","Ctrl+0":"화면 배율 100%","Ctrl+=":"화면 확대","Ctrl+-":"화면 축소",
   "Ctrl+Z":"되돌리기(글 쓸 때)","Ctrl+Y":"다시 하기(글 쓸 때)","Ctrl+Shift+Z":"다시 하기(글 쓸 때)","Ctrl+X":"잘라내기(글 쓸 때)","Ctrl+C":"복사(글 쓸 때)",
-  "Ctrl+V":"붙여넣기(글 쓸 때)","Ctrl+A":"모두 선택(글 쓸 때)","Ctrl+B":"굵게(편집기)","Ctrl+I":"기울임(편집기)","Ctrl+U":"밑줄(편집기)"},
+  "Ctrl+V":"붙여넣기(글 쓸 때)","Ctrl+A":"모두 선택(글 쓸 때)","Ctrl+B":"굵게(편집기)","Ctrl+I":"기울임(편집기)","Ctrl+U":"밑줄(편집기)",
+  "Ctrl+Shift+H":"위키 형광펜","Ctrl+Shift+.":"위키 글자 크게","Ctrl+Shift+,":"위키 글자 작게"},
   Object.fromEntries([1,2,3,4,5,6,7,8,9].map(n=>[`Ctrl+${n}`,"탭 이동"])),Object.fromEntries([1,2,3,4,5,6,7,8].map(n=>[`Alt+${n}`,"노트 안 이동"])));
 /* 윈도우 · 입력기 · 브라우저가 먼저 가져가서 앱에 오지 않거나, 앱이 막아도 원래 동작이 같이 일어나는 키 (주의 문구) */
 const RESERVED_KEYS={

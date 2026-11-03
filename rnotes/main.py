@@ -64,6 +64,11 @@ def run():
     except Exception:
         pass
     try:
+        from . import wiki
+        wiki.img_gc()   # 어느 위키 문서도 쓰지 않는 지난 사진 정리
+    except Exception:
+        pass
+    try:
         httpd = Server(("127.0.0.1", PORT), Handler)
     except OSError:
         # 이미 실행 중. 새로 켜지 않는다. exe 면 실행 중인 쪽에 알려서, 창이 열려 있으면 알림만 / 닫혀 있으면 창을 다시 열게 한다.
