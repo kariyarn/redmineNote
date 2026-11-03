@@ -236,3 +236,50 @@ span.fs-s{font-size:.85em}span.fs-l{font-size:1.2em}span.fs-xl{font-size:1.5em;l
 .wk-doc .wk-tp.t{box-shadow:inset 0 3px 0 var(--accent)}.wk-doc .wk-tp.b{box-shadow:inset 0 -3px 0 var(--accent)}
 .wk-doc .wk-tp.l{box-shadow:inset 3px 0 0 var(--accent)}.wk-doc .wk-tp.r{box-shadow:inset -3px 0 0 var(--accent)}
 @media (max-width:1500px){.wk-tbar .hint{display:none}}
+
+/* 열 보기 (2.37): 모든 단계를 열로 그리고, 보이는 칸(최대 4)을 넘으면 아래 가로 스크롤 */
+.wk-cols{grid-template-columns:none;grid-auto-flow:column;grid-auto-columns:var(--wk-cw,210px);overflow-x:auto;overflow-y:hidden;scrollbar-width:thin}
+.wk-cols .wk-col{min-height:0}
+.wk-cols.over .wk-col:last-child{border-right-color:var(--line)}
+.wk-cols .wk-hits{grid-column:span 2}
+
+/* 끌어다 놓기 (2.37) */
+.wk-row.dragging{opacity:.45}
+.wk-row.wk-drop-before{box-shadow:inset 0 2px 0 var(--accent);border-radius:0 0 7px 7px}
+.wk-row.wk-drop-after{box-shadow:inset 0 -2px 0 var(--accent);border-radius:7px 7px 0 0}
+.wk-row.wk-drop-in{background:var(--accent-soft);box-shadow:inset 0 0 0 2px var(--accent)}
+.wk-col.wk-drop-end{background:color-mix(in srgb,var(--accent) 7%,transparent);box-shadow:inset 0 -3px 0 var(--accent)}
+.wk-crumbs button.wk-drop-in{background:var(--accent-soft);color:var(--text);box-shadow:inset 0 0 0 2px var(--accent)}
+
+/* 표 (2.37): 빈 칸도 기본 크기, 새 표는 본문 폭에 꽉 차게(tw-full). 격자로 크기 고르기 */
+.wk-doc th,.wk-doc td{min-width:72px;height:2.1em}
+.wk-doc table.tw-full{width:100%;table-layout:fixed}
+.wk-doc table.tw-full th,.wk-doc table.tw-full td{min-width:0}
+.wk-tbar button.on{background:var(--accent-soft);color:var(--accent)}
+.wk-grid{position:fixed;z-index:70;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 36px rgba(0,0,0,.22);padding:10px 12px}
+.wk-gl{font-size:.85rem;font-weight:600;margin-bottom:8px;font-variant-numeric:tabular-nums}
+.wk-gg{display:grid;grid-template-columns:repeat(var(--gc),18px);gap:3px}
+.wk-gg span{width:18px;height:18px;border:1px solid var(--line);border-radius:3px;background:var(--surface);cursor:pointer}
+.wk-gg span.on{background:var(--accent-soft);border-color:var(--accent)}
+.wk-gf{display:flex;align-items:center;gap:6px;margin-top:10px;font-size:.82rem;flex-wrap:wrap}
+.wk-gf select{height:26px;padding:0 4px}
+.wk-gf .hd{display:inline-flex;align-items:center;gap:4px;margin-left:4px}
+.wk-gf .primary{margin-left:auto;height:28px;padding:0 12px}
+.wk-doc blockquote p{margin:.2em 0}
+
+/* 몰아 보기 (2.37) */
+#wkRead{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}#wkRead .ic{width:15px;height:15px}
+#wkRead.on{background:var(--accent-soft);color:var(--text);border-color:color-mix(in srgb,var(--accent) 40%,var(--line))}
+.wk-rdbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px max(22px,calc((100% - var(--wk-read))/2 + 4px));border-bottom:1px solid var(--line)}
+.wk-rdbar b{display:inline-flex;align-items:center;gap:6px}.wk-rdbar .ic{width:16px;height:16px;color:var(--accent)}
+.wk-rdbar label{display:inline-flex;align-items:center;gap:4px}.wk-rdbar .sp{flex:1}
+.wk-rdtoc{display:flex;flex-direction:column;gap:2px;background:var(--surface2);border-radius:8px;padding:10px 14px;margin-bottom:26px;font-size:.88rem}
+.wk-rdtoc a{color:var(--text);text-decoration:none;padding:2px 4px;border-radius:5px}.wk-rdtoc a:hover{background:var(--accent-soft)}
+.wk-rdtoc .no,.wk-rdh .no{color:var(--accent);margin-right:8px;font-variant-numeric:tabular-nums}
+.wk-rds{padding-top:18px;margin-top:18px;border-top:1px solid var(--line);scroll-margin-top:8px}
+.wk-rds:first-of-type{border-top:0;margin-top:0;padding-top:0}
+.wk-rdh{display:flex;align-items:center;gap:10px}.wk-rdh .t{flex:1;font-weight:700;line-height:1.3}
+.wk-rds[data-d="0"] .wk-rdh .t{font-size:1.35rem}.wk-rds[data-d="1"] .wk-rdh .t{font-size:1.2rem}.wk-rds[data-d="2"] .wk-rdh .t,.wk-rds[data-d="3"] .wk-rdh .t{font-size:1.08rem}
+.wk-rdh .mini{opacity:.55}.wk-rds:hover .wk-rdh .mini{opacity:1}
+.wk-rdp{font-size:.78rem;color:var(--sub);margin:2px 0 8px}
+.wk-rdb{min-height:0}
