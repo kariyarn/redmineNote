@@ -35,7 +35,10 @@ async function renderSettings(){
 
    ${updSection(sec)}
    ${sec("gen","다운로드","첨부파일 · 내보내기 · 백업을 내려받으면 브라우저 팝업 없이 이 폴더에 바로 저장해요. 받은 파일은 왼쪽 아래 ⬇ 단추 · Ctrl+J 로 모아 봐요.",`
-     <div class="srow"><span class="sl">저장 폴더</span><div class="sc"><code class="ic" id="dlDirNow">…</code><button type="button" id="dlDirBtn">바꾸기</button><button type="button" id="dlDirOpen">폴더 열기</button></div></div>`)}
+     <div class="srow"><span class="sl">저장 폴더</span><div class="sc"><code class="ic" id="dlDirNow">…</code><button type="button" id="dlDirBtn">바꾸기</button><button type="button" id="dlDirOpen">폴더 열기</button></div></div>
+     <div class="srow"><span class="sl">다 받으면</span><div class="sc"><div class="seg"><button type="button" data-dlauto="panel" class="${dlCfg().auto==="panel"?"on":""}">목록 바로 열기</button><button type="button" data-dlauto="toast" class="${dlCfg().auto==="toast"?"on":""}">알림만 (열기 · 목록 단추)</button></div></div></div>
+     <div class="srow"><span class="sl">파일 열기</span><div class="sc"><div class="seg"><button type="button" data-dlclick="single" class="${dlCfg().click==="single"?"on":""}">한 번 클릭</button><button type="button" data-dlclick="double" class="${dlCfg().click==="double"?"on":""}">두 번 클릭</button></div><span class="hint">목록에서 파일을 눌러 열 때</span></div></div>
+     <div class="srow"><span class="sl">파일 옆 단추</span><div class="sc">${DL_BTNS.map(([k,l])=>`<label class="chk"><input type="checkbox" data-dlbtn="${k}" ${dlCfg().btns.includes(k)?"checked":""}> ${esc(l)}</label>`).join("")}<label class="chk" style="margin-left:8px"><input type="checkbox" id="dlIcon" ${dlCfg().icon?"checked":""}> 아이콘으로 보이기</label></div></div>`)}
 
    ${sec("gen","알림 방식","앱 창을 <b>보고 있지 않을 때</b>(최소화 · 다른 창에 가려짐 · 다른 앱 사용 중 · 창을 닫아 트레이에만 있음) 알림을 놓치지 않게 해요.",`
      <div><label class="chk"><input type="checkbox" id="nFlash" ${S.notify_flash!=="0"?"checked":""}> 작업 표시줄 아이콘 반짝이기 <span class="hint">창을 다시 볼 때까지</span></label></div>
@@ -142,6 +145,10 @@ async function renderSettings(){
   q("#dsOld").onclick=()=>setDs("classic");q("#dsV2").onclick=()=>setDs("v2");
   const setNd=v=>{ui.navDense=v;saveUI();applyTheme();renderSettings()};
   q("#ndNorm").onclick=()=>setNd(false);q("#ndDense").onclick=()=>setNd(true);
+  const dlSegs=(attr,key)=>$("#modal").querySelectorAll(`[${attr}]`).forEach(b=>b.onclick=()=>{ui[key]=b.getAttribute(attr);saveUI();$("#modal").querySelectorAll(`[${attr}]`).forEach(x=>x.classList.toggle("on",x===b));if($("#dlpanel.show"))dlPaint()});
+  dlSegs("data-dlauto","dlAuto");dlSegs("data-dlclick","dlClick");
+  $("#modal").querySelectorAll("[data-dlbtn]").forEach(c=>c.onchange=()=>{ui.dlBtns=[...$("#modal").querySelectorAll("[data-dlbtn]:checked")].map(x=>x.dataset.dlbtn);saveUI();if($("#dlpanel.show"))dlPaint()});
+  if($("#dlIcon"))$("#dlIcon").onchange=e=>{ui.dlIcon=e.target.checked;saveUI();if($("#dlpanel.show"))dlPaint()};
   if($("#dlDirBtn")){$("#dlDirBtn").onclick=dlFolderDialog;$("#dlDirOpen").onclick=()=>dlAct("reveal");api("/api/dl").then(r=>{if($("#dlDirNow"))$("#dlDirNow").textContent=r.folder}).catch(()=>{})}
   $("#ctxNative").onchange=e=>{ui.ctxNative=e.target.checked;saveUI();$("#modal").querySelectorAll("[data-ctxopt]").forEach(c=>c.disabled=ui.ctxNative);toast(ui.ctxNative?"우클릭하면 브라우저 기본 메뉴가 떠요":"우클릭하면 앱 메뉴가 떠요",2200)};
   $("#modal").querySelectorAll("[data-ctxopt]").forEach(c=>c.onchange=()=>{const h=new Set(ui.ctxOff||[]);if(c.checked)h.delete(c.dataset.ctxopt);else h.add(c.dataset.ctxopt);ui.ctxOff=[...h];saveUI()});

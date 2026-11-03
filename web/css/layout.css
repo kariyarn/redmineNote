@@ -220,21 +220,34 @@ input,select,textarea{border-color:var(--line);border-radius:10px}
 .ctxsep{height:1px;background:var(--line);margin:3px 4px}
 #btnDl{position:relative}
 #btnDl[data-n]:not([data-n=""])::after{content:attr(data-n);position:absolute;top:-2px;right:-3px;min-width:15px;height:15px;padding:0 3px;border-radius:8px;background:var(--accent);color:var(--accent-ink,#fff);font-size:.62rem;font-weight:700;line-height:15px;text-align:center;box-sizing:border-box}
-#dlpanel{position:fixed;left:12px;bottom:12px;z-index:90;width:min(420px,calc(100vw - 24px));max-height:min(70vh,560px);display:none;flex-direction:column;background:var(--surface);color:var(--text);border:1px solid var(--line);border-radius:14px;box-shadow:0 16px 44px rgba(0,0,0,.28);overflow:hidden}
-#dlpanel.show{display:flex}
-#dlpanel .dlh{display:flex;align-items:center;gap:6px;padding:10px 12px;border-bottom:1px solid var(--line)}
-#dlpanel .dlh .sp{flex:1}
-#dlpanel .dllist{overflow:auto;padding:4px 6px}
-#dlpanel .dlrow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 8px;padding:8px 8px;border-radius:10px}
-#dlpanel .dlrow:hover{background:color-mix(in srgb,var(--text) 5%,transparent)}
-#dlpanel .dlnm{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-#dlpanel .dlrow .meta{grid-column:1}
-#dlpanel .dlbtns{grid-column:2;grid-row:1/span 2;display:flex;align-items:center;gap:4px}
-#dlpanel .dlrow.gone .dlnm{opacity:.55;text-decoration:line-through}
-#dlpanel .dlempty{padding:18px 8px;text-align:center}
-#dlpanel .dlfoot{display:flex;align-items:center;gap:8px;padding:6px 12px 9px;border-top:1px solid var(--line)}
-#dlpanel .dlfoot>span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ctxopt{flex-direction:column;align-items:flex-start!important;gap:6px}
 .ctxopt .ctxg{display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px}
 .ctxopt .ctxg>.meta{min-width:5.5em}
+#dlpanel{position:fixed;left:12px;bottom:12px;z-index:90;width:min(640px,calc(100vw - 24px));max-height:min(80vh,720px);display:none;flex-direction:column;background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:14px;box-shadow:0 18px 50px rgba(0,0,0,.3);overflow:hidden}
+#dlpanel.show{display:flex}
+#dlpanel .dlh{display:flex;align-items:center;gap:8px;padding:12px 16px;background:var(--surface);border-bottom:1px solid var(--line)}
+#dlpanel .dlh b{font-size:1.02rem}
+#dlpanel .dlh .sp{flex:1}
+#dlpanel .dllist{overflow:auto;padding:4px 14px 14px}
+#dlpanel .dlday{font-size:.84rem;font-weight:600;color:var(--sub);margin:14px 2px 8px}
+#dlpanel .dlrow{display:flex;align-items:center;gap:14px;padding:12px 14px;margin-bottom:8px;background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,.08);cursor:pointer;transition:box-shadow .12s,border-color .12s}
+#dlpanel .dlrow:hover{border-color:color-mix(in srgb,var(--accent) 45%,var(--line));box-shadow:0 3px 10px rgba(0,0,0,.12)}
+#dlpanel .dlrow:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+#dlpanel .dlrow:hover .dlnm{color:var(--accent);text-decoration:underline}
+#dlpanel .dlrow.gone{cursor:default;opacity:.7}
+#dlpanel .dlrow.gone:hover{border-color:var(--line);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+#dlpanel .dlrow.gone .dlnm{text-decoration:line-through;color:var(--sub)}
+#dlpanel .dlic{position:relative;flex:none;width:30px;height:38px;color:var(--k)}
+#dlpanel .dlic svg{display:block}
+#dlpanel .dlic b{position:absolute;left:-3px;bottom:5px;padding:1px 3px;border-radius:3px;background:var(--k);color:#fff;font-size:.56rem;line-height:1.2;letter-spacing:.02em}
+#dlpanel .dlmain{flex:1;min-width:0}
+#dlpanel .dlnm{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#dlpanel .dlmain .meta{margin-top:3px}
+#dlpanel .dlbtns{flex:none;display:flex;align-items:center;gap:2px}
+#dlpanel .dlib{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;padding:0;border:0;border-radius:50%;background:none;color:var(--sub);cursor:pointer}
+#dlpanel .dlib:hover{background:color-mix(in srgb,var(--text) 9%,transparent);color:var(--text)}
+#dlpanel .dlbtns .mini{cursor:pointer}
+#dlpanel .dlempty{padding:28px 8px;text-align:center}
+#dlpanel .dlfoot{display:flex;align-items:center;gap:8px;padding:9px 16px;background:var(--surface);border-top:1px solid var(--line)}
+#dlpanel .dlfoot>span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
