@@ -172,6 +172,15 @@ def init_db():
                 pinned INTEGER DEFAULT 0, created_at TEXT, updated_at TEXT
             );
             CREATE INDEX IF NOT EXISTS idx_sticky_day ON sticky(day);
+            -- 업무 위키 (2.35): 주제를 나무처럼 엮는 자유 문서. 행 하나 = 문서 하나 = 분류 하나 (parent_id 가 없으면 최상위)
+            -- 본문은 서버에서 허용 목록으로 걸러 낸 HTML (rnotes/wiki.py)
+            CREATE TABLE IF NOT EXISTS wiki (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                parent_id INTEGER DEFAULT NULL, pos INTEGER DEFAULT 0,
+                title TEXT NOT NULL DEFAULT '', body TEXT DEFAULT '',
+                created_at TEXT, updated_at TEXT
+            );
+            CREATE INDEX IF NOT EXISTS idx_wiki_parent ON wiki(parent_id, pos);
             -- 트러블슈팅: 레드마인·사전·검색과 상관없는 독립 정리집 (한 건 = 증상/원인/해결/참고 한 장)
             CREATE TABLE IF NOT EXISTS trouble (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,

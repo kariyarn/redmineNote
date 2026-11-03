@@ -7,7 +7,7 @@ import sys
 from isolated_env import isolated_env
 
 ROOT = Path(__file__).resolve().parent.parent
-TESTS = ("alarm", "autosync", "gitbackup", "update", "attention", "beta", "queries", "commands")
+TESTS = ("alarm", "autosync", "gitbackup", "update", "attention", "beta", "queries", "commands", "wiki")
 
 
 def main():

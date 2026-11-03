@@ -36,6 +36,7 @@ from . import updater
 from .attention import notify as attention_notify
 from .commands import command_delete, command_list, command_reorder, command_save, var_delete, var_list, var_save
 from .trouble import trouble_row, trouble_save
+from .wiki import wiki_delete, wiki_list, wiki_move, wiki_save
 from . import gitbackup
 from . import memoimg
 
@@ -171,6 +172,8 @@ class Handler(BaseHTTPRequestHandler):
             self.send_json(command_list())
         elif u.path == "/api/cmdvars":           # 명령어 변수 (상수 · 함수)
             self.send_json(var_list())
+        elif u.path == "/api/wiki":             # 업무 위키 문서 전부 (나무는 화면에서 엮는다)
+            self.send_json(wiki_list())
         elif u.path == "/api/trouble":          # 트러블슈팅 전부 (최근 수정 순)
             with db() as c:
                 self.send_json([trouble_row(r) for r in c.execute("SELECT * FROM trouble ORDER BY updated_at DESC, id DESC LIMIT 5000")])
@@ -593,6 +596,11 @@ class Handler(BaseHTTPRequestHandler):
                     self.send_json(var_save(d))
                 except (ValueError, TypeError) as e:
                     self.send_json({"error": str(e)}, 400)
+            elif u.path in ("/api/wiki", "/api/wiki/move"):
+                try:
+                    self.send_json((wiki_move if u.path.endswith("/move") else wiki_save)(d))
+                except (ValueError, TypeError) as e:
+                    self.send_json({"error": str(e)}, 400)
             elif u.path == "/api/trouble":
                 try:
                     self.send_json(trouble_save(d))
@@ -817,6 +825,12 @@ class Handler(BaseHTTPRequestHandler):
         elif u.path.startswith("/api/cmdvars/"):
             try:
                 var_delete(int(name))
+                self.send_json({"ok": True})
+            except (ValueError, TypeError) as e:
+                self.send_json({"error": str(e)}, 400)
+        elif u.path.startswith("/api/wiki/"):
+            try:
+                wiki_delete(name)
                 self.send_json({"ok": True})
             except (ValueError, TypeError) as e:
                 self.send_json({"error": str(e)}, 400)
