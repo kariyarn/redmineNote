@@ -2,7 +2,7 @@
 - 행 이름이 곧 문서 제목이다. 본문을 고쳐도 행 이름은 바뀌지 않는다.
 - 본문은 HTML 로 저장한다. 저장할 때 서버에서 허용 목록(태그 · 속성 · 값)만 남기고 나머지는 버린다
   (화면 · 붙여넣기 · 깃허브 백업 복원 어느 길로 들어와도 스크립트가 남지 않게).
-- 형광펜 · 글자색은 색 값이 아니라 이름(class)으로만 저장한다: 테마마다 화면에서 색을 정한다.
+- 형광펜 · 글자색 · 글자 크기는 값이 아니라 이름(class)으로만 저장한다: 테마마다 화면에서 색 · 크기를 정한다.
 - 연결(쿼리 · 트러블슈팅 · 코드 · 일감 · 다른 위키 문서)은 <a class="lk" data-k=".." data-ref=".."> 로 id 만 저장한다.
   이름은 화면에서 그때그때 찾아 붙이므로 원래 항목의 이름을 바꿔도 링크가 깨지지 않는다.
 """
@@ -32,6 +32,7 @@ _RENAME = {"h1": "h2", "h5": "h4", "h6": "h4"}      # 본문 제목은 3단계�
 
 HL = ("hl-y", "hl-g", "hl-p", "hl-b")
 FC = ("fc-red", "fc-org", "fc-blue", "fc-gray")
+FS = ("fs-s", "fs-l", "fs-xl")      # 글자 크기 (2.36): 작게 · 크게 · 아주 크게. 기본 크기는 class 없음
 LINK_KINDS = ("issue", "vault", "trouble", "code", "wiki")
 _NUM_ID = re.compile(r"[1-9][0-9]{0,11}")
 _CODE_ID = re.compile(r"[^\x00-\x1f\x7f<>\"'`&]{1,200}")
@@ -64,7 +65,7 @@ class _Clean(HTMLParser):
         keep = []
         if tag == "mark" and a.get("class") in HL:
             keep.append(("class", a["class"]))
-        elif tag == "span" and a.get("class") in FC:
+        elif tag == "span" and a.get("class") in FC + FS:
             keep.append(("class", a["class"]))
         elif tag == "a":
             kind, lid = a.get("data-k", ""), a.get("data-ref", "")
