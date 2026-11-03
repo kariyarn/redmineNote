@@ -76,6 +76,8 @@ class _Clean(HTMLParser):
             if not IMG_NAME.fullmatch(a.get("data-img", "")):
                 return None
             keep.append(("data-img", a["data-img"]))
+        elif tag == "table" and a.get("class") == "tw-full":     # 표 폭: 본문 폭에 꽉 채우기 (2.37). 없으면 내용만큼
+            keep.append(("class", "tw-full"))
         elif tag in ("th", "td"):
             for k in ("colspan", "rowspan"):
                 if re.fullmatch(r"[1-9][0-9]?", a.get(k, "")):
