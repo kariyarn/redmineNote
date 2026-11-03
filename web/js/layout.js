@@ -19,7 +19,7 @@ function toggleNoteMax(){
 }
 function applyUI(){
   const vault=nav.startsWith("vault"),max=noteMax();
-  $("#nav").style.display=max?"none":"";$("#nav").classList.toggle("nav-collapsed",!!ui.navCollapsed);$("#center").classList.toggle("nmax",max);
+  $("#nav").style.display=max||(typeof wkFullOn==="function"&&wkFullOn())?"none":"";$("#nav").classList.toggle("nav-collapsed",!!ui.navCollapsed);$("#center").classList.toggle("nmax",max);     // 업무 위키 전체 화면도 왼쪽 메뉴를 숨긴다
   const hideL=max||ui.hl||nav==="mine"||nav==="code"||nav==="memo"||nav==="deploy"||nav==="trouble"||nav==="wiki"||nav==="queries"||nav==="commands"||vault;      // 내 기록·보관함은 가운데 화면만 넓게 쓴다
   const col=!max&&!isNarrow()&&!ui.hr&&nav!=="memo"&&nav!=="deploy"&&nav!=="trouble"&&nav!=="wiki"&&nav!=="queries"&&nav!=="commands"&&!vault;      // 넓은 창: 사전을 오른쪽 칸으로. 좁은 창: 칸을 만들지 않고 필요할 때만 겹쳐서 연다
   const strip=!hideL&&listStrip();     // 노트를 연 동안 목록은 아이콘 줄로 (노트 폭을 지킨다)

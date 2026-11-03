@@ -157,3 +157,12 @@ a.lk.gone{--kc:var(--sub);color:var(--sub);text-decoration:line-through}
   .wk-ed{border-left:0;border-top:1px solid var(--line)}
   .wk-top{flex-wrap:wrap}.wk-q{width:150px}
 }
+
+/* 전체 화면 (2.35.1): 왼쪽 메뉴 · 열 보기를 숨기고 문서를 가운데 읽기 폭으로 */
+#wkColsT.on{background:var(--accent-soft);color:var(--text);border-color:color-mix(in srgb,var(--accent) 40%,var(--line))}
+.wk-wrap.full:not(.cols-on) .wk-cols,.wk-wrap.full:not(.cols-on) .wk-split{display:none}
+.wk-wrap.full:not(.cols-on) .wk-ed{border-left:0}
+.wk-wrap.full{--wk-read:860px}
+.wk-wrap.full .wk-hd,.wk-wrap.full .wk-tb,.wk-wrap.full .wk-scroll{padding-left:max(26px,calc((100% - var(--wk-read))/2));padding-right:max(26px,calc((100% - var(--wk-read))/2))}
+.wk-wrap.full .wk-doc,.wk-wrap.full .wk-subs{max-width:none}
+.wk-wrap.full .wk-doc{font-size:1.04rem}

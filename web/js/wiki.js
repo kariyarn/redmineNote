@@ -78,19 +78,40 @@ async function renderWiki(){
     <div class="wk-top"><h2>업무 위키</h2><nav class="wk-crumbs" id="wkCrumbs" aria-label="문서 경로"></nav>
       <div class="search wk-q"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input id="wkQ" placeholder="제목 · 본문 찾기" value="${esc(wkQ)}" autocomplete="off"></div>
       <button type="button" id="wkNewRoot" title="맨 위 단계에 새 주제를 만들어요">＋ 새 주제</button>
+      <button type="button" id="wkColsT" title="열 보기를 잠깐 꺼내요 (전체 화면에서만)" aria-pressed="false">열 보기</button>
+      <button type="button" id="wkFull" title="" aria-pressed="false"></button>
       <button type="button" class="primary" id="wkExp" title="지금 문서(와 하위 문서)를 파일로 내보내요">내보내기</button></div>
     <div class="wk-body"><div class="wk-cols" id="wkCols" tabindex="0" role="tree" aria-label="문서 열 보기 · 화살표로 이동, Enter 로 편집" style="--wk-cols:${cols};width:${Math.max(220,ui.wkW||cols*210)}px"></div>
       <div class="wk-split" id="wkSplit" title="끌어서 폭 조절"></div><section class="wk-ed" id="wkEd"></section></div></div>`;
   $("#wkQ").oninput=e=>{wkQ=e.target.value.trim();wkDrawCols()};
   $("#wkQ").onkeydown=e=>{if(e.key==="Escape"){e.target.value="";wkQ="";wkDrawCols()}else if(e.key==="Enter"){const h=$("#wkCols [data-wid]");if(h)h.click()}};
   $("#wkNewRoot").onclick=()=>wkCreate(null);
+  $("#wkFull").onclick=()=>wkSetFull(!wkFull);
+  $("#wkColsT").onclick=()=>{ui.wkFullCols=!ui.wkFullCols;saveUI();wkApplyFull()};
   $("#wkExp").onclick=()=>{const w=wkCur();w?wkExport(w):toast("내보낼 문서를 먼저 골라요",2200)};
   wkWireCols();wkWireSplit();
-  wkDrawCols();wkDrawEd();
+  wkDrawCols();wkDrawEd();wkApplyFull();
 }
+/* 전체 화면 (2.35.1): 앱 왼쪽 메뉴와 열 보기를 숨기고 문서를 창 가운데에 읽기 좋은 폭으로.
+   위쪽 경로 표시줄 · 아래 하위 문서 단추로 오가고, '열 보기' 로 열을 잠깐 꺼낼 수 있다. 찾는 중에는 찾은 목록이 보인다. Esc(글 칸 밖) = 원래대로 */
+let wkFull=false;      // 앱을 다시 켜면 늘 꺼진 채로 (켜자마자 왼쪽 메뉴가 없는 화면이 되지 않게)
+const wkFullOn=()=>view==="wiki"&&wkFull;
+function wkApplyFull(){
+  const w=$(".wk-wrap");if(!w)return;const on=wkFull,cols=on&&(!!ui.wkFullCols||!!wkQ);
+  w.classList.toggle("full",on);w.classList.toggle("cols-on",cols);
+  const b=$("#wkFull");if(b){b.textContent=on?"원래대로":"전체 화면";b.title=on?"왼쪽 메뉴 · 열 보기를 다시 보여요 (Esc)":"왼쪽 메뉴 · 열 보기를 숨기고 문서를 가운데에 넓게 봐요";b.setAttribute("aria-pressed",on)}
+  const c=$("#wkColsT");if(c){c.hidden=!on;c.setAttribute("aria-pressed",cols);c.classList.toggle("on",cols)}
+}
+function wkSetFull(on){wkFull=!!on;applyUI();wkApplyFull();const d=on?$("#wkDoc"):$("#wkCols");if(d)d.focus({preventScroll:true})}
+document.addEventListener("keydown",e=>{
+  if(e.key!=="Escape"||!wkFullOn()||e.defaultPrevented||document.querySelector("#wdlg.show,#wkPk,.wk-menu"))return;
+  const a=document.activeElement;if(a&&(a.isContentEditable||/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)))return;     // 글을 쓰는 중이면 Esc 는 그 칸의 것
+  e.preventDefault();wkSetFull(false);
+});
 function wkDrawCols(){
   const el=$("#wkCols");if(!el)return;
   const cur=wkPath[wkPath.length-1];
+  wkApplyFull();
   if(wkQ){      // 찾기: 열 대신 찾은 문서 목록
     const q=wkQ.toLowerCase(),hit=wikis.filter(w=>wkText(w).includes(q)).slice(0,200);
     el.innerHTML=`<div class="wk-col wk-hits"><div class="wk-ch"><span>찾은 문서 ${hit.length}개</span></div>${hit.map(w=>`<button type="button" class="wk-row${w.id===cur?" cur":""}" data-wid="${w.id}"><span class="nm">${esc(w.title)}</span><span class="wk-trail">${esc(wkTrail(w.id).slice(0,-1).map(x=>x.title).join(" › ")||"최상위")}</span></button>`).join("")||`<div class="wk-none">찾는 문서가 없어요</div>`}</div>`;
