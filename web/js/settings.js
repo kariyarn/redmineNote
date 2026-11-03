@@ -35,7 +35,10 @@ async function renderSettings(){
 
    ${updSection(sec)}
    ${sec("gen","다운로드","첨부파일 · 내보내기 · 백업을 내려받으면 브라우저 팝업 없이 이 폴더에 바로 저장해요. 받은 파일은 왼쪽 아래 ⬇ 단추 · Ctrl+J 로 모아 봐요.",`
-     <div class="srow"><span class="sl">저장 폴더</span><div class="sc"><code class="ic" id="dlDirNow">…</code><button type="button" id="dlDirBtn">바꾸기</button><button type="button" id="dlDirOpen">폴더 열기</button></div></div>`)}
+     <div class="srow"><span class="sl">저장 폴더</span><div class="sc"><code class="ic" id="dlDirNow">…</code><button type="button" id="dlDirBtn">바꾸기</button><button type="button" id="dlDirOpen">폴더 열기</button></div></div>
+     <div class="srow"><span class="sl">다 받으면</span><div class="sc"><div class="seg"><button type="button" data-dlauto="panel" class="${dlCfg().auto==="panel"?"on":""}">목록 바로 열기</button><button type="button" data-dlauto="toast" class="${dlCfg().auto==="toast"?"on":""}">알림만 (열기 · 목록 단추)</button></div></div></div>
+     <div class="srow"><span class="sl">파일 열기</span><div class="sc"><div class="seg"><button type="button" data-dlclick="single" class="${dlCfg().click==="single"?"on":""}">한 번 클릭</button><button type="button" data-dlclick="double" class="${dlCfg().click==="double"?"on":""}">두 번 클릭</button></div><span class="hint">목록에서 파일을 눌러 열 때</span></div></div>
+     <div class="srow"><span class="sl">파일 옆 단추</span><div class="sc">${DL_BTNS.map(([k,l])=>`<label class="chk"><input type="checkbox" data-dlbtn="${k}" ${dlCfg().btns.includes(k)?"checked":""}> ${esc(l)}</label>`).join("")}<label class="chk" style="margin-left:8px"><input type="checkbox" id="dlIcon" ${dlCfg().icon?"checked":""}> 아이콘으로 보이기</label></div></div>`)}
 
    ${sec("gen","알림 방식","앱 창을 <b>보고 있지 않을 때</b>(최소화 · 다른 창에 가려짐 · 다른 앱 사용 중 · 창을 닫아 트레이에만 있음) 알림을 놓치지 않게 해요.",`
      <div><label class="chk"><input type="checkbox" id="nFlash" ${S.notify_flash!=="0"?"checked":""}> 작업 표시줄 아이콘 반짝이기 <span class="hint">창을 다시 볼 때까지</span></label></div>
@@ -75,8 +78,11 @@ async function renderSettings(){
      <div class="srow"><span class="sl">메뉴 줄 간격</span><div class="sc"><div class="seg"><button type="button" id="ndNorm" class="${ui.navDense?"":"on"}">보통</button><button type="button" id="ndDense" class="${ui.navDense?"on":""}">촘촘</button></div></div></div>
      <div class="srow"><span class="sl">메뉴에 보일 항목</span><div class="sc navopt">${NAV_OPT.map(([k,l])=>`<label class="chk"><input type="checkbox" data-navopt="${k}" ${(ui.navHide||[]).includes(k)?"":"checked"}> ${l}</label>`).join("")}<span class="hint">끈 항목은 왼쪽 메뉴에서 숨겨요 · <b>오늘</b>과 지금 보는 화면은 늘 보여요</span></div></div>
      <div class="srow"><span class="sl">우클릭 메뉴</span><div class="sc ctxopt"><label class="chk"><input type="checkbox" id="ctxNative" ${ui.ctxNative?"checked":""}> 브라우저 기본 메뉴 쓰기</label>
-       ${Object.entries(CTX_GROUPS).map(([g,gl])=>`<div class="ctxg"><span class="meta">${gl}</span>${CTX_ITEMS.filter(x=>x[2]===g).map(([k,l])=>`<label class="chk"><input type="checkbox" data-ctxopt="${k}" ${ctxOn(k)?"checked":""} ${ui.ctxNative?"disabled":""}> ${esc(l)}</label>`).join("")}</div>`).join("")}
-       <span class="hint">앱의 우클릭 메뉴에 보일 항목이에요. 그 자리에서 쓸 수 있는 것만 나와요 · <b>Shift+우클릭</b>은 언제나 브라우저 기본 메뉴</span></div></div>
+       <table class="ctxtbl"><thead><tr><th>보이기</th><th>항목</th><th title="메뉴가 떠 있을 때 이 글자를 누르면 바로 실행">메뉴 키</th><th title="메뉴 없이 어디서나 바로 실행 (Ctrl · Alt 조합 또는 F1~F12)">바로 실행 단축키</th></tr></thead><tbody>
+       ${Object.entries(CTX_GROUPS).map(([g,gl])=>`<tr class="ctxgh"><td colspan="4">${gl}</td></tr>`+CTX_ITEMS.filter(x=>x[2]===g).map(([k,l])=>`<tr data-ctxrow="${k}"><td><input type="checkbox" data-ctxopt="${k}" ${ctxOn(k)?"checked":""} ${ui.ctxNative?"disabled":""} aria-label="${esc(l)} 보이기"></td><td>${esc(l)}</td><td><kbd class="ck">${esc(CTX_ACCEL[k]||"")}</kbd></td>
+         <td><button type="button" class="mini ctxkey" data-ctxkey="${k}">${ctxKeyOf(k)?`<kbd>${esc(ctxKeyOf(k))}</kbd>`:"지정"}</button>${ctxKeyOf(k)?`<button type="button" class="icon ctxkeyx" data-ctxkeyx="${k}" title="단축키 지우기">✕</button>`:""}${ctxKeyOf(k)&&ctxKeyCheck(ctxKeyOf(k),k).warn?`<span class="ctxwarn" title="${esc(ctxKeyCheck(ctxKeyOf(k),k).warn)}">⚠</span>`:""}</td></tr>`).join("")).join("")}
+       </tbody></table>
+       <span class="hint">그 자리에서 쓸 수 있는 항목만 메뉴에 나와요. 메뉴가 떠 있을 때 <b>메뉴 키</b>(글자)를 누르면 바로 실행되고, <b>바로 실행 단축키</b>는 메뉴 없이 어디서나 실행돼요 (링크 · 사진 · 일감은 마우스가 있는 곳, 없으면 지금 연 노트). 단축키끼리 · 앱 단축키와는 겹칠 수 없고, 윈도우 · 브라우저가 먼저 쓰는 키는 ⚠ 로 알려 줘요 · <b>Shift+우클릭</b>은 언제나 브라우저 기본 메뉴</span></div></div>
      <div class="srow"><span class="sl">확대/축소</span><div class="sc"><label class="chk"><input type="checkbox" id="zAllow" ${ui.allowZoom?"checked":""}> 허용</label><span class="hint">기본은 막혀 있어요 · Ctrl+0 = 100%</span></div></div>
      ${sMore(`<b>새 디자인</b>: 선 아이콘 · 밑줄 탭 · 묶은 메뉴로 화면을 덜어 낸 모양이에요. 정리 기록 자동 저장, 댓글 상태 선택칸, 목록형 오늘 화면 같은 동작도 함께 바뀌어요. 저장된 데이터는 똑같아요.<br><b>노트 모양</b>: 한 장의 문서(굵은 구분선 + 큰 제목)처럼 보거나 예전처럼 카드로 나눠 봐요.<br><b>메뉴 줄 간격</b>: 메뉴가 길어 스크롤이 생기면 촘촘으로. 새 디자인에서는 메뉴 묶음 제목을 눌러 접고, 가져오기 단추 옆 ▸ 로 아래 안내를 접어요.<br><b>확대/축소</b>: 크롬 기반이라 확대하면 화면이 어긋날 수 있어 기본은 막아 둬요(Ctrl+휠 · Ctrl +/- · 두 손가락). 글자 크기는 <b>글꼴</b> 탭에서 바꾸세요.`)}`)}
 
@@ -142,8 +148,14 @@ async function renderSettings(){
   q("#dsOld").onclick=()=>setDs("classic");q("#dsV2").onclick=()=>setDs("v2");
   const setNd=v=>{ui.navDense=v;saveUI();applyTheme();renderSettings()};
   q("#ndNorm").onclick=()=>setNd(false);q("#ndDense").onclick=()=>setNd(true);
+  const dlSegs=(attr,key)=>$("#modal").querySelectorAll(`[${attr}]`).forEach(b=>b.onclick=()=>{ui[key]=b.getAttribute(attr);saveUI();$("#modal").querySelectorAll(`[${attr}]`).forEach(x=>x.classList.toggle("on",x===b));if($("#dlpanel.show"))dlPaint()});
+  dlSegs("data-dlauto","dlAuto");dlSegs("data-dlclick","dlClick");
+  $("#modal").querySelectorAll("[data-dlbtn]").forEach(c=>c.onchange=()=>{ui.dlBtns=[...$("#modal").querySelectorAll("[data-dlbtn]:checked")].map(x=>x.dataset.dlbtn);saveUI();if($("#dlpanel.show"))dlPaint()});
+  if($("#dlIcon"))$("#dlIcon").onchange=e=>{ui.dlIcon=e.target.checked;saveUI();if($("#dlpanel.show"))dlPaint()};
   if($("#dlDirBtn")){$("#dlDirBtn").onclick=dlFolderDialog;$("#dlDirOpen").onclick=()=>dlAct("reveal");api("/api/dl").then(r=>{if($("#dlDirNow"))$("#dlDirNow").textContent=r.folder}).catch(()=>{})}
   $("#ctxNative").onchange=e=>{ui.ctxNative=e.target.checked;saveUI();$("#modal").querySelectorAll("[data-ctxopt]").forEach(c=>c.disabled=ui.ctxNative);toast(ui.ctxNative?"우클릭하면 브라우저 기본 메뉴가 떠요":"우클릭하면 앱 메뉴가 떠요",2200)};
+  $("#modal").querySelectorAll("[data-ctxkeyx]").forEach(b=>b.onclick=()=>{const m=Object.assign({},ui.ctxKeys);delete m[b.dataset.ctxkeyx];ui.ctxKeys=m;saveUI();renderSettings()});
+  $("#modal").querySelectorAll("[data-ctxkey]").forEach(b=>b.onclick=()=>ctxRecord(b.dataset.ctxkey,b));
   $("#modal").querySelectorAll("[data-ctxopt]").forEach(c=>c.onchange=()=>{const h=new Set(ui.ctxOff||[]);if(c.checked)h.delete(c.dataset.ctxopt);else h.add(c.dataset.ctxopt);ui.ctxOff=[...h];saveUI()});
   $("#modal").querySelectorAll("[data-navopt]").forEach(c=>c.onchange=()=>{const k=c.dataset.navopt,h=new Set(ui.navHide||[]);
     if(c.checked)h.delete(k);else h.add(k);ui.navHide=[...h];
