@@ -1,12 +1,13 @@
 /* ---------- 업무 위키 (2.35): 주제를 나무처럼 엮는 자유 문서 ----------
    왼쪽 = 맥 파인더 같은 열 보기 (행을 누르면 오른쪽에 그 문서, 다음 열에 하위 행). 오른쪽 = 고정 편집기.
    - 행 이름 = 문서 제목. 본문을 고쳐도 행 이름은 그대로. 하위 행 = 하위 문서. 본문이 빈 행은 흐리게 (빠진 곳 점검)
-   - 본문은 HTML. 화면에서도(wkClean) 서버에서도(rnotes/wiki.py) 허용 목록만 남긴다. 형광펜 · 글자색은 이름(class)으로만
+   - 본문은 HTML. 화면에서도(wkClean) 서버에서도(rnotes/wiki.py) 허용 목록만 남긴다. 형광펜 · 글자색 · 글자 크기는 이름(class)으로만
    - 연결: [[ 또는 '연결' 단추 → 보관함(코드 · 쿼리) · 트러블슈팅 · 코드 이력 · 일감(내 노트 + 레드마인 전체 검색) · 다른 위키 문서
      저장은 <a class="lk" data-k data-ref> 로 id 만. 이름은 볼 때 찾아 붙인다 (원래 항목 이름을 바꿔도 안 깨진다)
    - 내보내기: .html(형광펜 · 글자색 · 표 · 사진 그대로) / .md, 이 문서부터 / 주제 전체, 하위 문서 같이 · 빈 문서 넣기 고르기
    - 사진: 붙여넣기 · 끌어다 놓기 · '사진' 단추. 줄여서(webp) DB 에 저장 → 백업에 같이 들어간다. 본문에는 <img data-img="해시.webp"> 로 이름만
-   - 잠금: 주제를 암호로 잠근다(그 아래 문서 전부). 서버가 열쇠 없이는 내주지 않는다. 연 상태(열쇠)는 이 창 메모리에만 → 창을 닫았다 열면 다시 잠김 */
+   - 잠금: 주제를 암호로 잠근다(그 아래 문서 전부). 서버가 열쇠 없이는 내주지 않는다. 연 상태(열쇠)는 이 창 메모리에만 → 창을 닫았다 열면 다시 잠김
+   - 편집기(2.36): 글자 크기(fs-*) · 목록 Tab/Shift+Tab 들여쓰기 · 줄 처음 '- ' '1. ' '# ' 마크다운식 입력 · 표 줄과 칸 우클릭 메뉴 · 창 폭에 맞춘 열 수 */
 let wikis=[],wkLoaded=false,wkPath=[],wkQ="",wkSaveT=null,wkDirty=null,wkSavedRange=null,wkPk=null;
 const wkKeys=new Map();      // 잠긴 주제 id -> 연 열쇠 (메모리에만: 창을 닫으면 사라져서 다시 잠긴다)
 const wkHdr=()=>wkKeys.size?{"X-Wiki-Keys":[...wkKeys.values()].join(",")}:{};
@@ -18,6 +19,7 @@ const WK_LOCK_IC=IC('<rect x="5" y="11" width="14" height="10" rx="2"/><path d="
 const WK_IMG_RE=/^[0-9a-f]{40}\.(?:png|jpg|webp|gif)$/;
 const WK_HL=[["hl-y","노랑"],["hl-g","초록"],["hl-p","분홍"],["hl-b","파랑"]];
 const WK_FC=[["fc-red","빨강"],["fc-org","주황"],["fc-blue","파랑"],["fc-gray","회색"]];
+const WK_FS=[["fs-s","작게"],["","보통"],["fs-l","크게"],["fs-xl","아주 크게"]];      // 글자 크기 (2.36): 값이 아니라 이름(class)으로. "" = 기본 크기 (class 없음)
 const WK_KINDS={issue:"일감",vault:"보관함",trouble:"트러블슈팅",code:"코드 이력",wiki:"위키"};
 const wkIc=k=>({issue:IC('<path d="M5 4h14v16H5z"/><path d="M9 9h6M9 13h6M9 17h3"/>'),vault:NAVICON.queries,trouble:NAVICON.trouble,code:NAVICON.code,wiki:NAVICON.wiki})[k]||"";
 async function wkLoad(force){if(wkLoaded&&!force)return;try{wikis=await wkApi("/api/wiki");wkLoaded=true}catch(e){toast("업무 위키를 읽지 못했어요: "+e.message,5000)}}
@@ -46,7 +48,7 @@ function wkClean(html){
     let el=document.createElement(tag);
     const cls=n.getAttribute("class")||"";
     if(tag==="mark"&&WK_HL.some(x=>x[0]===cls))el.className=cls;
-    else if(tag==="span"&&WK_FC.some(x=>x[0]===cls))el.className=cls;
+    else if(tag==="span"&&cls&&[...WK_FC,...WK_FS].some(x=>x[0]===cls))el.className=cls;
     else if(tag==="a"){
       const k=n.getAttribute("data-k")||"",id=n.getAttribute("data-ref")||"";
       if(cls.split(/\s+/)[0]!=="lk"||!WK_KINDS[k]||!(k==="code"?/^[^\x00-\x1f\x7f<>"'`&]{1,200}$/.test(id)&&id.trim()===id:/^[1-9][0-9]{0,11}$/.test(id))){n.childNodes.forEach(c=>walk(c,parent));return}
@@ -102,7 +104,7 @@ async function renderWiki(){
   $("#wkFull").onclick=()=>wkSetFull(!wkFull);
   $("#wkColsT").onclick=()=>{ui.wkFullCols=!ui.wkFullCols;saveUI();wkApplyFull()};
   $("#wkExp").onclick=()=>{const w=wkCur();wkExport(w&&!wkShut(w)?w:null)};
-  wkWireCols();wkWireSplit();
+  wkWireCols();wkWireSplit();wkWatchSize();
   wkDrawCols();wkDrawEd();wkApplyFull();
 }
 /* 전체 화면 (2.35.1): 앱 왼쪽 메뉴와 열 보기를 숨기고 문서를 창 가운데에 읽기 좋은 폭으로.
@@ -128,14 +130,13 @@ function wkDrawCols(){
   wkApplyFull();
   if(wkQ){      // 찾기: 열 대신 찾은 문서 목록
     const q=wkQ.toLowerCase(),hit=wikis.filter(w=>wkText(w).includes(q)).slice(0,200);
-    wkColsSize(el,2);
+    wkColsSize(el,2,true);
     el.innerHTML=`<div class="wk-col wk-hits"><div class="wk-ch"><span>찾은 문서 ${hit.length}개</span></div>${hit.map(w=>`<button type="button" class="wk-row${w.id===cur?" cur":""}" data-wid="${w.id}"><span class="nm">${esc(w.title)}</span><span class="wk-trail">${esc(wkTrail(w.id).slice(0,-1).map(x=>x.title).join(" › ")||"최상위")}</span></button>`).join("")||`<div class="wk-none">찾는 문서가 없어요</div>`}</div>`;
     $("#wkCrumbs").innerHTML="";return;
   }
   const lists=[{list:wkKids(null),parent:null}];
   wkPath.forEach(id=>{const k=wkKids(id);if(k.length)lists.push({list:k,parent:wkById(id)})});
-  const max=Math.max(1,Math.min(4,ui.wkCols||3)),hidden=Math.max(0,lists.length-max);
-  wkColsSize(el,Math.max(1,lists.length-hidden));      // 보이는 열 수만큼만 폭을 쓴다 (빈 열 자리로 문서가 밀리지 않게)
+  const max=Math.max(1,Math.min(4,ui.wkCols||3)),fit=wkColsSize(el,Math.min(max,lists.length)),hidden=Math.max(0,lists.length-fit);      // 보이는 열 수만큼만 폭을 쓴다 (빈 열 자리로 문서가 밀리지 않게)
   el.innerHTML=!wikis.length?`<div class="wk-col"><div class="wk-none"><b>아직 문서가 없어요</b>업무 주제를 나무처럼 엮어 두는 곳이에요.<br>예) 법인콘도 › 경기도청 › 성수기 신청<br><button type="button" class="primary" data-wknew="">＋ 첫 주제 만들기</button></div></div>`
     :lists.slice(hidden).map(c=>`<div class="wk-col" role="group" aria-label="${esc(c.parent?c.parent.title:"주제")}"><div class="wk-ch"><span>${esc(c.parent?c.parent.title:"주제")}</span><button type="button" class="icon" data-wknew="${c.parent?c.parent.id:""}" title="여기에 새 문서" aria-label="여기에 새 문서">＋</button></div>
       ${c.list.map(w=>{const n=wkKids(w.id).length,on=w.id===cur,inP=wkPath.includes(w.id),shut=wkShut(w),emp=!shut&&wkBodyEmpty(w.body)&&!n;
@@ -165,11 +166,25 @@ function wkWireCols(){
   el.oncontextmenu=e=>{const r=e.target.closest("[data-wid]");if(!r||wkQ)return;e.preventDefault();wkMenu(+r.dataset.wid,e)};
 }
 const wkColW=()=>Math.max(160,Math.min(360,ui.wkColW||210));      // 열 하나의 폭 (손잡이로 끌어서 바꾼다)
-function wkColsSize(el,n){el.dataset.n=n;el.style.setProperty("--wk-cols",n);el.style.width=n*wkColW()+"px"}
+/* 열 맞추기 (2.36): 창이 좁으면 문서 쪽 최소 폭(WK_ED_MIN)을 남기고 열 하나의 폭을 줄여서라도 원하는 열 수(최대 3~4)를 보인다.
+   열 하나가 WK_COL_MIN 보다 좁아져야 하면 그때만 열 수를 줄인다 (앞 단계는 경로 표시줄로 접힘) */
+const WK_ED_MIN=420,WK_COL_MIN=150;
+function wkColsFit(want){
+  const body=$(".wk-body"),W=body?body.clientWidth:0;want=Math.max(1,want);
+  if(!W||getComputedStyle(body).flexDirection==="column")return {n:want,w:wkColW()};      // 좁은 창(위아래로 쌓임)은 CSS 가 폭을 정한다
+  const avail=W-WK_ED_MIN-8;let n=want;while(n>1&&avail/n<WK_COL_MIN)n--;
+  return {n,w:Math.max(WK_COL_MIN,Math.min(wkColW(),Math.floor(avail/n)))};
+}
+function wkColsSize(el,want,fixed){const f=wkColsFit(want),n=fixed?want:f.n;el.dataset.n=n;el.style.setProperty("--wk-cols",n);el.style.width=n*f.w+"px";return n}
+let wkRO=null,wkROn=0;
+function wkWatchSize(){      // 창 크기 · 왼쪽 메뉴 접기/펴기로 폭이 바뀌면 열을 다시 맞춘다
+  if(wkRO)wkRO.disconnect();const b=$(".wk-body");if(!b||typeof ResizeObserver==="undefined")return;
+  wkRO=new ResizeObserver(()=>{const w=b.clientWidth;if(!b.isConnected){wkRO.disconnect();return}if(w===wkROn)return;wkROn=w;requestAnimationFrame(()=>{if($("#wkCols"))wkDrawColsSoft()})});wkRO.observe(b);
+}
 function wkWireSplit(){
   const s=$("#wkSplit"),cols=$("#wkCols");
   s.onpointerdown=e=>{if(e.button!==0)return;e.preventDefault();s.setPointerCapture(e.pointerId);s.classList.add("drag");const x0=e.clientX,w0=cols.offsetWidth,n=+cols.dataset.n||1;
-    s.onpointermove=ev=>{ui.wkColW=Math.max(160,Math.min(360,Math.round((w0+ev.clientX-x0)/n)));cols.style.width=n*wkColW()+"px"};
+    s.onpointermove=ev=>{ui.wkColW=Math.max(160,Math.min(360,Math.round((w0+ev.clientX-x0)/n)));cols.style.width=n*wkColsFit(n).w+"px"};
     s.onpointerup=s.onpointercancel=()=>{s.onpointermove=s.onpointerup=s.onpointercancel=null;s.classList.remove("drag");saveUI()}};
 }
 function wkOpen(id){wkFlush();const tr=wkTrail(id);if(!tr.length)return;wkPath=tr.map(w=>w.id);wkDrawCols();wkDrawEd()}
@@ -179,11 +194,20 @@ const WK_TB=()=>`<div class="wk-tb" id="wkTb" role="toolbar" aria-label="서식"
   <select id="wkBlk" aria-label="문단 모양"><option value="p">본문</option><option value="h2">제목 1</option><option value="h3">제목 2</option><option value="h4">제목 3</option></select>
   <span class="g"><button type="button" data-wc="bold" title="굵게 (Ctrl+B)" aria-label="굵게"><b>B</b></button><button type="button" data-wc="italic" title="기울임 (Ctrl+I)" aria-label="기울임"><i>I</i></button><button type="button" data-wc="underline" title="밑줄 (Ctrl+U)" aria-label="밑줄"><u>U</u></button><button type="button" data-wc="strikeThrough" title="취소선" aria-label="취소선"><s>S</s></button></span>
   <span class="g"><span class="wk-dd"><button type="button" data-wdd="hl" title="형광펜 (Ctrl+Shift+H = 마지막에 쓴 색)" aria-label="형광펜">${IC('<path d="M14 4l6 6-8 8H6v-6z"/><path d="M4 21h8"/>')}<span class="wk-sw" id="wkHlNow" style="background:var(--${ui.wkHl||"hl-y"})"></span></button><span class="wk-ddm" id="wkDd-hl">${WK_HL.map(([c,n])=>`<button type="button" data-whl="${c}" title="형광펜 ${n}" aria-label="형광펜 ${n}"><span class="wk-sw" style="background:var(--${c})"></span></button>`).join("")}<button type="button" class="x" data-whl="">지우기</button></span></span>
-    <span class="wk-dd"><button type="button" data-wdd="fc" title="글자색" aria-label="글자색"><span class="wk-fca" style="color:var(--fc-red)">A</span></button><span class="wk-ddm" id="wkDd-fc">${WK_FC.map(([c,n])=>`<button type="button" data-wfc="${c}" title="글자색 ${n}" aria-label="글자색 ${n}"><span class="wk-fca" style="color:var(--${c})">A</span></button>`).join("")}<button type="button" class="x" data-wfc="">기본색</button></span></span></span>
+    <span class="wk-dd"><button type="button" data-wdd="fc" title="글자색" aria-label="글자색"><span class="wk-fca" style="color:var(--fc-red)">A</span></button><span class="wk-ddm" id="wkDd-fc">${WK_FC.map(([c,n])=>`<button type="button" data-wfc="${c}" title="글자색 ${n}" aria-label="글자색 ${n}"><span class="wk-fca" style="color:var(--${c})">A</span></button>`).join("")}<button type="button" class="x" data-wfc="">기본색</button></span></span>
+    <span class="wk-dd"><button type="button" data-wdd="fs" title="글자 크기 (Ctrl+Shift+&gt; 크게 · Ctrl+Shift+&lt; 작게)" aria-label="글자 크기"><span class="wk-fsa">가<small>가</small></span></button><span class="wk-ddm v" id="wkDd-fs">${WK_FS.map(([c,n])=>`<button type="button" data-wfs="${c}" title="글자 크기 ${n}" aria-label="글자 크기 ${n}"><span class="${c||"fs-n"}">가나다</span><small>${n}</small></button>`).join("")}</span></span></span>
   <span class="g"><button type="button" data-wc="insertUnorderedList" title="글머리 목록" aria-label="글머리 목록">${IC('<path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="18" r="1"/>')}</button><button type="button" data-wc="insertOrderedList" title="번호 목록" aria-label="번호 목록">${IC('<path d="M10 6h10M10 12h10M10 18h10"/><path d="M4 5l1.5-1V9M3.5 15.5a1.5 1.5 0 1 1 2.5 1L3.5 19H6.5"/>')}</button>
     <button type="button" data-wi="table" title="표 넣기 (3×3)" aria-label="표 넣기">${IC('<rect x="3" y="4" width="18" height="16" rx="1.5"/><path d="M3 10h18M3 15h18M9 4v16M15 4v16"/>')}</button><button type="button" data-wi="img" title="사진 넣기 (붙여넣기 · 끌어다 놓기로도)" aria-label="사진 넣기">${IC('<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M21 16l-5-5-8 8"/>')}</button><button type="button" data-wi="code" title="코드 상자 (줄 처음에 \`\`\` + Enter 로도)" aria-label="코드 상자">${IC('<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 10l-2 2 2 2M15 10l2 2-2 2"/>')}</button></span>
-  <span class="g wk-tbl" id="wkTbl" hidden><button type="button" data-wt="row" title="아래에 행 추가">행＋</button><button type="button" data-wt="col" title="오른쪽에 열 추가">열＋</button><button type="button" data-wt="rmrow" title="이 행 지우기">행－</button><button type="button" data-wt="rmcol" title="이 열 지우기">열－</button></span>
-  <span class="g"><button type="button" class="wk-lkb" data-wlink title="보관함 · 트러블슈팅 · 코드 이력 · 일감 · 다른 위키 문서 연결 ([[ 로도)">${IC('<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>')}연결</button></span></div>`;
+  <span class="g"><button type="button" class="wk-lkb" data-wlink title="보관함 · 트러블슈팅 · 코드 이력 · 일감 · 다른 위키 문서 연결 ([[ 로도)">${IC('<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>')}연결</button></span></div>
+  <div class="wk-tbar" id="wkTbl" role="toolbar" aria-label="표 고치기" hidden><span class="lb">${WK_TBL_IC.table}표</span>${WK_TBL_OPS.map(o=>o?`<button type="button" data-wt="${o[0]}" class="${o[0].startsWith("rm")?"rm":""}" title="${o[2]}">${WK_TBL_IC[o[0]]}${o[1]}</button>`:`<span class="sepv"></span>`).join("")}<span class="hint">칸에서 우클릭해도 돼요</span></div>`;
+/* 표 고치기 (2.36): 무엇을 하는지 글자로 적은 단추 + 칸 우클릭 메뉴. 단추에 마우스를 올리면 바뀔 행 · 열을 표에 미리 보여 준다 */
+const WK_TBL_OPS=[["rowAbove","위에 행 추가","지금 칸의 위에 빈 행을 넣어요"],["row","아래에 행 추가","지금 칸의 아래에 빈 행을 넣어요"],["colLeft","왼쪽에 열 추가","지금 칸의 왼쪽에 빈 열을 넣어요"],["col","오른쪽에 열 추가","지금 칸의 오른쪽에 빈 열을 넣어요"],null,
+  ["rmrow","이 행 지우기","지금 칸이 있는 가로줄을 지워요"],["rmcol","이 열 지우기","지금 칸이 있는 세로줄을 지워요"],["rmtable","표 지우기","표 전체를 지워요"]];
+const WK_TBL_IC={table:IC('<rect x="3" y="4" width="18" height="16" rx="1.5"/><path d="M3 10h18M3 15h18M9 4v16M15 4v16"/>'),
+  rowAbove:IC('<rect x="4" y="13" width="16" height="7" rx="1"/><path d="M12 3v7M8.5 6.5h7"/>'),row:IC('<rect x="4" y="4" width="16" height="7" rx="1"/><path d="M12 14v7M8.5 17.5h7"/>'),
+  colLeft:IC('<rect x="13" y="4" width="7" height="16" rx="1"/><path d="M3 12h7M6.5 8.5v7"/>'),col:IC('<rect x="4" y="4" width="7" height="16" rx="1"/><path d="M14 12h7M17.5 8.5v7"/>'),
+  rmrow:IC('<rect x="4" y="8" width="16" height="8" rx="1"/><path d="M9.5 10.5l5 3M14.5 10.5l-5 3"/>'),rmcol:IC('<rect x="8" y="4" width="8" height="16" rx="1"/><path d="M10.5 9.5l3 5M13.5 9.5l-3 5"/>'),
+  rmtable:IC('<rect x="3" y="4" width="18" height="16" rx="1.5"/><path d="M9 9l6 6M15 9l-6 6"/>')};
 function wkDrawEd(){
   const el=$("#wkEd");if(!el)return;
   const w=wkCur();
@@ -198,9 +222,10 @@ function wkDrawEd(){
     ${WK_TB()}
     <div class="wk-scroll" id="wkScroll"><div class="wk-page" id="wkPage"><div id="wkDoc" class="wk-doc" contenteditable="true" spellcheck="false" role="textbox" aria-multiline="true" aria-label="본문" data-ph="자유롭게 적어요. 글자를 고르면 서식 툴바가 떠요 · [[ 로 일감 · 보관함 · 트러블슈팅 · 코드 · 다른 문서 연결 · 사진은 붙여넣기"></div>
       <div class="wk-subs">${kids.length?`<div class="lb">이 문서 안의 하위 문서</div><div class="wk-subg">${kids.map(k=>`<button type="button" class="${wkBodyEmpty(k.body)?"empty":""}" data-wsub="${k.id}">${IC('<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/>')}${esc(k.title)}</button>`).join("")}</div>`:""}<button type="button" class="mini" data-wknew2="${w.id}">＋ 하위 문서 만들기</button></div></div></div>
-    <div class="wk-ft" id="wkFt" role="toolbar" aria-label="고른 글자 서식"><button type="button" data-wc="bold" aria-label="굵게"><b>B</b></button><button type="button" data-wc="italic" aria-label="기울임"><i>I</i></button><button type="button" data-wc="underline" aria-label="밑줄"><u>U</u></button><span class="sepv"></span>${WK_HL.map(([c,n])=>`<button type="button" data-whl="${c}" title="형광펜 ${n}" aria-label="형광펜 ${n}"><span class="wk-sw" style="background:var(--${c})"></span></button>`).join("")}<span class="sepv"></span>${WK_FC.map(([c,n])=>`<button type="button" data-wfc="${c}" title="글자색 ${n}" aria-label="글자색 ${n}"><span class="wk-fca" style="color:var(--${c})">A</span></button>`).join("")}<span class="sepv"></span><button type="button" data-wlink title="연결" aria-label="연결">${IC('<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>')}</button></div>`;
+    <div class="wk-ft" id="wkFt" role="toolbar" aria-label="고른 글자 서식"><button type="button" data-wc="bold" aria-label="굵게"><b>B</b></button><button type="button" data-wc="italic" aria-label="기울임"><i>I</i></button><button type="button" data-wc="underline" aria-label="밑줄"><u>U</u></button><span class="sepv"></span>${WK_HL.map(([c,n])=>`<button type="button" data-whl="${c}" title="형광펜 ${n}" aria-label="형광펜 ${n}"><span class="wk-sw" style="background:var(--${c})"></span></button>`).join("")}<span class="sepv"></span>${WK_FC.map(([c,n])=>`<button type="button" data-wfc="${c}" title="글자색 ${n}" aria-label="글자색 ${n}"><span class="wk-fca" style="color:var(--${c})">A</span></button>`).join("")}<span class="sepv"></span>${WK_FS.map(([c,n])=>`<button type="button" class="wk-fsb" data-wfs="${c}" title="글자 크기 ${n}" aria-label="글자 크기 ${n}"><span class="${c||"fs-n"}">가</span></button>`).join("")}<span class="sepv"></span><button type="button" data-wlink title="연결" aria-label="연결">${IC('<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>')}</button></div>`;
   const doc=$("#wkDoc");
-  doc.innerHTML="";doc.appendChild(wkDecorate(wkClean(w.body)));
+  let box=wkDecorate(wkClean(w.body));while(box.childNodes.length===1&&box.firstChild.nodeName==="DIV")box=box.firstChild;      // 예전에 쌓인 <div> 겹은 벗긴다
+  doc.replaceChildren(...box.childNodes);      // 거른 결과를 감싼 <div> 는 빼고 내용만 (2.36: 열 때마다 <div> 가 한 겹씩 늘던 것 고침)
   doc.dataset.wid=w.id;wkDirty=null;
   wkWireEd(w);
 }
@@ -244,17 +269,49 @@ function wkKeep(){const s=getSelection(),d=$("#wkDoc");if(d&&s.rangeCount&&d.con
 function wkRestore(){      // 툴바 · 고르기 창으로 포커스가 나갔을 때만 마지막 선택을 되살린다 (편집기 안에 선택이 있으면 그대로)
   const s=getSelection(),d=$("#wkDoc");if(d&&s.rangeCount&&d.contains(s.anchorNode)&&document.activeElement===d)return;
   if(!wkSavedRange||!d||!d.contains(wkSavedRange.startContainer))return;s.removeAllRanges();s.addRange(wkSavedRange)}
-function wkUnwrapIn(range,sel){
-  const box=range.commonAncestorContainer.nodeType===1?range.commonAncestorContainer:range.commonAncestorContainer.parentElement;
-  [...(box.closest(sel)?[box.closest(sel)]:[]),...box.querySelectorAll(sel)].filter(n=>range.intersectsNode(n)&&$("#wkDoc").contains(n)).forEach(n=>n.replaceWith(...n.childNodes));
+const WK_WRAP_SEL={mark:"mark",fc:"span[class^=fc-]",fs:"span[class^=fs-]"};
+function wkWrap(kind,cls){      // 형광펜(mark) · 글자색(fc) · 글자 크기(fs): 고른 글자를 이름(class)으로 감싼다. cls 가 비면 지우기(기본으로)
+  wkRestore();const s=getSelection(),doc=$("#wkDoc");if(!s.rangeCount||s.isCollapsed||!doc.contains(s.anchorNode)){toast("먼저 글자를 골라요",1800);return}
+  const sel=WK_WRAP_SEL[kind],r=s.getRangeAt(0),box=r.commonAncestorContainer.nodeType===1?r.commonAncestorContainer:r.commonAncestorContainer.parentElement;
+  if(r.cloneContents().querySelector("p,div,h2,h3,h4,li,ul,ol,table,tr,td,th,pre,blockquote")){wkWrapMulti(r,sel,kind,cls);return}      // 여러 문단에 걸치면 글자 조각마다
+  const anc=box.closest(sel),frag=r.extractContents();       // 고른 부분을 꺼낸다 (가운데가 빠진 바깥 서식은 아래에서 둘로 쪼갠다)
+  frag.querySelectorAll(sel).forEach(n=>n.replaceWith(...n.childNodes));
+  let at=r;
+  if(anc&&doc.contains(anc)){      // 같은 종류 서식 안의 일부만 바꾸면: 앞 · 뒤는 원래 서식 그대로 두고 가운데만 바꾼다 (전부 벗기지 않게)
+    const tail=document.createRange();tail.setStart(r.startContainer,r.startOffset);tail.setEnd(anc,anc.childNodes.length);
+    const anc2=anc.cloneNode(false);anc2.appendChild(tail.extractContents());anc.after(anc2);
+    at=document.createRange();at.setStartAfter(anc);at.collapse(true);
+    [anc,anc2].forEach(n=>{if(!n.textContent&&!n.querySelector("img,br"))n.remove()});
+  }
+  let el;
+  if(cls){el=document.createElement(kind==="mark"?"mark":"span");el.className=cls;el.appendChild(frag)}
+  else{el=document.createElement("span");el.appendChild(frag)}      // 지우기: 잠깐 감싸서 넣은 뒤 벗긴다 (선택을 되살리려고)
+  at.insertNode(el);
+  const nr=document.createRange();
+  if(cls)nr.selectNodeContents(el);
+  else{const a=el.firstChild,b=el.lastChild;el.replaceWith(...el.childNodes);if(a){nr.setStartBefore(a);nr.setEndAfter(b)}}
+  s.removeAllRanges();s.addRange(nr);
+  doc.querySelectorAll("mark:empty,span:empty").forEach(n=>n.remove());
+  wkQueue();wkSync();
 }
-function wkWrap(tag,cls){      // 형광펜 · 글자색: 고른 글자를 이름(class)으로 감싼다. cls 가 비면 지우기
-  wkRestore();const s=getSelection();if(!s.rangeCount||s.isCollapsed||!$("#wkDoc").contains(s.anchorNode)){toast("먼저 글자를 골라요",1800);return}
-  const r=s.getRangeAt(0);wkUnwrapIn(r,tag==="mark"?"mark":"span[class^=fc-]");
-  if(cls){const el=document.createElement(tag);el.className=cls;el.appendChild(r.extractContents());el.querySelectorAll(tag==="mark"?"mark":"span[class^=fc-]").forEach(n=>n.replaceWith(...n.childNodes));r.insertNode(el);
-    s.removeAllRanges();const nr=document.createRange();nr.selectNodeContents(el);s.addRange(nr)}
-  $("#wkDoc").normalize();wkQueue();
+function wkWrapMulti(r,sel,kind,cls){      // 문단을 넘는 선택: 걸친 서식은 벗기고, 글자 조각(text)마다 따로 감싼다 (문단이 span 안에 들어가지 않게)
+  const doc=$("#wkDoc"),root=r.commonAncestorContainer.nodeType===1?r.commonAncestorContainer:r.commonAncestorContainer.parentElement;
+  [...(root.closest(sel)?[root.closest(sel)]:[]),...root.querySelectorAll(sel)].filter(n=>r.intersectsNode(n)&&doc.contains(n)).forEach(n=>n.replaceWith(...n.childNodes));
+  const ts=[],tw=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);while(tw.nextNode()){const t=tw.currentNode;if(r.intersectsNode(t)&&!t.parentElement.closest("pre,a.lk"))ts.push(t)}
+  let first=null,last=null;
+  ts.forEach(t=>{
+    let a=t===r.startContainer?r.startOffset:0,b=t===r.endContainer?r.endOffset:t.data.length;if(b<=a)return;
+    if(b<t.data.length)t.splitText(b);if(a>0)t=t.splitText(a);
+    if(!t.data.trim()&&!cls)return;
+    if(cls){const el=document.createElement(kind==="mark"?"mark":"span");el.className=cls;t.replaceWith(el);el.appendChild(t);t=el}
+    first=first||t;last=t});
+  const s=getSelection(),nr=document.createRange();if(first){nr.setStartBefore(first);nr.setEndAfter(last);s.removeAllRanges();s.addRange(nr)}
+  doc.normalize();wkQueue();wkSync();
 }
+const wkFsOf=()=>{const s=getSelection();if(!s.rangeCount)return "";const n=s.anchorNode&&(s.anchorNode.nodeType===1?s.anchorNode:s.anchorNode.parentElement),f=n&&n.closest("span[class^=fs-]");return f&&$("#wkDoc").contains(f)?f.className:""};
+function wkSize(c){wkWrap("fs",c);document.querySelectorAll("#wkDd-fs.on").forEach(m=>m.classList.remove("on"))}
+function wkSizeStep(d){      // Ctrl+Shift+> / < : 한 단계씩 크게 · 작게
+  const order=WK_FS.map(x=>x[0]),i=order.indexOf(wkFsOf());wkSize(order[Math.max(0,Math.min(order.length-1,i+d))])}
 function wkSetHl(c){if(c){ui.wkHl=c;saveUI();const n=$("#wkHlNow");if(n)n.style.background=`var(--${c})`}wkWrap("mark",c)}
 /* 사진 넣기: 긴 쪽 1920px 넘으면 줄여서(webp) DB 에 올리고, 그 이름으로 <img> 를 넣는다 */
 async function wkAddImgs(files){
@@ -270,21 +327,109 @@ async function wkAddImgs(files){
 }
 function wkIns(h){wkRestore();$("#wkDoc").focus();document.execCommand("insertHTML",false,h);wkQueue()}
 function wkCell(){const s=getSelection();if(!s.rangeCount)return null;const n=s.anchorNode&&(s.anchorNode.nodeType===1?s.anchorNode:s.anchorNode.parentElement);const c=n&&n.closest("td,th");return c&&$("#wkDoc").contains(c)?c:null}
-function wkTable(op){
-  const cell=wkCell();if(!cell)return;const table=cell.closest("table"),row=cell.parentElement,idx=[...row.children].indexOf(cell);
-  if([...table.querySelectorAll("td,th")].some(c=>c.colSpan>1||c.rowSpan>1)){toast("합친 칸이 있는 표는 행 · 열을 바꿀 수 없어요",3500);return}
-  if(op==="row"){const r=row.cloneNode(true);r.querySelectorAll("td,th").forEach(c=>{const td=document.createElement("td");td.innerHTML="<br>";c.replaceWith(td)});row.after(r)}
-  if(op==="col")table.querySelectorAll("tr").forEach(r=>{const c=document.createElement(r.children[idx]&&r.children[idx].tagName==="TH"?"th":"td");c.innerHTML="<br>";(r.children[idx]||r.lastElementChild).after(c)});
-  if(op==="rmrow"){row.remove();if(!table.querySelector("tr"))table.remove()}
-  if(op==="rmcol"){table.querySelectorAll("tr").forEach(r=>r.children[idx]&&r.children[idx].remove());if(!table.querySelector("td,th"))table.remove()}
+function wkCaretIn(el){const r=document.createRange();r.selectNodeContents(el);r.collapse(true);const s=getSelection();s.removeAllRanges();s.addRange(r)}
+function wkTable(op,cell){
+  cell=cell||wkCell();if(!cell)return;const table=cell.closest("table"),row=cell.parentElement,idx=[...row.children].indexOf(cell);
+  wkTblPreview(null);
+  if(op==="rmtable"){let p=table.nextElementSibling;if(p&&p.tagName==="P"&&!p.textContent.trim()&&!p.querySelector("img,a.lk"))table.remove();else{p=document.createElement("p");p.innerHTML="<br>";table.replaceWith(p)}
+    wkCaretIn(p);wkQueue();wkSync();return}
+  if([...table.querySelectorAll("td,th")].some(c=>c.colSpan>1||c.rowSpan>1)){toast("합친 칸이 있는 표는 행 · 열을 바꿀 수 없어요 (표 지우기만 돼요)",3500);return}
+  const blank=tag=>{const c=document.createElement(tag);c.innerHTML="<br>";return c};
+  let go=null;      // 바꾼 뒤 글쇠를 둘 칸
+  if(op==="row"||op==="rowAbove"){const r=document.createElement("tr");[...row.children].forEach(()=>r.appendChild(blank("td")));
+    if(op==="row")row.after(r);else row.before(r);go=r.children[idx]}
+  if(op==="col"||op==="colLeft")table.querySelectorAll("tr").forEach(r=>{const ref=r.children[idx]||r.lastElementChild,c=blank(ref&&ref.tagName==="TH"?"th":"td");
+    if(!ref)r.appendChild(c);else if(op==="col")ref.after(c);else ref.before(c);if(r===row)go=c});
+  if(op==="rmrow"){const nx=row.nextElementSibling||row.previousElementSibling;row.remove();
+    if(!table.querySelector("tr")){const p=document.createElement("p");p.innerHTML="<br>";table.replaceWith(p);go=p}else go=nx&&(nx.children[idx]||nx.lastElementChild)}
+  if(op==="rmcol"){table.querySelectorAll("tr").forEach(r=>r.children[idx]&&r.children[idx].remove());table.querySelectorAll("tr").forEach(r=>{if(!r.children.length)r.remove()});
+    if(!table.querySelector("td,th")){const p=document.createElement("p");p.innerHTML="<br>";table.replaceWith(p);go=p}else go=row.isConnected&&(row.children[idx]||row.children[idx-1])}
+  if(go)wkCaretIn(go);
   wkQueue();wkSync();
+}
+function wkTblPreview(op,cell){      // 단추 위에 마우스: 바뀔 행 · 열을 표에 미리 표시
+  document.querySelectorAll("#wkDoc .wk-tp").forEach(c=>c.classList.remove("wk-tp","del","t","b","l","r"));
+  cell=op&&(cell||wkCell());if(!cell)return;const table=cell.closest("table"),row=cell.parentElement,idx=[...row.children].indexOf(cell);
+  const mark=(cs,...k)=>cs.forEach(c=>c&&c.classList.add("wk-tp",...k)),colCells=[...table.querySelectorAll("tr")].map(r=>r.children[idx]);
+  ({rowAbove:()=>mark([...row.children],"t"),row:()=>mark([...row.children],"b"),colLeft:()=>mark(colCells,"l"),col:()=>mark(colCells,"r"),
+    rmrow:()=>mark([...row.children],"del"),rmcol:()=>mark(colCells,"del"),rmtable:()=>mark([...table.querySelectorAll("td,th")],"del")})[op]?.();
+}
+function wkTblMenu(cell,e){      // 표 칸 우클릭 메뉴
+  document.querySelectorAll(".popmenu").forEach(m=>m.remove());
+  const m=document.createElement("div");m.className="popmenu wk-menu wk-tmenu";m.setAttribute("role","menu");
+  m.innerHTML=WK_TBL_OPS.map(o=>o?`<button type="button" role="menuitem" data-wt="${o[0]}" class="${o[0].startsWith("rm")?"rm":""}">${WK_TBL_IC[o[0]]}${o[1]}</button>`:"<hr>").join("");
+  document.body.appendChild(m);
+  m.style.left=Math.max(8,Math.min(innerWidth-m.offsetWidth-8,e.clientX))+"px";m.style.top=Math.max(8,Math.min(innerHeight-m.offsetHeight-8,e.clientY))+"px";
+  const close=()=>{m.remove();wkTblPreview(null);document.removeEventListener("mousedown",off,true)},off=ev=>{if(!m.contains(ev.target))close()};
+  m.onmousedown=ev=>ev.preventDefault();
+  m.onmouseover=ev=>{const b=ev.target.closest("[data-wt]");wkTblPreview(b&&b.dataset.wt,cell)};
+  m.onmouseleave=()=>wkTblPreview(null);
+  m.onclick=ev=>{const b=ev.target.closest("[data-wt]");if(!b)return;close();wkTable(b.dataset.wt,cell)};
+  m.onkeydown=ev=>{const bs=[...m.querySelectorAll("button")],j=bs.indexOf(document.activeElement);
+    if(ev.key==="ArrowDown"){ev.preventDefault();bs[(j+1)%bs.length].focus()}else if(ev.key==="ArrowUp"){ev.preventDefault();bs[(j-1+bs.length)%bs.length].focus()}else if(ev.key==="Escape"){close();$("#wkDoc").focus()}};
+  setTimeout(()=>document.addEventListener("mousedown",off,true),0);
+}
+
+/* 목록 (2.36): Tab = 한 단계 안으로(바로 위 항목의 하위 목록), Shift+Tab = 한 단계 밖으로. 아웃라이너처럼 ul/ol 을 li 안에 넣는다 */
+function wkSelLis(){
+  const s=getSelection(),doc=$("#wkDoc");if(!s.rangeCount)return [];const r=s.getRangeAt(0);
+  const liOf=n=>{const e=n&&(n.nodeType===1?n:n.parentElement);const li=e&&e.closest("li");return li&&doc.contains(li)?li:null};
+  const a=liOf(r.startContainer);if(!a)return [];let b=liOf(r.endContainer)||a;
+  while(b&&b.parentElement!==a.parentElement)b=b.parentElement.closest("li");      // 끝 항목을 시작 항목과 같은 단계로 올린다
+  if(!b||b.compareDocumentPosition(a)&Node.DOCUMENT_POSITION_FOLLOWING)b=a;
+  const out=[];for(let x=a;x;x=x.nextElementSibling){if(x.tagName==="LI")out.push(x);if(x===b)break}return out;
+}
+function wkKeepSel(fn){const s=getSelection(),r=s.rangeCount?s.getRangeAt(0):null,b=r&&[r.startContainer,r.startOffset,r.endContainer,r.endOffset];
+  fn();if(b)try{const nr=document.createRange();nr.setStart(b[0],b[1]);nr.setEnd(b[2],b[3]);s.removeAllRanges();s.addRange(nr)}catch(_){}}
+function wkIndent(lis){
+  const prev=lis[0]&&lis[0].previousElementSibling;if(!prev||prev.tagName!=="LI")return false;      // 맨 첫 항목은 들어갈 곳이 없다
+  wkKeepSel(()=>{let sub=prev.lastElementChild;if(!sub||!/^(UL|OL)$/.test(sub.tagName)){sub=document.createElement(lis[0].parentElement.tagName.toLowerCase());prev.appendChild(sub)}
+    lis.forEach(li=>sub.appendChild(li))});
+  return true;
+}
+function wkOutdent(lis){
+  const list=lis[0].parentElement,pli=list.parentElement&&list.parentElement.closest("li");
+  if(!pli||!$("#wkDoc").contains(pli)){document.execCommand("outdent");return true}      // 맨 바깥 단계: 목록에서 빼서 문단으로 (브라우저 기본)
+  wkKeepSel(()=>{const last=lis[lis.length-1],after=[];for(let x=last.nextElementSibling;x;x=x.nextElementSibling)after.push(x);
+    if(after.length){let sub=[...last.children].reverse().find(x=>/^(UL|OL)$/.test(x.tagName));if(!sub){sub=list.cloneNode(false);last.appendChild(sub)}after.forEach(x=>sub.appendChild(x))}      // 뒤따르던 항목은 밖으로 나온 항목의 하위로 (순서 유지)
+    let at=pli;lis.forEach(li=>{at.after(li);at=li});
+    if(!list.children.length)list.remove()});
+  return true;
+}
+/* 줄 처음 마크다운 (2.36): '- ' '* ' → 글머리 목록, '1. ' → 번호 목록, '# ' '## ' '### ' → 제목 1 · 2 · 3 */
+const WK_MD_LEAD=[[/^[-*]$/,"ul"],[/^\d{1,3}\.$/,"ol"],[/^#$/,"h2"],[/^##$/,"h3"],[/^###$/,"h4"]];
+function wkMdLead(doc){
+  const s=getSelection();if(!s.rangeCount||!s.isCollapsed)return false;
+  const blkOf=()=>{const n=s.anchorNode,e=n&&(n.nodeType===1?n:n.parentElement);if(!e||e.closest("pre,li,td,th,a.lk,blockquote"))return null;const b=e.closest("p,div,h2,h3,h4");return b&&doc.contains(b)&&b!==doc?b:doc};
+  let blk=blkOf();if(!blk)return false;
+  const lead=()=>{const r=document.createRange();r.setStart(blk,0);r.setEnd(s.anchorNode,s.anchorOffset);return r};
+  if(blk===doc){      // 문단 밖 맨 글자(빈 편집기에 바로 친 글): 이 줄(앞의 <br> · 문단 뒤부터 다음 <br> 까지)을 문단으로 감싼다
+    let top=s.anchorNode;while(top&&top.parentNode!==doc)top=top.parentNode;if(!top)return false;
+    const stop=x=>x.nodeType===1&&(x.tagName==="BR"||getComputedStyle(x).display!=="inline");
+    let p=top.previousSibling;while(p&&!stop(p))p=p.previousSibling;
+    const r=document.createRange();if(p)r.setStartAfter(p);else r.setStart(doc,0);r.setEnd(s.anchorNode,s.anchorOffset);
+    if(!WK_MD_LEAD.some(([re])=>re.test(r.toString())))return false;
+    const off=[s.anchorNode,s.anchorOffset],np=document.createElement("p");let x=p?p.nextSibling:doc.firstChild;doc.insertBefore(np,x);
+    while(x&&!stop(x)){const nx=x.nextSibling;np.appendChild(x);x=nx}if(x&&x.tagName==="BR")x.remove();
+    const c=document.createRange();c.setStart(off[0],off[1]);s.removeAllRanges();s.addRange(c);blk=np;
+  }
+  const r=lead(),t=r.toString(),hit=WK_MD_LEAD.find(([re])=>re.test(t));if(!hit)return false;
+  const to=hit[1];if((to==="ul"||to==="ol")&&/^H[2-4]$/.test(blk.tagName))return false;      // 제목 줄에서는 목록으로 안 바꾼다
+  r.deleteContents();      // 앞의 '- ' 같은 표시는 지운다
+  const inner=document.createElement(to==="ul"||to==="ol"?"li":to);while(blk.firstChild)inner.appendChild(blk.firstChild);
+  if(!inner.textContent&&!inner.querySelector("img,br"))inner.innerHTML="<br>";
+  let out=inner;if(inner.tagName==="LI"){out=document.createElement(to);out.appendChild(inner)}      // 새 목록 (<p> 안에 목록이 들어가지 않게 문단을 통째로 바꾼다)
+  blk.replaceWith(out);wkCaretIn(inner);
+  wkQueue();wkSync();return true;
 }
 function wkSync(){      // 툴바의 눌림 상태 · 문단 모양 · 표 단추
   const tb=$("#wkTb");if(!tb)return;
   ["bold","italic","underline","strikeThrough"].forEach(c=>tb.querySelectorAll(`[data-wc=${c}]`).forEach(b=>{const on=document.queryCommandState(c);b.classList.toggle("on",on);b.setAttribute("aria-pressed",on)}));
   const s=getSelection(),d=$("#wkDoc");
   if(d&&s.rangeCount&&d.contains(s.anchorNode)){const n=s.anchorNode.nodeType===1?s.anchorNode:s.anchorNode.parentElement,h=n.closest("h2,h3,h4");$("#wkBlk").value=h?h.tagName.toLowerCase():"p"}
-  $("#wkTbl").hidden=!wkCell();
+  const tc=wkCell();$("#wkTbl").hidden=!tc;if(!tc)wkTblPreview(null);
+  const fs=d&&s.rangeCount&&d.contains(s.anchorNode)?wkFsOf():null;      // 지금 글자 크기를 크기 단추에 표시
+  if(fs!=null)document.querySelectorAll("#wkEd [data-wfs]").forEach(b=>{const on=b.dataset.wfs===fs;b.classList.toggle("on",on);b.setAttribute("aria-pressed",on)});
 }
 function wkWireEd(w){
   const doc=$("#wkDoc"),ed=$("#wkEd");
@@ -295,12 +440,19 @@ function wkWireEd(w){
   doc.onkeydown=e=>{
     if((e.ctrlKey||e.metaKey)&&e.shiftKey&&e.key.toLowerCase()==="h"){e.preventDefault();wkKeep();wkSetHl(ui.wkHl||"hl-y");return}
     if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="s"){e.preventDefault();wkQueue();wkFlush();return}
+    if((e.ctrlKey||e.metaKey)&&e.shiftKey&&(e.code==="Period"||e.code==="Comma")){e.preventDefault();wkKeep();wkSizeStep(e.code==="Period"?1:-1);return}      // Ctrl+Shift+> / <
     const s=getSelection(),n=s.anchorNode&&(s.anchorNode.nodeType===1?s.anchorNode:s.anchorNode.parentElement),pre=n&&n.closest("pre");
     if(pre&&doc.contains(pre)){
       if(e.key==="Tab"){e.preventDefault();document.execCommand("insertText",false,"  ");return}
       if(e.key==="Enter"&&(e.ctrlKey||e.metaKey)||e.key==="Escape"){e.preventDefault();const p=document.createElement("p");p.innerHTML="<br>";pre.after(p);const r=document.createRange();r.setStart(p,0);s.removeAllRanges();s.addRange(r);wkQueue();return}
       if(e.key==="Enter"){e.preventDefault();document.execCommand("insertText",false,"\n");return}
     }
+    const li=n&&n.closest("li");
+    if(li&&doc.contains(li)&&e.key==="Tab"&&!e.ctrlKey&&!e.altKey&&!e.metaKey){      // 목록 안 Tab: 다음 칸으로 나가지 않고 들여쓰기 / 내어쓰기
+      e.preventDefault();const lis=wkSelLis();if(lis.length&&(e.shiftKey?wkOutdent(lis):wkIndent(lis))){wkQueue();wkSync()}return}
+    if(li&&doc.contains(li)&&e.key==="Enter"&&!e.shiftKey&&!e.isComposing&&s.isCollapsed&&!li.textContent.trim()&&!li.querySelector("img,a.lk")&&li.parentElement.parentElement.closest("li")){
+      e.preventDefault();wkOutdent([li]);wkQueue();wkSync();return}      // 하위 목록의 빈 항목에서 Enter = 한 단계 밖으로 (맨 바깥은 브라우저처럼 목록을 끝낸다)
+    if(e.key===" "&&!e.isComposing&&e.keyCode!==229&&!e.ctrlKey&&!e.metaKey&&!e.altKey&&wkMdLead(doc)){e.preventDefault();return}
     if(e.key==="Enter"&&!e.shiftKey&&n){       // 줄 처음에 ``` + Enter = 코드 상자
       const blk=n.closest("p,div:not(#wkDoc)")||(n===doc?null:n);
       if(blk&&doc.contains(blk)&&blk!==doc&&blk.textContent.trim()==="```"){e.preventDefault();const p=document.createElement("pre");p.innerHTML="<code>\n</code>";blk.replaceWith(p);const r=document.createRange();r.setStart(p.firstChild.firstChild,0);s.removeAllRanges();s.addRange(r);wkQueue()}
@@ -322,7 +474,11 @@ function wkWireEd(w){
   doc.onkeyup=doc.onmouseup=wkSync;
   doc.onfocus=()=>{try{document.execCommand("defaultParagraphSeparator",false,"p")}catch(_){}};       // 새 줄은 <p> (댓글 편집기와 같다)
   doc.onblur=()=>{try{document.execCommand("defaultParagraphSeparator",false,"div")}catch(_){}};
-  ed.querySelectorAll("#wkTb button,#wkFt button").forEach(b=>b.onmousedown=e=>e.preventDefault());
+  ed.querySelectorAll("#wkTb button,#wkFt button,#wkTbl button").forEach(b=>b.onmousedown=e=>e.preventDefault());
+  $("#wkTbl").onmouseover=e=>{const b=e.target.closest("[data-wt]");wkTblPreview(b&&b.dataset.wt)};
+  $("#wkTbl").onmouseleave=()=>wkTblPreview(null);
+  doc.oncontextmenu=e=>{if(e.shiftKey)return;const c=e.target.closest("td,th");if(!c||!doc.contains(c))return;e.preventDefault();e.stopPropagation();
+    if(!c.contains(getSelection().anchorNode))wkCaretIn(c);wkSync();wkTblMenu(c,e)};
   ed.onclick=e=>{
     const b=e.target.closest("button");
     ed.querySelectorAll(".wk-ddm.on").forEach(m=>{if(!b||!m.parentElement.contains(b))m.classList.remove("on")});
@@ -330,7 +486,8 @@ function wkWireEd(w){
     if(b.dataset.wc){wkRestore();document.execCommand(b.dataset.wc);wkQueue();wkSync()}
     else if(b.dataset.wdd){wkKeep();$("#wkDd-"+b.dataset.wdd).classList.toggle("on")}
     else if("whl" in b.dataset){wkSetHl(b.dataset.whl);b.closest(".wk-ddm")?.classList.remove("on")}
-    else if("wfc" in b.dataset){wkWrap("span",b.dataset.wfc);b.closest(".wk-ddm")?.classList.remove("on")}
+    else if("wfc" in b.dataset){wkWrap("fc",b.dataset.wfc);b.closest(".wk-ddm")?.classList.remove("on")}
+    else if("wfs" in b.dataset)wkSize(b.dataset.wfs);
     else if(b.dataset.wi==="table")wkIns(`<table><tbody><tr><th>제목</th><th>제목</th><th>제목</th></tr><tr><td><br></td><td><br></td><td><br></td></tr><tr><td><br></td><td><br></td><td><br></td></tr></tbody></table><p><br></p>`);
     else if(b.dataset.wi==="code")wkIns(`<pre><code>\n</code></pre><p><br></p>`);
     else if(b.dataset.wi==="img"){wkKeep();const f=document.createElement("input");f.type="file";f.accept="image/png,image/jpeg,image/webp,image/gif";f.multiple=true;f.onchange=()=>wkAddImgs([...f.files]);f.click()}
@@ -553,6 +710,7 @@ h1,h2,h3,h4,h5,h6{line-height:1.3;margin:1.4em 0 .5em}.doc-t{border-top:2px soli
 table{border-collapse:collapse;margin:.8em 0}th,td{border:1px solid #c9ced6;padding:5px 10px;text-align:left;vertical-align:top}th{background:#eef1f5}
 pre{background:#f2f4f7;border-radius:6px;padding:10px 12px;overflow-x:auto;font:13px/1.55 Consolas,"D2Coding",monospace}code{font-family:Consolas,"D2Coding",monospace;background:#f2f4f7;padding:1px 4px;border-radius:4px}pre code{background:none;padding:0}
 mark{color:inherit;padding:0 1px;border-radius:2px}mark.hl-y{background:#fff0a3}mark.hl-g{background:#c9f2cf}mark.hl-p{background:#ffd3e6}mark.hl-b{background:#cfe3ff}
+.fs-s{font-size:.85em}.fs-l{font-size:1.2em}.fs-xl{font-size:1.5em;line-height:1.35}ul ul{list-style-type:circle}ul ul ul{list-style-type:square}ol ol{list-style-type:lower-alpha}ol ol ol{list-style-type:lower-roman}
 .fc-red{color:#c62828}.fc-org{color:#b45309}.fc-blue{color:#1f5fbf}.fc-gray{color:#6b7380}.ref{color:#2f6fd6;font-weight:600}.meta{color:#6b7380;font-size:13px}
 img{max-width:100%;height:auto;border-radius:6px;margin:.3em 0}
 @media print{body{margin:0;max-width:none}.doc-t{break-after:avoid}}`;
