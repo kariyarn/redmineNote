@@ -290,3 +290,14 @@ span.fs-s{font-size:.85em}span.fs-l{font-size:1.2em}span.fs-xl{font-size:1.5em;l
 .wk-col.wk-blank{background:color-mix(in srgb,var(--surface2) 35%,transparent)}
 .wk-cols{scroll-snap-type:x mandatory}.wk-cols>.wk-col{scroll-snap-align:start}
 body.wk-resizing,body.wk-resizing *{user-select:none!important;cursor:col-resize!important}
+
+/* 손잡이 두 개 (2.38): 열 보기 넓이(열과 문서 사이, 굵은 막대 + 점) · 열 너비(열과 열 사이 경계, 가는 선) */
+.wk-cols{position:relative}
+.wk-cgrip{position:absolute;top:0;bottom:0;width:8px;z-index:3;cursor:col-resize;scroll-snap-align:none}
+.wk-cgrip::after{content:"";position:absolute;left:3px;top:0;bottom:0;width:2px;background:transparent;transition:background .12s}
+.wk-cgrip:hover::after,.wk-cgrip.drag::after{background:var(--accent)}
+.wk-split{width:10px;position:relative;display:flex;align-items:center;justify-content:center;border-left:1px solid var(--line);background:color-mix(in srgb,var(--surface2) 60%,transparent)}
+.wk-split .wk-sgrip{width:4px;height:36px;border-radius:3px;background:radial-gradient(circle,var(--sub) 1px,transparent 1.5px) 0 0/4px 6px;opacity:.7}
+.wk-split:hover .wk-sgrip,.wk-split.drag .wk-sgrip{opacity:1}
+.wk-split.drag::after{content:attr(data-n) "칸";position:absolute;top:8px;left:12px;font-size:.75rem;background:var(--accent);color:#fff;padding:1px 6px;border-radius:6px;white-space:nowrap;z-index:5}
+.wk-split:not([data-n]).drag::after{display:none}
