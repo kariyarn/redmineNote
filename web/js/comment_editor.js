@@ -225,7 +225,7 @@ class CommentEditor{
     this.visual.addEventListener("beforeinput",ev=>{this.paragraphEdit=!this.composing&&!ev.isComposing&&/^(delete|insertParagraph|insertLineBreak)/.test(ev.inputType||"")?this.paragraphContext():null});
     this.visual.addEventListener("click",ev=>{const img=ev.target.closest("img");if(img&&this.visual.contains(img)){this.selectedImage=img;this.hint.textContent="이미지를 선택했어요. 툴바에서 크기·앞/뒤 이동·제거를 선택하세요. 제거는 본문에서만 지웁니다."}});
     this.visual.addEventListener("dragover",ev=>ev.preventDefault());
-    this.visual.addEventListener("drop",ev=>{ev.preventDefault();ev.stopPropagation();if(ev.dataTransfer?.files?.length){toast("이미지 삽입에서 파일을 선택하세요. 파일을 본문에 직접 끌어 넣지 않습니다.",5000);return}this.paste({preventDefault(){},stopPropagation(){},clipboardData:ev.dataTransfer},this.visual)});
+    this.visual.addEventListener("drop",ev=>{ev.preventDefault();if(ev.dataTransfer?.files?.length)return;ev.stopPropagation();this.paste({preventDefault(){},stopPropagation(){},clipboardData:ev.dataTransfer},this.visual)});
     this.images.addEventListener("keydown",ev=>{ev.stopPropagation();if(ev.key==="Escape"){ev.preventDefault();this.closeImages()}else if(ev.key==="Tab"){const list=[...this.images.querySelectorAll("button,input,select")].filter(b=>!b.disabled&&!b.hidden);const first=list[0],last=list.at(-1);if(ev.shiftKey&&document.activeElement===first){ev.preventDefault();last?.focus()}else if(!ev.shiftKey&&document.activeElement===last){ev.preventDefault();first?.focus()}}});
     this.visual.addEventListener("keydown",ev=>{
       if(ev.isComposing||this.composing||ev.keyCode===229)return;

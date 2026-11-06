@@ -227,6 +227,9 @@ input,select,textarea{border-color:var(--line);border-radius:10px}
 .ctxtbl .ctxkey kbd{font:600 .8rem ui-monospace,Consolas,monospace}
 .ctxtbl .ctxkey.rec{border-color:var(--accent);color:var(--accent)}
 .ctxtbl .ctxkeyx{padding:2px 6px}
+.ctxmenu .chk2{font:.74rem ui-monospace,Consolas,monospace;color:var(--sub);opacity:.85}
+.ctxtbl .ctxdef{font:600 .8rem ui-monospace,Consolas,monospace;padding:2px 6px;border:1px solid var(--line);border-radius:5px;background:var(--surface2,var(--surface))}
+.ctxtbl .ctxdeft{margin:0 8px 0 4px;font-size:.74rem}
 .ctxtbl .ctxwarn{color:#c77700;margin-left:4px;cursor:help}
 .ctxsep{height:1px;background:var(--line);margin:3px 4px}
 #btnDl{position:relative}
