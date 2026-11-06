@@ -421,3 +421,8 @@ mark.ann.m{border-bottom:2px dotted var(--accent);border-radius:0}
 .nl-drop{height:4px;border-radius:3px;background:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);margin:-2px 0}
 .nl-lock h2{margin:2px 0 4px}
 .nl-sidez{padding-top:6px}
+/* 댓글 칸에 파일을 끌어 올리는 동안 (write.js) */
+.cmp{position:relative}
+.cmp.cmdrop{outline:2px dashed var(--accent);outline-offset:3px;border-radius:12px}
+.cmp.cmdrop::after{content:"여기에 놓으면 첨부파일로 올려요";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:color-mix(in srgb,var(--accent) 10%,transparent);color:var(--accent);font-weight:700;border-radius:12px;pointer-events:none;z-index:3}
+

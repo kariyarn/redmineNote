@@ -202,6 +202,17 @@ function wireComposer(root,n){
     const fileInput=c.querySelector("[data-file-input]");
     c.querySelector("[data-add-file]").onclick=()=>fileInput.click();
     fileInput.onchange=()=>{cmAddFiles(n,Array.from(fileInput.files||[]));fileInput.value=""};
+    /* 끌어다 놓기: 댓글 칸 어디에 놓아도 첨부파일로 (본문에는 넣지 않는다). 파일이 아닌 글 · 링크를 끌면 평소대로 */
+    const hasFiles=e=>[...(e.dataTransfer?.types||[])].includes("Files");let dragN=0;
+    c.ondragenter=e=>{if(!hasFiles(e))return;e.preventDefault();if(!dragN++)c.classList.add("cmdrop")};
+    c.ondragover=e=>{if(!hasFiles(e))return;e.preventDefault();e.dataTransfer.dropEffect=canWrite(n)&&!cmBusy.has(n.issue_id)?"copy":"none"};
+    c.ondragleave=e=>{if(!hasFiles(e))return;if(!--dragN)c.classList.remove("cmdrop")};
+    c.ondrop=e=>{if(!hasFiles(e))return;e.preventDefault();e.stopPropagation();dragN=0;c.classList.remove("cmdrop");
+      const fs=Array.from(e.dataTransfer.files||[]).filter(f=>f.size||f.type);       // 폴더는 빼고 파일만
+      if(!fs.length){toast("폴더는 첨부할 수 없어요 — 파일을 끌어 놓아 주세요",3500);return}
+      if(!canWrite(n)){toast("이 일감에는 댓글을 올릴 수 없어서 첨부할 수 없어요",3500);return}
+      const before=filesOf(n.issue_id).length;cmAddFiles(n,fs);const added=filesOf(n.issue_id).length-before;
+      if(added)toast(`파일 ${added}개를 첨부했어요`,2200)};
     c.querySelector("[data-fence]").onclick=()=>{addCodeBox(ta);setDraft(n.issue_id,edGet(ta));syncComposers(n,ta)};
     c.querySelector("[data-fromac]").onclick=()=>{
       const el=$("#ac"),t=(el?edGet(el):n.action||"").trim();if(!t){toast("처리 내용이 비어 있어요",2000);return}
@@ -224,4 +235,10 @@ function wireComposer(root,n){
   });
   cmdWireComposer(root);
   syncComposers(n);
+}
+/* 파일을 댓글 칸 밖에 놓으면 브라우저가 그 파일을 창에서 열어 버린다 — 막고 어디에 놓으면 되는지 알려 준다 (메모 · 위키처럼 자기 놓기 처리가 있는 곳은 그대로) */
+if(typeof addEventListener==="function"){
+addEventListener("dragover",e=>{if([...(e.dataTransfer?.types||[])].includes("Files"))e.preventDefault()});
+addEventListener("drop",e=>{if(e.defaultPrevented||![...(e.dataTransfer?.types||[])].includes("Files"))return;e.preventDefault();
+  toast(view==="note"&&curNote()?"첨부하려면 파일을 댓글 쓰기 칸에 놓아 주세요":"파일은 노트의 댓글 쓰기 칸에 놓으면 첨부돼요",3500)});
 }

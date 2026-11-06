@@ -30,6 +30,8 @@ const CTX_GROUPS={edit:"글 칸",sel:"고른 글",note:"일감",link:"링크 · 
 /* 메뉴 키: 메뉴가 떠 있을 때 글자 하나로 바로 고른다 (Slack 처럼, 오른쪽에 보인다). 한 메뉴 안에서 겹치지 않는다 */
 const CTX_ACCEL={undo:"Z",cut:"X",copy:"C",paste:"V",selectAll:"A",find:"F",noteTab:"T",noteCopy:"N",noteRm:"B",
   linkOpen:"O",linkCopy:"L",fileSave:"S",imgSave:"I",imgCopy:"M",downloads:"J",reload:"R"};
+/* 기본 단축키: 원래부터 있는 키(브라우저 편집 키 · 앱 단축키). 메뉴와 설정 표에 보여 주고, 지정한 단축키가 없으면 이것이 그 항목의 단축키 */
+const CTX_DEFKEY={undo:"Ctrl+Z",cut:"Ctrl+X",copy:"Ctrl+C",paste:"Ctrl+V",selectAll:"Ctrl+A",downloads:"Ctrl+J",reload:"F5"};
 const ctxOn=k=>!(ui.ctxOff||[]).includes(k);
 /* ---------- 바로 실행 단축키 (설정 → 화면 구성 → 우클릭 메뉴): 메뉴 없이 그 항목을 실행한다 (ui.ctxKeys = {항목: "Ctrl+Shift+D"}) ---------- */
 const KEY_NAME={ArrowLeft:"Left",ArrowRight:"Right",ArrowUp:"Up",ArrowDown:"Down",Escape:"Esc",Delete:"Delete",Backspace:"Backspace",Enter:"Enter",Tab:"Tab",Space:"Space",
@@ -47,7 +49,7 @@ const APP_KEYS=Object.assign({
   "Alt+Left":"뒤로","Alt+Right":"앞으로","Ctrl+Enter":"올리기 · 저장","Ctrl+0":"화면 배율 100%","Ctrl+=":"화면 확대","Ctrl+-":"화면 축소",
   "Ctrl+Z":"되돌리기(글 쓸 때)","Ctrl+Y":"다시 하기(글 쓸 때)","Ctrl+Shift+Z":"다시 하기(글 쓸 때)","Ctrl+X":"잘라내기(글 쓸 때)","Ctrl+C":"복사(글 쓸 때)",
   "Ctrl+V":"붙여넣기(글 쓸 때)","Ctrl+A":"모두 선택(글 쓸 때)","Ctrl+B":"굵게(편집기)","Ctrl+I":"기울임(편집기)","Ctrl+U":"밑줄(편집기)",
-  "Ctrl+Shift+H":"위키 형광펜","Ctrl+Shift+.":"위키 글자 크게","Ctrl+Shift+,":"위키 글자 작게"},
+  "F5":"새로 고침","Ctrl+R":"새로 고침","Ctrl+Shift+H":"위키 형광펜","Ctrl+Shift+.":"위키 글자 크게","Ctrl+Shift+,":"위키 글자 작게"},
   Object.fromEntries([1,2,3,4,5,6,7,8,9].map(n=>[`Ctrl+${n}`,"탭 이동"])),Object.fromEntries([1,2,3,4,5,6,7,8].map(n=>[`Alt+${n}`,"노트 안 이동"])));
 /* 윈도우 · 입력기 · 브라우저가 먼저 가져가서 앱에 오지 않거나, 앱이 막아도 원래 동작이 같이 일어나는 키 (주의 문구) */
 const RESERVED_KEYS={
@@ -60,6 +62,7 @@ const RESERVED_KEYS={
   "Ctrl+Shift+W":"브라우저: 창 닫기","Ctrl+Shift+Q":"브라우저: 종료","Ctrl+Shift+Delete":"브라우저: 인터넷 사용 기록 삭제","Ctrl+Shift+B":"브라우저: 북마크 바",
   "Ctrl+Shift+O":"브라우저: 북마크 관리자","Ctrl+H":"브라우저: 방문 기록","Ctrl+Shift+M":"브라우저: 프로필 전환"};
 const ctxKeyOf=k=>((ui.ctxKeys||{})[k]||"");
+const ctxKeyShown=k=>ctxKeyOf(k)||CTX_DEFKEY[k]||"";      // 화면에 보일 단축키: 지정한 것, 없으면 기본
 /* 단축키를 쓸 수 있는지: {block: 이유}(쓸 수 없음) · {warn: 이유}(써도 되지만 안 될 수 있음) · {}(괜찮음) */
 function ctxKeyCheck(combo,self){
   if(!combo)return {block:"키를 알아보지 못했어요"};
@@ -109,7 +112,7 @@ function ctxShow(x,y,items,c){
   document.querySelectorAll(".popmenu").forEach(m=>m.remove());
   const m=document.createElement("div");m.className="popmenu ctxmenu";m.setAttribute("role","menu");
   let g="";m.innerHTML=items.map(([k,l,grp],i)=>{const sep=g&&g!==grp?'<div class="ctxsep"></div>':"";g=grp;
-    const hk=ctxKeyOf(k);return `${sep}<button type="button" role="menuitem" data-ci="${i}" title="${esc(l)}${hk?` · 바로 실행: ${hk}`:""}"><span class="cl">${esc(l)}</span><kbd class="ck">${esc(CTX_ACCEL[k]||"")}</kbd></button>`}).join("");
+    const hk=ctxKeyShown(k);return `${sep}<button type="button" role="menuitem" data-ci="${i}" title="${esc(l)}${hk?` · 단축키 ${hk}`:""} · 메뉴 키 ${esc(CTX_ACCEL[k]||"")}"><span class="cl">${esc(l)}</span>${hk?`<span class="chk2">${esc(hk)}</span>`:""}<kbd class="ck">${esc(CTX_ACCEL[k]||"")}</kbd></button>`}).join("");
   document.body.appendChild(m);
   m.style.left=Math.max(6,Math.min(innerWidth-m.offsetWidth-6,x))+"px";m.style.top=Math.max(6,Math.min(innerHeight-m.offsetHeight-6,y))+"px";
   const btns=[...m.querySelectorAll("[data-ci]")];let at=-1;
