@@ -68,6 +68,21 @@ function fillText(el,s){   // 문자열 -> 글 블록 (`글자` 는 코드 모�
     else if(p)el.appendChild(document.createTextNode(p));
   });
 }
+/* Enter 로 줄을 띄운 직후: 빈 새 줄은 브라우저가 커서 위치를 재지 못해서 스크롤이 따라오지 않는다 (글자를 쳐야 비로소 따라옴).
+   커서 바로 뒤 글자의 위치(없으면 글 블록의 맨 아래)로 커서 줄을 대신 재고, 가장 가까운 스크롤 상자를 그만큼 움직인다. */
+function keepCaret(tb){
+  const g=getSelection();if(!g.rangeCount||!tb.isConnected)return;
+  const r=g.getRangeAt(0);let rc=[...r.getClientRects()].filter(x=>x.height).pop();
+  if(!rc){const n=r.startContainer,o=r.startOffset;
+    if(n.nodeType===3&&o<n.data.length){const q=document.createRange();q.setStart(n,o);q.setEnd(n,o+1);rc=[...q.getClientRects()].filter(x=>x.height).pop()}}
+  if(!rc){const b=tb.getBoundingClientRect(),lh=parseFloat(getComputedStyle(tb).lineHeight)||20;rc={top:b.bottom-lh,bottom:b.bottom}}
+  let sc=tb.parentElement;
+  while(sc&&sc!==document.body){const oy=getComputedStyle(sc).overflowY;if((oy==="auto"||oy==="scroll")&&sc.scrollHeight>sc.clientHeight)break;sc=sc.parentElement}
+  if(!sc||sc===document.body)return;
+  const s=sc.getBoundingClientRect();
+  if(rc.bottom>s.bottom-4)sc.scrollTop+=rc.bottom-s.bottom+8;
+  else if(rc.top<s.top+4)sc.scrollTop-=s.top-rc.top+8;
+}
 function caretAt(node,off){const r=document.createRange();r.setStart(node,off);r.collapse(true);const g=getSelection();g.removeAllRanges();g.addRange(r)}
 function focusTb(tb,end){tb.focus();const r=document.createRange();r.selectNodeContents(tb);r.collapse(!end);const g=getSelection();g.removeAllRanges();g.addRange(r)}
 function autoInline(tb){   // 닫는 ` 를 치는 순간 `글자` 를 코드 모양으로 바꾼다
@@ -94,12 +109,12 @@ function mkText(s){
       const br=document.createElement("br");br.dataset.softBreak="";
       r.insertNode(br);
       const after=document.createTextNode("​");br.after(after);caretAt(after,1);
-      d.dispatchEvent(new Event("input",{bubbles:true}));
+      d.dispatchEvent(new Event("input",{bubbles:true}));keepCaret(d);
       return;
     }
     const g=getSelection(),c=g.anchorNode&&g.anchorNode.parentElement&&g.anchorNode.parentElement.closest("code.ic");
     if(c){const nx=c.nextSibling;if(nx&&nx.nodeType===3)caretAt(nx,nx.data.startsWith("​")?1:0)}   // 코드 모양 밖으로 나온 뒤 줄바꿈
-    document.execCommand("insertText",false,"\n");
+    document.execCommand("insertText",false,"\n");keepCaret(d);
   });
   d.addEventListener("paste",e=>{
     e.preventDefault();document.execCommand("insertText",false,(e.clipboardData||window.clipboardData).getData("text/plain"));
