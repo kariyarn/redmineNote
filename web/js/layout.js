@@ -99,7 +99,7 @@ function renderNav(){
   sbcDraw();
   if($("#navmore")){const toggleMore=()=>{ui.navMore=!more;saveUI();renderNav()};$("#navmore").onclick=toggleMore;$("#navmore").onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();toggleMore()}}}
   const navToggle=$("#navToggle");
-  if(navToggle){navToggle.setAttribute("aria-label",ui.navCollapsed?"왼쪽 메뉴 펼치기":"왼쪽 메뉴 접기");navToggle.title=navToggle.getAttribute("aria-label");navToggle.textContent=ui.navCollapsed?"›":"‹";navToggle.setAttribute("aria-expanded",String(!ui.navCollapsed));navToggle.onclick=()=>{ui.navCollapsed=!ui.navCollapsed;saveUI();applyUI();renderNav();window.dispatchEvent(new Event("resize"))}}   // 메뉴 폭이 바뀌면 메모 보드 · 그래프도 넓이를 다시 잰다
+  if(navToggle){navToggle.setAttribute("aria-label",ui.navCollapsed?"왼쪽 메뉴 펼치기":"왼쪽 메뉴 접기");navToggle.title=navToggle.getAttribute("aria-label");navToggle.setAttribute("aria-expanded",String(!ui.navCollapsed));navToggle.onclick=()=>{ui.navCollapsed=!ui.navCollapsed;saveUI();applyUI();renderNav();window.dispatchEvent(new Event("resize"))}}   // 메뉴 폭이 바뀌면 메모 보드 · 그래프도 넓이를 다시 잰다
   document.querySelectorAll("#nav [data-dpal]").forEach(i=>i.onclick=e=>{e.stopPropagation();openDeploy(todayStr())});
   const d=document.querySelector("#nav [data-act=dict]");
   if(d)d.onclick=toggleDict;
