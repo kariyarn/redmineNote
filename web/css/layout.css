@@ -20,9 +20,11 @@ body{display:block;overflow:hidden;height:100vh}
 #nav.nav-collapsed{width:56px;padding:12px 8px}
 #nav.nav-collapsed .nv-brand{flex-direction:column;justify-content:center;gap:6px;padding:2px 0 12px}
 #nav.nav-collapsed .nv-brand>b,#nav.nav-collapsed .nv-brand>.ver{display:none}
-.nv-toggle{width:24px;height:24px;flex:none;padding:0;border:0;border-radius:7px;background:none;color:var(--sub);cursor:pointer;font-size:1.2rem;line-height:1}
-.nv-toggle:hover{background:color-mix(in srgb,var(--text) 7%,transparent);color:var(--text)}
-#nav.nav-collapsed .nv-brand .nv-toggle{position:static;width:24px;height:20px;font-size:1rem}
+/* 왼쪽 메뉴 접기 · 펼치기: 맨 위 로고 아이콘을 누른다 (따로 있던 ‹ › 단추는 없앴다) */
+.nv-brand .logo.nv-toggle{flex:none;padding:0;border:0;cursor:pointer;background:linear-gradient(135deg,var(--accent),var(--dev));color:#fff;transition:transform .12s ease,box-shadow .12s ease,filter .12s ease}
+.nv-brand .logo.nv-toggle:hover{transform:scale(1.08);box-shadow:0 2px 8px color-mix(in srgb,var(--accent) 45%,transparent);filter:brightness(1.06)}
+.nv-brand .logo.nv-toggle:active{transform:scale(.96)}
+.nv-brand .logo.nv-toggle:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 #nav.nav-collapsed .nv-brand .logo{margin:0}
 #nav.nav-collapsed .nv-item{justify-content:center;gap:0;padding:8px 0}
 #nav.nav-collapsed .nv-item>span:not(.ic){display:none}
