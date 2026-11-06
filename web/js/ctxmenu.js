@@ -49,7 +49,8 @@ const APP_KEYS=Object.assign({
   "Alt+Left":"뒤로","Alt+Right":"앞으로","Ctrl+Enter":"올리기 · 저장","Ctrl+0":"화면 배율 100%","Ctrl+=":"화면 확대","Ctrl+-":"화면 축소",
   "Ctrl+Z":"되돌리기(글 쓸 때)","Ctrl+Y":"다시 하기(글 쓸 때)","Ctrl+Shift+Z":"다시 하기(글 쓸 때)","Ctrl+X":"잘라내기(글 쓸 때)","Ctrl+C":"복사(글 쓸 때)",
   "Ctrl+V":"붙여넣기(글 쓸 때)","Ctrl+A":"모두 선택(글 쓸 때)","Ctrl+B":"굵게(편집기)","Ctrl+I":"기울임(편집기)","Ctrl+U":"밑줄(편집기)",
-  "F5":"새로 고침","Ctrl+R":"새로 고침","Ctrl+Shift+H":"위키 형광펜","Ctrl+Shift+.":"위키 글자 크게","Ctrl+Shift+,":"위키 글자 작게"},
+  "F5":"새로 고침","Ctrl+R":"새로 고침","Ctrl+Shift+H":"위키 형광펜","Ctrl+Shift+.":"위키 글자 크게","Ctrl+Shift+,":"위키 글자 작게",
+  "F12":"개발자 도구(막아 둠)","Ctrl+Shift+I":"개발자 도구(막아 둠)","Ctrl+Shift+J":"개발자 도구(막아 둠)","Ctrl+Shift+C":"개발자 도구(막아 둠)"},
   Object.fromEntries([1,2,3,4,5,6,7,8,9].map(n=>[`Ctrl+${n}`,"탭 이동"])),Object.fromEntries([1,2,3,4,5,6,7,8].map(n=>[`Alt+${n}`,"노트 안 이동"])));
 /* 윈도우 · 입력기 · 브라우저가 먼저 가져가서 앱에 오지 않거나, 앱이 막아도 원래 동작이 같이 일어나는 키 (주의 문구) */
 const RESERVED_KEYS={
@@ -57,8 +58,7 @@ const RESERVED_KEYS={
   "Ctrl+Shift+Esc":"윈도우: 작업 관리자","Ctrl+Alt+Delete":"윈도우: 보안 화면","Alt+Space":"윈도우: 창 메뉴(최소화 · 최대화)","Ctrl+Alt+Tab":"윈도우: 창 전환",
   "Ctrl+Space":"입력기: 한/영 · 한자 전환으로 쓰는 PC가 있어요","Shift+Space":"입력기: 한/영 전환으로 쓰는 PC가 있어요","Alt+Shift":"입력기: 자판 전환",
   "Ctrl+Alt+Up":"그래픽 드라이버: 화면 회전","Ctrl+Alt+Down":"그래픽 드라이버: 화면 회전","Ctrl+Alt+Left":"그래픽 드라이버: 화면 회전","Ctrl+Alt+Right":"그래픽 드라이버: 화면 회전",
-  "F10":"창 메뉴로 포커스가 옮겨 가요","F11":"브라우저: 전체 화면","F12":"브라우저: 개발자 도구","Ctrl+Shift+I":"브라우저: 개발자 도구","Ctrl+Shift+J":"브라우저: 개발자 도구(콘솔)",
-  "Ctrl+Shift+C":"브라우저: 개발자 도구(요소 선택)","Ctrl+T":"브라우저: 새 탭(새 창이 열려요)","Ctrl+Shift+T":"브라우저: 닫은 탭 다시 열기","Ctrl+Shift+N":"브라우저: 시크릿 창",
+  "F10":"창 메뉴로 포커스가 옮겨 가요","F11":"브라우저: 전체 화면","Ctrl+T":"브라우저: 새 탭(새 창이 열려요)","Ctrl+Shift+T":"브라우저: 닫은 탭 다시 열기","Ctrl+Shift+N":"브라우저: 시크릿 창",
   "Ctrl+Shift+W":"브라우저: 창 닫기","Ctrl+Shift+Q":"브라우저: 종료","Ctrl+Shift+Delete":"브라우저: 인터넷 사용 기록 삭제","Ctrl+Shift+B":"브라우저: 북마크 바",
   "Ctrl+Shift+O":"브라우저: 북마크 관리자","Ctrl+H":"브라우저: 방문 기록","Ctrl+Shift+M":"브라우저: 프로필 전환"};
 const ctxKeyOf=k=>((ui.ctxKeys||{})[k]||"");

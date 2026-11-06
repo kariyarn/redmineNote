@@ -84,6 +84,7 @@ async function renderSettings(){
        </tbody></table>
        <span class="hint">그 자리에서 쓸 수 있는 항목만 메뉴에 나와요. 메뉴가 떠 있을 때 <b>메뉴 키</b>(글자)를 누르면 바로 실행되고, <b>바로 실행 단축키</b>는 메뉴 없이 어디서나 실행돼요 (링크 · 사진 · 일감은 마우스가 있는 곳, 없으면 지금 연 노트). 단축키끼리 · 앱 단축키와는 겹칠 수 없고, 윈도우 · 브라우저가 먼저 쓰는 키는 ⚠ 로 알려 줘요 · <b>Shift+우클릭</b>은 언제나 브라우저 기본 메뉴</span></div></div>
      <div class="srow"><span class="sl">확대/축소</span><div class="sc"><label class="chk"><input type="checkbox" id="zAllow" ${ui.allowZoom?"checked":""}> 허용</label><span class="hint">기본은 막혀 있어요 · Ctrl+0 = 100%</span></div></div>
+     <div class="srow"><span class="sl">개발자 도구</span><div class="sc"><label class="chk"><input type="checkbox" id="dtAllow" ${ui.allowDevtools?"checked":""}> 허용</label><span class="hint">기본은 막혀 있어요 · F12 · Ctrl+Shift+I / J / C · Ctrl+U(소스 보기)</span></div></div>
      ${sMore(`<b>새 디자인</b>: 선 아이콘 · 밑줄 탭 · 묶은 메뉴로 화면을 덜어 낸 모양이에요. 정리 기록 자동 저장, 댓글 상태 선택칸, 목록형 오늘 화면 같은 동작도 함께 바뀌어요. 저장된 데이터는 똑같아요.<br><b>노트 모양</b>: 한 장의 문서(굵은 구분선 + 큰 제목)처럼 보거나 예전처럼 카드로 나눠 봐요.<br><b>메뉴 줄 간격</b>: 메뉴가 길어 스크롤이 생기면 촘촘으로. 새 디자인에서는 메뉴 묶음 제목을 눌러 접고, 가져오기 단추 옆 ▸ 로 아래 안내를 접어요.<br><b>확대/축소</b>: 크롬 기반이라 확대하면 화면이 어긋날 수 있어 기본은 막아 둬요(Ctrl+휠 · Ctrl +/- · 두 손가락). 글자 크기는 <b>글꼴</b> 탭에서 바꾸세요.`)}`)}
 
    ${sec("font","글꼴","서버에 저장돼서 어느 창에서 열어도 같아요.",`
@@ -135,6 +136,7 @@ async function renderSettings(){
   wireHelp(q(".spane"));
   q("#dpAuto").onchange=e=>{ui.autoDeployPg=e.target.checked;saveUI()};
   q("#dpAl").onchange=e=>{ui.depAlert=e.target.value;saveUI();checkDeployAlert(true);toast({off:"오늘 배포요청 알림을 껐어요",on:"알림 켬: 앱을 켤 때·창으로 돌아올 때 확인해요",auto:"알림 자동: 10분마다 확인해요"}[e.target.value],2600)};
+  q("#dtAllow").onchange=e=>{ui.allowDevtools=e.target.checked;saveUI();toast(ui.allowDevtools?"개발자 도구 단축키를 허용했어요":"개발자 도구 단축키를 막았어요",2200)};
   q("#zAllow").onchange=e=>{ui.allowZoom=e.target.checked;saveUI();toast(ui.allowZoom?"확대/축소를 허용했어요":"확대/축소를 막았어요",2200)};
   const setTh=v=>{ui.theme=v;saveUI();applyTheme();renderSettings();if(view==="graph")renderGraph()};
   q("#thAuto").onchange=e=>setTh(e.target.checked?"auto":"light");

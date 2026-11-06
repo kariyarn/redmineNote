@@ -6,6 +6,18 @@ window.addEventListener("keydown",e=>{
   if(!(e.ctrlKey||e.metaKey)||!zoomLocked())return;
   if(["Equal","Minus","NumpadAdd","NumpadSubtract"].includes(e.code)||["+","-","=","_"].includes(e.key))e.preventDefault();
 },true);
+/* ---------- 개발자 도구 막기 (F12 · Ctrl+Shift+I/J/C · 글 칸 밖의 Ctrl+U 소스 보기). 설정 → 일반에서 허용으로 바꿀 수 있다 ---------- */
+const devtoolsLocked=()=>!ui.allowDevtools;
+function devtoolsKey(e){
+  const c=e.code||"",ctrl=e.ctrlKey||e.metaKey;
+  if(c==="F12"||e.key==="F12")return true;
+  if(ctrl&&(e.shiftKey||e.altKey&&e.metaKey)&&["KeyI","KeyJ","KeyC"].includes(c))return true;   // 맥: Cmd+Opt+I/J/C
+  if(ctrl&&!e.shiftKey&&!e.altKey&&c==="KeyU"){       // 글 칸에서는 밑줄(편집기 기본 동작)이라 그대로 둔다
+    const t=e.target;return !(t&&(t.isContentEditable||/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName||"")));
+  }
+  return false;
+}
+window.addEventListener("keydown",e=>{if(devtoolsLocked()&&devtoolsKey(e))e.preventDefault()},true);
 function checkZoom(){   // 이미 100% 가 아니면 한 번 알려 준다 (창 바깥 폭 ÷ 안쪽 폭)
   const r=window.outerWidth/Math.max(1,window.innerWidth);
   if(zoomLocked()&&(r>1.12||r<0.9))toast("화면 배율이 100% 가 아니에요. Ctrl+0 을 누르면 원래대로 돌아와요",7000);
