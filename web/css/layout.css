@@ -30,11 +30,20 @@ body{display:block;overflow:hidden;height:100vh}
 #nav.nav-collapsed .nv-vault-hd{display:none}
 #nav.nav-collapsed .nv-grp{justify-content:center;width:100%;margin:12px 0 4px;padding:3px 0}
 #nav.nav-collapsed .nv-grp>span,#nav.nav-collapsed .nv-grp>.chev{display:none}
-#nav.nav-collapsed .nv-grp::before{content:attr(data-short);font-size:.76rem}
+#nav.nav-collapsed .nv-grp::before{content:"";display:block;width:22px;height:1px;background:var(--line)}   /* 접으면 묶음 제목 대신 얇은 구분선 (한 글자 약자는 읽기 어려웠다) */
+#nav.nav-collapsed .nv-grp:first-child{margin-top:2px}
+#nav.nav-collapsed .nv-grp{pointer-events:none;cursor:default}
 #nav.nav-collapsed .nv-sec{justify-content:center;margin:10px 0 4px;font-size:0}
 #nav.nav-collapsed .nv-sec::before{content:"⋯";font-size:1rem}
+#nav.nav-collapsed .nv-sec>*{display:none}   /* 접으면 ‘더 보기’ 글자 · 🚀 가 ⋯ 옆에 끼어 겹쳐 보이지 않게 */
 #nav.nav-collapsed .nv-sync,#nav.nav-collapsed #sbCal{display:none}
-#nav.nav-collapsed .nv-foot{justify-content:center;padding-left:0;padding-right:0}
+#nav.nav-collapsed .nv-foot{flex-direction:column;justify-content:center;gap:2px;padding-left:0;padding-right:0}   /* 좁은 폭에서 설정 · 다운로드 단추가 겹치지 않게 세로로 */
+#nav.nav-collapsed .nv-foot .icon{width:36px;height:32px;padding:0;display:flex;align-items:center;justify-content:center;margin:0}
+#nav.nav-collapsed .nv-item{position:relative}
+#nav.nav-collapsed .nv-item>span.cnt,#nav.nav-collapsed .nv-item>span.nvb{display:block;position:absolute;top:3px;right:5px;width:8px;height:8px;min-width:0;padding:0;margin:0;border-radius:50%;font-size:0;background:var(--accent)}   /* 숫자 · 알림은 접으면 작은 점으로 */
+#nav.nav-collapsed .nv-item>span.nvb.bell{background:#e5484d}
+#nav.nav-collapsed .nv-item>span.nvb~span.nvb{display:none}
+#nav.nav-collapsed .nv-brand{align-items:center}
 #nav.nav-collapsed #navitems{margin:0 -4px;padding:0 4px}
 .nv-sp{flex:1}
 .nv-sync{padding:10px 4px 6px;display:flex;flex-direction:column;gap:6px}

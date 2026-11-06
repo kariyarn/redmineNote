@@ -3,6 +3,7 @@
    저장은 서버(내 PC의 notes.db 안 별도 표 `sticky`)에 바로바로 자동으로 된다.
    보드는 포스트잇이 놓인 곳을 따라 상하좌우로 늘어난다 (자리는 음수 좌표도 허용). */
 const STK_MIN={w:140,h:110};   // 포스트잇 최소 크기 (크기 바꾸기 · 끌어서 만들기 공통)
+const STK_GROW=360;              // 글이 길어지면 이 높이까지만 저절로 커진다 (그보다 길면 안에서 스크롤)
 const STK={yellow:"#faefb0",pink:"#f8d3df",green:"#d5ebc3",blue:"#cfe3f6",orange:"#f9dcb8",purple:"#e4d8f6"};   // 채도를 낮춘 파스텔
 /* 보드 색: 비어 있으면 테마를 따라가고, 고르면 그 색으로 고정. 점·선·안내 글자 색은 바탕 밝기에 맞춰 자동으로 정한다 */
 const BOARD_COLORS=[["","테마 따라가기"],["#ffffff","화이트"],["#fbf4e4","크림"],["#e3f2ea","민트"],["#e1eef9","하늘"],["#ebe5f6","라벤더"],["#f8e6ec","핑크"],["#3a3f47","차콜"],["#d6ad74","코르크 갈색"]];
@@ -35,7 +36,7 @@ const stkQ=new Map(),stkDeb=new Map();
 const WD2=["일","월","화","수","목","금","토"];
 const dayLabel=d=>{const x=new Date(d+"T00:00:00");return `${d} (${WD2[x.getDay()]})`};
 const shiftDay=(d,k)=>{const x=new Date(d+"T00:00:00");x.setDate(x.getDate()+k);return fmt(x)};
-const viewW=()=>Math.max(320,($("#center").clientWidth||940)-44),viewH=()=>Math.max(360,(window.innerHeight||800)-190);   // 지금 보이는 판의 크기
+const viewW=()=>Math.max(320,($("#center").clientWidth||940)-44),viewH=()=>Math.max(360,(window.innerHeight||800)-(($(".memo-h")||{}).offsetHeight||100)-40);   // 지금 보이는 판의 크기
 function stkSave(sn,quiet){   // 서버에 저장 (id 가 없으면 새로 만든다). 같은 포스트잇은 줄을 세워서 저장한다
   const body={id:sn.id,day:sn.day,until:sn.until||"",text:sn.text,color:sn.color,x:sn.x,y:sn.y,w:sn.w,h:sn.h,z:sn.z,pinned:sn.pinned?1:0,remind_time:sn.remind_time||"",wake:sn.wake?1:0,alarm_dates:sn.alarm_dates||[],imgs:sn.imgs||[]};
   const run=(stkQ.get(sn)||Promise.resolve()).catch(()=>{}).then(async()=>{
@@ -76,7 +77,7 @@ async function renderMemoInner(){
       </div>
       <div class="memo-cal" id="mCal"></div><div class="mcolor" id="mColorPop"></div>
     </div>
-    <div class="memo-days" id="mDays"></div><div id="mSearch"></div><div id="mPins"></div>
+    <div id="mSearch"></div><div id="mPins"></div>
     <div class="cork b-${memoBoard()}" id="cork"><div class="cork-empty" id="corkEmpty" hidden><b>이 날의 포스트잇이 없어요</b>빈 곳을 <b>더블클릭</b>하거나 <b>끌어서</b> 크기를 그리거나 Ctrl+N · ‘＋ 새 포스트잇’으로 바로 적어 보세요.<br>레드마인·검색·사전과 상관없이 나만 보는 메모예요.</div></div>`;
   try{await loadMemo()}catch(e){toast("메모를 불러오지 못했어요: "+e.message,6000);return}
   if(view!=="memo")return;
@@ -135,8 +136,6 @@ function drawMemo(){
   memoList.forEach(sn=>cork.appendChild(mkSticky(sn)));
   $("#corkEmpty").hidden=memoList.length>0;
   $("#mDay").textContent=`${dayLabel(memoDay)} · ${memoList.length}개${memoDay===todayStr()?" · 오늘":""}`;
-  $("#mDays").innerHTML=memoDays.length?`<span class="meta" title="한 줄에 최근 날짜만 보여요. 지난 날짜는 📅 달력에서 찾아요">메모가 있는 날</span>`+memoDays.slice(0,30).map(d=>`<button type="button" class="mdchip ${d.day===memoDay?"on":""}" data-md="${d.day}">${d.day.slice(5)}<small>${d.count}</small></button>`).join(""):"";
-  document.querySelectorAll("#mDays [data-md]").forEach(b=>b.onclick=()=>gotoMemo(b.dataset.md));
   fitCork();
 }
 /* 보드는 크기가 고정이다 (창 크기에 맞춤, 늘어나지 않음). 많이 쓰지 않도록 일부러 그렇게 했고, 가득 차면 겹쳐서 붙는다. */
@@ -194,7 +193,15 @@ function mkSticky(sn){
     if(e.target.closest(".cbw"))return;showEdit();
   });
   el.addEventListener("focusout",e=>{if(!el.contains(e.relatedTarget))setTimeout(showView,0)});
-  ed.addEventListener("input",()=>{sn.text=edGet(ed);stkLater(sn)});
+  const grow=()=>{   // 글 양에 맞춰 높이를 늘리고 줄인다: 처음 크기(또는 직접 바꾼 크기) ~ STK_GROW 사이에서만 (사진이 있는 메모는 그대로)
+    if(ed.hidden||el.classList.contains("hasimg"))return;
+    if(sn._base==null)sn._base=sn.h;
+    const keep=el.style.height,sc=ed.scrollTop;el.style.height="auto";const need=el.offsetHeight;el.style.height=keep;ed.scrollTop=sc;
+    const cap=Math.max(sn._base,Math.min(STK_GROW,viewH()-sn.y-8)),h=Math.round(Math.max(sn._base,Math.min(need,cap)));
+    if(h!==sn.h){sn.h=h;place()}
+  };
+  ed.addEventListener("focusin",()=>{if(sn._base==null)sn._base=sn.h});
+  ed.addEventListener("input",()=>{sn.text=edGet(ed);grow();stkLater(sn)});
   el.addEventListener("keydown",e=>{   // Ctrl+Enter 또는 Esc: 편집을 끝내고 바로 저장 (코드 상자 안에서도 한 번에)
     const enter=e.key==="Enter"&&(e.ctrlKey||e.metaKey),esc=e.key==="Escape"&&!e.isComposing;
     if(!enter&&!esc)return;
@@ -230,7 +237,7 @@ function mkSticky(sn){
       else if(intoEd&&!ed.hidden)showEdit();};
     document.addEventListener("pointermove",mv);document.addEventListener("pointerup",up);document.addEventListener("pointercancel",up);
   });
-  drag(el.querySelector(".stk-rs"),(o,dx,dy)=>{sn.w=Math.max(STK_MIN.w,Math.min(viewW()-sn.x-8,Math.round(o.w+dx)));sn.h=Math.max(STK_MIN.h,Math.min(viewH()-sn.y-8,Math.round(o.h+dy)))});
+  drag(el.querySelector(".stk-rs"),(o,dx,dy)=>{sn.w=Math.max(STK_MIN.w,Math.min(viewW()-sn.x-8,Math.round(o.w+dx)));sn.h=Math.max(STK_MIN.h,Math.min(viewH()-sn.y-8,Math.round(o.h+dy)));sn._base=sn.h});   // 직접 바꾼 크기가 저절로 커지기의 새 기준
   el.querySelectorAll(".stk-colors i").forEach(i=>i.onclick=()=>{sn.color=i.dataset.c;place();stkSave(sn);el.classList.remove("pick")});
   el.querySelector('[data-a="col"]').onclick=e=>{e.stopPropagation();el.classList.toggle("pick")};     // 글자를 가리지 않게, 팔레트는 머리줄 안에서만 바뀐다
   el.querySelector('[data-a="pin"]').onclick=()=>{sn.pinned=sn.pinned?0:1;el.classList.toggle("pinned",!!sn.pinned);place();stkSave(sn).then(()=>loadPins().then(()=>{if(memoPinsOpen)drawPins(true)}));toast(sn.pinned?"📌 고정했어요 (맨 위 · 자동 배치에서 제외)":"고정을 풀었어요",1800)};

@@ -53,16 +53,16 @@ const NAVICON={
   mine:IC('<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13 7l4 4"/>'),
   summary:IC('<path d="M5 20V10M12 20V4M19 20v-7"/>'),
   graph:IC('<circle cx="6" cy="7" r="2.2"/><circle cx="18" cy="6" r="2.2"/><circle cx="12" cy="18" r="2.2"/><path d="M7.8 8.2l3 7.8M16.5 7.8l-3.6 8.2M8 7.2l8-1"/>'),
-  code:IC('<path d="M9 8l-5 4 5 4M15 8l5 4-5 4"/>'),
+  code:IC('<circle cx="12" cy="12" r="3.2"/><path d="M3 12h5.8M15.2 12H21"/>'),     // 코드 이력: 커밋 모양 (보관함 · 코드의 <> 와 겹치지 않게)
   dict:IC('<path d="M3 12V4h8l9 9-8 8z"/><circle cx="7.5" cy="8.5" r="1.2"/>'),
   memo:IC('<path d="M5 4h14v10l-6 6H5z"/><path d="M13 20v-6h6"/>'),
-  deploy:IC('<path d="M5 19l4-1 9-9a2.5 2.5 0 0 0-3.5-3.5l-9 9z"/><path d="M13 7l4 4"/>'),
+  deploy:IC('<path d="M12 15l-3-3a15 15 0 0 1 9-8.5 2 2 0 0 1 1.5 1.5A15 15 0 0 1 12 15z"/><path d="M9 12H5l2-4h4M12 15v4l4-2v-4"/><path d="M5.5 16.5c-1 1-1.5 3-1.5 3.5.5 0 2.5-.5 3.5-1.5"/>'),     // 배포요청: 로켓 (내 기록의 연필과 겹치지 않게)
   queries:IC('<ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v6c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 11v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/>'),
   commands:IC('<path d="M4 7h16M4 12h10M4 17h7"/><path d="M18 14v6M15 17h6"/>'),
   wiki:IC('<rect x="3" y="4" width="5" height="16" rx="1"/><rect x="10" y="4" width="5" height="16" rx="1"/><path d="M17 8h4M17 12h4M17 16h4"/>'),
   trouble:IC('<path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.4 2.4-2.6-.6-.6-2.6z"/>'),
 };
-Object.assign(NAVICON,{vaultCode:NAVICON.code,vaultQuery:NAVICON.queries,vaultCommands:NAVICON.commands});
+Object.assign(NAVICON,{vaultCode:IC('<path d="M9 8l-5 4 5 4M15 8l5 4-5 4"/>'),vaultQuery:NAVICON.queries,vaultCommands:NAVICON.commands});
 const toTop=()=>{const c=$("#center"),l=$("#list");if(c)c.scrollTop=0;if(l)l.scrollTop=0;window.scrollTo(0,0)};
 /* 왼쪽 메뉴: 자주 쓰는 3개(오늘 · 이력 · 내 기록)만 앞에 두고, 나머지는 '더 보기'에 접어 둔다 */
 /* 메뉴에 보일 항목: 설정 → 화면에서 끈 것(ui.navHide)은 숨긴다. '오늘'과 지금 보는 화면은 늘 보인다 */
@@ -79,7 +79,7 @@ function renderNav(){
   const dictBtn=!navShown("dict")?"":`<button class="nv-item ${dictVisible()&&!todayFull()?"on":""}" data-act="dict" title="용어(주제) 사전을 오른쪽에 열고 닫습니다">${NAVICON.dict}<span>주제 사전</span></button>`;
   if(V2()){   // 새 디자인: 하는 일 기준 4묶음. 묶음 제목을 누르면 접히고(저장), 지금 보는 화면이 든 묶음은 항상 펼친다. 접힌 묶음은 제목 옆에 숫자 · 🔔 · 🚀 만 보여 준다
     const fold=ui.navFold||{};
-    const g=(k,t,ids,items,ex)=>{if(!items)return "";const here=ids.includes(nav),open=!fold[k]||here;
+    const g=(k,t,ids,items,ex)=>{if(!items)return "";const here=ids.includes(nav),open=!fold[k]||here||!!ui.navCollapsed;   // 메뉴를 접었을 때는 묶음 접기와 상관없이 아이콘을 모두 보인다
       return `<button type="button" class="nv-grp ${open?"":"shut"}" data-grp="${k}" data-short="${({work:"일",tools:"도",vault:"보",anal:"분"})[k]}" ${here?"data-here":""} title="${t} · ${open?"접기":"펼치기"}${here&&fold[k]?" (지금 보는 화면이 있어서 펼쳐 둠)":""}" aria-label="${t} · ${open?"접기":"펼치기"}"><span>${t}</span>${open?"":`<span class="nv-gx">${ex||""}</span>`}${chev(open&&!fold[k])}</button>`+(open?items:"")};
     $("#navitems").innerHTML=g("work","일감",["today","history","mine","deploy"],mk("today","오늘",nowN)+mk("history","이력")+dictBtn+mk("mine","내 기록")+mk("deploy","배포요청",0,dpIc),(nowN?`<span class="cnt">${nowN}</span>`:"")+dpIc)
       +g("tools","내 도구",["memo","trouble","wiki"],mk("memo","메모",0,memoEx)+mk("trouble","트러블슈팅")+mk("wiki","업무 위키"),memoEx)
@@ -99,7 +99,7 @@ function renderNav(){
   sbcDraw();
   if($("#navmore")){const toggleMore=()=>{ui.navMore=!more;saveUI();renderNav()};$("#navmore").onclick=toggleMore;$("#navmore").onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();toggleMore()}}}
   const navToggle=$("#navToggle");
-  if(navToggle){navToggle.setAttribute("aria-label",ui.navCollapsed?"왼쪽 메뉴 펼치기":"왼쪽 메뉴 접기");navToggle.title=navToggle.getAttribute("aria-label");navToggle.textContent=ui.navCollapsed?"›":"‹";navToggle.setAttribute("aria-expanded",String(!ui.navCollapsed));navToggle.onclick=()=>{ui.navCollapsed=!ui.navCollapsed;saveUI();applyUI();renderNav()}}
+  if(navToggle){navToggle.setAttribute("aria-label",ui.navCollapsed?"왼쪽 메뉴 펼치기":"왼쪽 메뉴 접기");navToggle.title=navToggle.getAttribute("aria-label");navToggle.textContent=ui.navCollapsed?"›":"‹";navToggle.setAttribute("aria-expanded",String(!ui.navCollapsed));navToggle.onclick=()=>{ui.navCollapsed=!ui.navCollapsed;saveUI();applyUI();renderNav();window.dispatchEvent(new Event("resize"))}}   // 메뉴 폭이 바뀌면 메모 보드 · 그래프도 넓이를 다시 잰다
   document.querySelectorAll("#nav [data-dpal]").forEach(i=>i.onclick=e=>{e.stopPropagation();openDeploy(todayStr())});
   const d=document.querySelector("#nav [data-act=dict]");
   if(d)d.onclick=toggleDict;
