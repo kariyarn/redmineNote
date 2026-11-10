@@ -6,6 +6,7 @@ let cmdItems=[],cmdVars=[],cmdLoaded=false,cmdLoading=null,cmdSelected=null,cmdD
 let cmdTab="cmd",varSelected=null,varDraft=null;
 const CMD_BTN_MAX=6;          // 이보다 많으면 선택칸으로 접는다 (꺼내 둔 것은 버튼으로 남김)
 const CMD_FUNC_MS=3000;       // 함수 실행 시간 한도
+const CMD_HTML_PREFIX="\uE003";
 
 async function cmdLoad(force=false){
   if(cmdLoaded&&!force)return cmdItems;
@@ -124,9 +125,19 @@ async function cmdExpand(text,n,vars=cmdVars){
   for(const m of text.matchAll(CMD_VAR_LOOSE))if(!m[1]&&!ok.has(m.index))errors.push(`${m[0]}: 형식을 알아보지 못했어요 (괄호 · 따옴표 짝 확인)`);
   return {text:out,errors:[...new Set(errors)]};
 }
+async function cmdExpandHtml(text,n,vars=cmdVars){
+  const template=document.createElement("template");
+  template.innerHTML=CommentCodec.clean(String(text||"").slice(CMD_HTML_PREFIX.length),{internal:true}).html;
+  const nodes=[];
+  const collect=node=>{for(const child of [...node.childNodes])if(child.nodeType===3)nodes.push(child);else if(child.nodeType===1)collect(child)};
+  collect(template.content);
+  const errors=[];
+  for(const node of nodes){const result=await cmdExpand(node.data,n,vars);node.data=result.text;errors.push(...result.errors)}
+  return {text:CommentCodec.clean(template.innerHTML,{internal:true}).html,errors:[...new Set(errors)],html:true};
+}
 
 /* ---- 댓글 입력창 ---- */
-const cmdBtnHtml=x=>`<button type="button" class="mini cmd-shortcut ${x.pinned?"pin":""}" data-cmd-id="${x.id}" title="${esc(x.description)}">${esc(x.shortcut)}</button>`;
+const cmdBtnHtml=x=>`<button type="button" class="mini cmd-shortcut ${x.pinned?"pin":""}" data-cmd-id="${x.id}" title="${esc(cmdDisplayText(x.description))}">${esc(x.shortcut)}</button>`;
 function cmdPaintComposer(c){
   const box=c.querySelector(".cmcmd");if(!box)return;
   if(!cmdLoaded){box.innerHTML=`<span class="meta">명령어 불러오는 중…</span>`;return}
@@ -144,8 +155,10 @@ function cmdPaintComposer(c){
 async function cmdApply(c,id){
   const item=cmdItems.find(x=>x.id===id),ta=c.querySelector(".cmta"),iid=nIssueId(c);
   if(!item||!ta)return;
-  const n=all.find(x=>x.issue_id===iid)||curNote(),r=await cmdExpand(item.description,n);
-  edInit(ta,ta._commentEditor?.format==="html"?commentTextHTML(r.text):r.text);setDraft(iid,edGet(ta));syncComposers(n||curNote(),ta);
+  const n=all.find(x=>x.issue_id===iid)||curNote(),r=String(item.description||"").startsWith(CMD_HTML_PREFIX)?await cmdExpandHtml(item.description,n):await cmdExpand(item.description,n);
+  const format=ta._commentEditor?.format;
+  const value=r.html?(format==="html"?r.text:CommentCodec.serialize(r.text,format||"html")):format==="html"?commentTextHTML(cmdDisplayText(r.text)):r.text;
+  edInit(ta,value);setDraft(iid,edGet(ta));syncComposers(n||curNote(),ta);
   const last=ta.querySelector(".tb:last-of-type")||ta.lastElementChild;if(last&&last.focus)last.focus();
   if(r.errors.length)toast("바꾸지 못한 변수가 있어요 — "+r.errors.join(" · "),7000);
 }
@@ -165,44 +178,33 @@ function cmdRefreshComposers(){document.querySelectorAll(".cmp").forEach(cmdPain
 /* ---- 관리 화면: 명령어 / 변수 ---- */
 const cmdSig=d=>JSON.stringify([d.shortcut,d.description,!!d.pinned]);
 const varSig=d=>JSON.stringify([d.name,d.kind,d.value,d.description,d.kind==="func"?(d.params||[]):[]]);
-const cmdSoftStates=new WeakMap();
-const cmdDisplayText=text=>String(text||"").split(SOFT_BREAK).join("\n");
-function cmdSetDescription(ta,text){
-  const breaks=new Set();let shown="";
-  for(const ch of String(text||"")){
-    if(ch===SOFT_BREAK){breaks.add(shown.length);shown+="\n"}
-    else shown+=ch;
-  }
-  ta.value=shown;cmdSoftStates.set(ta,{value:shown,breaks});
+const cmdIsHtml=text=>String(text||"").startsWith(CMD_HTML_PREFIX);
+function cmdLegacyHtml(text){
+  const value=String(text||"");
+  return value.split("\n").map(line=>"<p>"+line.split(SOFT_BREAK).map(CommentCodec.escape).join("<br>")+"</p>").join("");
 }
-function cmdDescriptionValue(ta){
-  const state=cmdSoftStates.get(ta),breaks=state?.breaks||new Set();
-  let value="";
-  for(let i=0;i<ta.value.length;i++)value+=breaks.has(i)&&ta.value[i]==="\n"?SOFT_BREAK:ta.value[i];
-  return value;
+function cmdDescriptionValue(root){
+  const raw=root._commentEditor?.getRaw()||"";
+  const content=cmdHtmlText(raw).trim()||CommentCodec.clean(raw,{preview:true}).node.querySelector("img,table,hr");
+  return content?CMD_HTML_PREFIX+raw:"";
 }
-function cmdTrackDescription(ta){
-  const state=cmdSoftStates.get(ta);if(!state){cmdSetDescription(ta,ta.value);return}
-  const old=state.value,value=ta.value;let start=0,suffix=0;
-  while(start<old.length&&start<value.length&&old[start]===value[start])start++;
-  while(suffix<old.length-start&&suffix<value.length-start&&old[old.length-1-suffix]===value[value.length-1-suffix])suffix++;
-  const oldEnd=old.length-suffix,shift=value.length-old.length,breaks=new Set();
-  state.breaks.forEach(i=>{if(i<start)breaks.add(i);else if(i>=oldEnd)breaks.add(i+shift)});
-  state.value=value;state.breaks=breaks;
+function cmdWireDescription(root){
+  const text=String(cmdDraft.description||"");
+  const value=cmdIsHtml(text)?text.slice(CMD_HTML_PREFIX.length):cmdLegacyHtml(text);
+  mountCommentEditor(root,{value,format:"html"});
 }
-function cmdWireDescription(ta){
-  cmdSetDescription(ta,cmdDraft.description);
-  ta.addEventListener("input",()=>cmdTrackDescription(ta));
-  ta.addEventListener("keydown",e=>{
-    if(e.key!=="Enter"||!e.shiftKey||e.isComposing)return;
-    e.preventDefault();
-    const state=cmdSoftStates.get(ta),start=ta.selectionStart,end=ta.selectionEnd,delta=1-(end-start),breaks=new Set();
-    state.breaks.forEach(i=>{if(i<start)breaks.add(i);else if(i>=end)breaks.add(i+delta)});
-    breaks.add(start);state.breaks=breaks;
-    ta.setRangeText("\n",start,end,"end");state.value=ta.value;
-    ta.dispatchEvent(new Event("input",{bubbles:true}));
-  });
+function cmdHtmlText(html){
+  const node=CommentCodec.clean(html,{preview:true}).node;
+  const visit=el=>[...el.childNodes].map(child=>{
+    if(child.nodeType===3)return child.data;
+    if(child.nodeType!==1)return "";
+    const body=visit(child);
+    return child.localName==="br"?"\n":/^(p|div|h[1-6]|blockquote|li|pre)$/.test(child.localName)?body+"\n":body;
+  }).join("");
+  return visit(node).replace(/\n+$/,"");
 }
+const cmdDisplayText=text=>cmdIsHtml(text)?cmdHtmlText(String(text).slice(CMD_HTML_PREFIX.length)):String(text||"").split(SOFT_BREAK).join("\n");
+const cmdDescriptionHtml=text=>cmdIsHtml(text)?CommentCodec.clean(String(text).slice(CMD_HTML_PREFIX.length),{preview:true}).html:null;
 /* 함수 인자: 이름 · 타입 · 기본값 (최대 PARAM_MAX). 함수 본문에서 이름 그대로 쓴다 */
 const PARAM_MAX=10;
 const PARAM_TYPES=[["string","문자"],["number","숫자"],["boolean","참/거짓"],["date","날짜"]];
@@ -258,7 +260,7 @@ function cmdDrawList(){
       varSelected=+b.dataset.varSelect;varDraft=null;cmdDrawList();cmdDrawMain()});
     return;
   }
-  const list=cmdItems.filter(x=>!q||`${x.shortcut}\n${x.description}`.toLowerCase().includes(q));
+  const list=cmdItems.filter(x=>!q||`${x.shortcut}\n${cmdDisplayText(x.description)}`.toLowerCase().includes(q));
   const canReorder=!q&&!cmdDraft&&list.length>1;
   el.innerHTML=(canReorder?`<div class="meta cmd-order-hint">☷ 항목을 드래그해 순서를 바꿀 수 있어요. 댓글의 명령어에도 같은 순서가 적용돼요.</div>`:"")
     +list.map(x=>`<div class="tr-item ${x.id===cmdSelected&&!cmdDraft?"on":""} ${canReorder?"cmd-order-item":""}" data-cmd-select="${x.id}" ${canReorder?'draggable="true" title="끌어서 순서 변경"':""}>
@@ -302,20 +304,23 @@ function cmdDrawCmd(){
       <label class="tr-lab" for="cmdShortcut" style="margin-top:0">단축어</label>
       <input type="text" id="cmdShortcut" maxlength="40" placeholder="예) 배포요청" value="${esc(cmdDraft.shortcut)}">
       <label class="tr-lab" for="cmdDescription">댓글에 넣을 문구</label>
-      <textarea id="cmdDescription" rows="8" maxlength="20000" placeholder="예) #{nextTue} 정기 배포를 요청드립니다.">${esc(cmdDisplayText(cmdDraft.description))}</textarea>
-      <div class="meta">Enter는 새 문단, Shift+Enter는 댓글과 같은 문단 안 줄바꿈이에요.</div>
+      <div id="cmdDescription" class="tr-rte cmd-editor" aria-label="댓글에 넣을 문구 편집기"></div>
+      <div class="meta">Enter는 새 문단, Shift+Enter는 같은 문단 안 줄바꿈이에요. 서식 도구는 기본으로 숨겨져 있어요.</div>
       ${varChips()}
       <div class="meta"><code>#{이름}</code> · <code>#{이름(인수, …)}</code> 은 변수 탭의 상수 · 함수로 바뀌어요. 바꾸지 않으려면 <code>\\#{이름}</code>.</div>
       <label class="chk" style="margin-top:10px"><input type="checkbox" id="cmdPinned" ${cmdDraft.pinned?"checked":""}> 버튼으로 꺼내 두기 <span class="meta">— 명령어가 ${CMD_BTN_MAX}개를 넘어 선택칸으로 접혀도 이 명령어는 버튼으로 남아요</span></label>
       <div class="row" style="margin-top:14px"><button type="button" class="primary" id="cmdSave">저장</button><button type="button" id="cmdCancel">취소</button><button type="button" id="cmdTry">미리 보기</button></div>
       <div id="cmdPrev"></div></div>`;
-    el.querySelectorAll("[data-ins]").forEach(b=>b.onclick=()=>{const ta=$("#cmdDescription"),s=ta.selectionStart??ta.value.length,e=ta.selectionEnd??s,t=b.dataset.ins;
-      ta.setRangeText(t,s,e,"end");cmdTrackDescription(ta);ta.focus()});
+    el.querySelectorAll("[data-ins]").forEach(b=>b.onclick=()=>{const editor=$("#cmdDescription")._commentEditor;if(!editor)return;
+      editor.insert(CommentCodec.escape(b.dataset.ins));editor.visual.focus()});
     const description=$("#cmdDescription");cmdWireDescription(description);
+    if(!cmdDraft._editorBase){cmdDraft._base=cmdSig({...cmdDraft,description:cmdDescriptionValue(description)});cmdDraft._editorBase=true}
     $("#cmdTry").onclick=()=>cmdPreview(cmdDescriptionValue(description),$("#cmdPrev"));
     $("#cmdSave").onclick=async()=>{
       try{
-        const row=await post("/api/commands",{id:cmdDraft.id,shortcut:$("#cmdShortcut").value,description:cmdDescriptionValue(description),pinned:$("#cmdPinned").checked});
+        const descriptionValue=cmdDescriptionValue(description);
+        if(!descriptionValue){toast("댓글에 넣을 문구를 입력하세요",3500);return}
+        const row=await post("/api/commands",{id:cmdDraft.id,shortcut:$("#cmdShortcut").value,description:descriptionValue,pinned:$("#cmdPinned").checked});
         cmdPut(row);cmdSelected=row.id;cmdDraft=null;cmdDrawList();cmdDrawMain();cmdRefreshComposers();toast("명령어를 저장했어요 ✓",1800);
       }catch(e){toast("저장하지 못했어요: "+e.message,4500)}
     };
@@ -327,7 +332,7 @@ function cmdDrawCmd(){
   if(!x){el.innerHTML=`<div class="empty" style="padding-top:8vh"><b>댓글에 자주 쓰는 문구를 빠르게 넣어 보세요</b>단축어와 문구를 저장하면 노트의 댓글 입력창 아래에 버튼으로 나와요. 누르면 댓글 입력란이 그 문구로 <b>바뀌어요</b>. 명령어가 ${CMD_BTN_MAX}개를 넘으면 선택칸으로 접히고, '버튼으로 꺼내 두기'한 것만 버튼으로 남아요.<br>문구 안의 <code>#{이름}</code> 은 <b>변수</b> 탭에서 만든 상수 · 함수로 바뀌어요.</div>`;return}
   el.innerHTML=`<div class="card tr-doc"><div class="tr-hd"><h2>${esc(x.shortcut)}</h2><button type="button" id="cmdEdit">편집</button><button type="button" id="cmdDelete">삭제</button></div>
     ${x.pinned?`<div class="meta">버튼으로 꺼내 둠 — 명령어가 많아 선택칸으로 접혀도 버튼으로 남아요</div>`:""}
-    <div class="tr-sec"><h4>댓글에 넣을 문구</h4><div class="cmd-description">${esc(cmdDisplayText(x.description))}</div></div>
+    <div class="tr-sec"><h4>댓글에 넣을 문구</h4><div class="cmd-description">${cmdDescriptionHtml(x.description)||esc(cmdDisplayText(x.description))}</div></div>
     <div class="tr-sec"><h4>미리 보기 <span class="meta">(지금 시각 · 마지막으로 연 일감 기준. 연 일감이 없으면 ctx.issue 는 null)</span></h4><div id="cmdPrev"></div></div>
     <div class="meta" style="margin-top:12px">수정 ${esc((x.updated_at||"").replace("T"," ").slice(0,16))}</div></div>`;
   cmdPreview(x.description,$("#cmdPrev"));
@@ -340,8 +345,8 @@ function cmdDrawCmd(){
 }
 async function cmdPreview(text,box){
   if(!box)return;box.innerHTML=`<span class="meta">바꾸는 중…</span>`;
-  const r=await cmdExpand(text,curNote()||null);
-  box.innerHTML=`<div class="cmd-description cmd-prev">${esc(cmdDisplayText(r.text))}</div>${r.errors.length?`<div class="meta cmd-err">${r.errors.map(esc).join("<br>")}</div>`:""}`;
+  const r=cmdIsHtml(text)?await cmdExpandHtml(text,curNote()||null):await cmdExpand(text,curNote()||null);
+  box.innerHTML=`<div class="cmd-description cmd-prev">${r.html?CommentCodec.clean(r.text,{preview:true}).html:esc(cmdDisplayText(r.text))}</div>${r.errors.length?`<div class="meta cmd-err">${r.errors.map(esc).join("<br>")}</div>`:""}`;
 }
 
 /* 변수 편집 */

@@ -21,6 +21,16 @@
     await wait(150);
     const n=curNote(),root=()=>$('#sec-write .cmta');
     check('full screen boots and opens HTML composer',n?.issue_id===93599&&root()?._commentEditor?.format==='html');
+    const commandProbe=document.createElement('div');document.body.appendChild(commandProbe);
+    const commandEditor=mountCommentEditor(commandProbe,{value:'<p>명령어 문구</p>',format:'html'});
+    const commandToggle=commandProbe.querySelector('[data-ce-tools-toggle]'),commandTools=commandProbe.querySelector('.cetools');
+    check('command rich-text editor hides formatting tools initially',commandTools.hidden&&commandToggle.textContent==='서식 보이기');
+    commandToggle.click();check('command rich-text editor can show formatting tools',!commandTools.hidden&&commandToggle.textContent==='서식 숨기기');
+    commandToggle.click();check('command rich-text editor can hide formatting tools again',commandTools.hidden);
+    const commandExpanded=await cmdExpandHtml(CMD_HTML_PREFIX+'<p><strong>#{cmdSmoke}</strong></p>',n,[{name:'cmdSmoke',kind:'const',value:'<scr'+'ipt>alert(1)</scr'+'ipt>'}]);
+    check('command variable expansion preserves formatting and escapes values',commandExpanded.html&&commandExpanded.text.includes('<strong>&lt;script&gt;alert(1)&lt;/script&gt;</strong>')&&!commandExpanded.text.includes('<script>'));
+    check('legacy command line breaks convert to paragraphs and soft breaks',cmdLegacyHtml('첫 줄'+SOFT_BREAK+'이어짐\n다음 문단')==='<p>첫 줄<br>이어짐</p><p>다음 문단</p>');
+    commandProbe.remove();
     check('upstream layout and maximize controls survive',$('#jlay')&&$('#jmax'));
     check('upstream attachment block is collapsible',$('#sec-att')?.dataset.cf==='att');
     check('full attachment link is not nested with a delete button',!!$('#attwrap .attrow')&&![...document.querySelectorAll('#attwrap .attrow')].some(a=>a.querySelector('button')));
