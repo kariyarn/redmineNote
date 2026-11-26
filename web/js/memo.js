@@ -153,6 +153,7 @@ function chkHtml(text){
   let k=0;
   return text.split(/(```[\s\S]*?```)/).map((seg,si)=>si%2?renderMd(seg):seg.split("\n").map(ln=>{
     const m=ln.match(/^(\s*)\[( |x|X)\]\s?(.*)$/);
+    const b=!m&&ln.match(/^\s*[-•] (.*)$/);if(b)return `<span class="stk-bl"><i>•</i><span>${esc(b[1])||"&nbsp;"}</span></span>`;      // 불릿 줄 (2.42)
     if(!m)return esc(ln)+"\n";
     const done=m[2]!==" ";return `<label class="chk${done?" done":""}"><input type="checkbox" data-k="${k++}" ${done?"checked":""}><span>${esc(m[3])||"&nbsp;"}</span></label>`;
   }).join("")).join("");
@@ -172,7 +173,7 @@ function mkSticky(sn){
   el.innerHTML=`<div class="stk-h"><span class="stk-grab" title="잡고 끌어서 옮기기">⠿</span>${sn.until?`<span class="stk-until" title="노출 기간 ${sn.day} ~ ${sn.until} (📅 로 바꿀 수 있어요)">${sn.day.slice(5)}~${sn.until.slice(5)}</span>`:""}${sn.remind_time?`<span class="stk-until stk-bell" data-a="alarm" title="${sn.until?(sn.alarm_dates&&sn.alarm_dates.length?`고른 ${sn.alarm_dates.length}일에만 `:"기간의 평일 "):""}${sn.remind_time} 에 알려요 (눌러서 바꾸기)">🔔${sn.remind_time}${sn.alarm_dates&&sn.alarm_dates.length?`<small>·${sn.alarm_dates.length}일</small>`:""}</span>`:""}
       <span class="stk-colors">${Object.keys(STK).map(k=>`<i data-c="${k}" style="background:${STK[k]}" title="색 바꾸기"></i>`).join("")}</span><span class="sp"></span>
       <button type="button" data-a="col" class="colb" title="색 바꾸기 (누르면 이 줄에서 색을 골라요)">🎨</button>
-      <button type="button" data-a="chk" title="체크 항목 추가 ([ ] 로 시작하는 줄이 체크박스가 돼요)">☑</button>
+      <button type="button" data-a="chk" title="체크 항목 추가 (줄 처음에 [ ] 를 쳐도 바로 체크박스가 돼요 · Enter = 다음 항목)">☑</button><button type="button" data-a="bl" class="blb" title="불릿 추가 (줄 처음에 - 를 쳐도 돼요 · Enter = 다음 항목)">•</button>
       <button type="button" data-a="pin" class="pinb" title="고정 (맨 위에 두고, 자동 배치에서 움직이지 않아요)">📌</button>
       <button type="button" data-a="range" title="노출 기간 정하기: 시작일~종료일의 매일 보드에 계속 보여요">📅</button><button type="button" data-a="alarm" title="알림 설정: 정한 날짜(기간이면 매일) 그 시각에 알려요 · 메모를 사이드바 달력으로 끌어다 놓아도 돼요">🔔</button>${sn.day!==todayStr()&&!(sn.until&&sn.until>=todayStr()&&sn.day<=todayStr())?`<button type="button" data-a="today" title="오늘 보드로 옮기기">→오늘</button>`:""}<button type="button" data-a="del" title="삭제 (바로 되돌릴 수 있어요)">✕</button></div>
     <div class="stk-imgs"></div><div class="stk-v" hidden></div><div class="rte stk-t" data-ph="메모 (스샷은 Ctrl+V 로 붙여요)"></div><div class="stk-rs" title="끌어서 크기 바꾸기"></div>`;
@@ -243,6 +244,7 @@ function mkSticky(sn){
   el.querySelector('[data-a="pin"]').onclick=()=>{sn.pinned=sn.pinned?0:1;el.classList.toggle("pinned",!!sn.pinned);place();stkSave(sn).then(()=>loadPins().then(()=>{if(memoPinsOpen)drawPins(true)}));toast(sn.pinned?"📌 고정했어요 (맨 위 · 자동 배치에서 제외)":"고정을 풀었어요",1800)};
   el.querySelector('[data-a="chk"]').onclick=()=>{   // 새 줄에 [ ] 를 넣고 바로 쓰게 한다
     showEdit();document.execCommand("insertText",false,(edGet(ed).trim()?"\n":"")+"[ ] ");sn.text=edGet(ed);stkLater(sn)};
+  el.querySelector('[data-a="bl"]').onclick=()=>{showEdit();document.execCommand("insertText",false,(edGet(ed).trim()?"\n":"")+"- ");sn.text=edGet(ed);stkLater(sn)};
   el.querySelector('[data-a="del"]').onclick=async()=>{   // 내용이 있으면 확인 창 한 번 + 삭제 뒤 '되돌리기' (6초). 빈 메모는 바로 삭제
     if(sn.text.trim()||(sn.imgs||[]).length){const pv=sn.text.replace(/\s+/g," ").trim().slice(0,60)||`사진 ${sn.imgs.length}장`;
       if(!await askC(`이 포스트잇을 삭제할까요?\n\n“${pv}${sn.text.trim().length>60?"…":""}”`,{title:"포스트잇 삭제",ok:"삭제"}))return}

@@ -51,6 +51,7 @@ function serText(el){   // 글 블록 -> 문자열 (인라인 코드는 ` ` 로 
     if(n.nodeType===3)s+=n.data;
     else if(n.nodeName==="CODE")s+="`"+n.textContent+"`";
     else if(n.nodeName==="BR")s+=n.dataset.softBreak!==undefined?SOFT_BREAK:"\n";
+    else if(n.nodeType===1&&n.dataset.mk!==undefined)s+=n.dataset.mk;      // 포스트잇 체크 · 불릿 표시 (2.42): 글자로는 [ ] · [x] · - 그대로
     else if(n.nodeName==="DIV"){   // 편집기가 Enter 를 <div> 줄로 만든 경우: 줄 하나 = 줄바꿈 하나 (빈 줄 <div><br></div> 도 빈 줄 하나로)
       if(s&&!s.endsWith("\n"))s+="\n";
       if(n.childNodes.length===1&&n.firstChild.nodeName==="BR"){if(n.nextSibling)s+="\n"}
@@ -101,6 +102,15 @@ function mkText(s){
   d.addEventListener("keydown",e=>{
     if(e.key==="`"&&!e.ctrlKey&&!e.altKey&&!e.metaKey&&!e.isComposing&&wrapSel(d,e))return;
     if(e.key!=="`")d._bq=null;
+    if(mkHost(d)&&!e.isComposing&&!e.ctrlKey&&!e.metaKey&&!e.altKey&&(e.key==="Backspace"||e.key==="Enter"&&!e.shiftKey)){
+      const L=mkLine(d);
+      if(L&&!(L.front&&e.key==="Enter")&&(e.key==="Enter"||L.atHead)){
+        e.preventDefault();
+        if(e.key==="Backspace"||L.empty){L.span.remove();d.dispatchEvent(new Event("input",{bubbles:true}))}      // 표시만 지운다 (빈 항목에서 Enter = 목록 끝)
+        else{document.execCommand("insertText",false,"\n"+(L.span.classList.contains("mk-ck")?"[ ] ":"- "));keepCaret(d)}
+        return;
+      }
+    }
     if(e.key!=="Enter"||e.isComposing)return;
     e.preventDefault();
     if(e.shiftKey){
@@ -158,7 +168,7 @@ function processText(tb){
   if(!tb.isConnected||!tb.parentElement)return;      // 이미 코드 상자로 바뀌어 사라진 입력칸에 남은 이벤트는 무시
   const s=serText(tb);
   if(/```(?:[A-Za-z0-9_+#.-]*\n)?[\s\S]*?```/.test(s)||new RegExp("(^|\\n)```"+LANG+"\\n").test(s))return convertBlock(tb,s);
-  autoInline(tb);
+  autoInline(tb);decoMarks(tb);
 }
 function convertBlock(tb,s){
   const root=tb.parentElement,segs=parseSegs(s,true);
@@ -181,7 +191,76 @@ function fixStructure(root){
   if(!k.length||!k[0].classList.contains("tb"))root.prepend(mkText(""));
   [...root.children].forEach(el=>{if(el.classList.contains("cbk")&&!(el.nextElementSibling&&el.nextElementSibling.classList.contains("tb")))el.after(mkText(""))});
   const first=root.querySelector(".tb");if(first&&root.dataset.ph)first.dataset.ph=root.dataset.ph;
+  if(root.classList.contains("stk-t"))root.querySelectorAll(":scope>.tb").forEach(decoMarks);
 }
+/* ---------- 포스트잇 체크리스트 · 불릿 (2.42) ----------
+   저장은 예전 그대로 글자('[ ] ' '[x] ' '- ' 로 시작하는 줄)이고, 편집하는 동안에도 줄 처음의 그 글자를 체크박스 · 불릿 모양으로 바꿔 보여 준다.
+   - 체크박스는 편집 중에도 눌러서 켜고 끈다 · Enter = 다음 줄도 같은 항목 · 빈 항목에서 Enter = 목록 끝 · 항목 처음에서 Backspace = 표시만 지우기
+   - 포스트잇(.stk-t) 편집기에서만 켠다 (노트 기록 칸은 글자 그대로) */
+const MK_RE=/^(\[(?: |x|X)\] |- |• )/;
+const mkHost=tb=>!!(tb&&tb.parentElement&&tb.parentElement.classList.contains("stk-t"));
+function mkSpan(m){
+  const ck=m[0]==="[",on=ck&&/x/i.test(m),s=document.createElement("span");
+  s.contentEditable="false";s.className="mk "+(ck?"mk-ck":"mk-bl")+(on?" on":"");s.dataset.mk=ck?(on?"[x] ":"[ ] "):"- ";
+  if(ck){s.setAttribute("role","checkbox");s.setAttribute("aria-checked",on);s.title="눌러서 체크 / 해제"}
+  return s;
+}
+function mkLineStart(n,tb){      // n(글 조각 · 표시) 바로 앞이 줄의 처음인가
+  const p=n.previousSibling;
+  if(!p)return n.parentNode===tb||n.parentNode.nodeName==="DIV";
+  if(p.nodeName==="BR"||p.nodeName==="DIV")return true;
+  if(p.nodeType===3)return p.data.replace(/\u200b/g,"")===""?mkLineStart(p,tb):p.data.endsWith("\n");
+  return false;
+}
+function decoMarks(tb){
+  if(!mkHost(tb)||!tb.isConnected)return;
+  const g=getSelection();let cn=null,co=0;
+  if(g.rangeCount&&g.isCollapsed&&tb.contains(g.anchorNode)){cn=g.anchorNode;co=g.anchorOffset}
+  let moved=false;
+  tb.querySelectorAll(".mk").forEach(s=>{if(!mkLineStart(s,tb)){s.replaceWith(document.createTextNode(s.dataset.mk));moved=true}});      // 줄 가운데로 밀린 표시는 글자로
+  for(let guard=0;guard<500;guard++){
+    let hit=null;
+    const w=document.createTreeWalker(tb,NodeFilter.SHOW_TEXT,{acceptNode:x=>x.parentElement&&x.parentElement.closest("code")?NodeFilter.FILTER_REJECT:NodeFilter.FILTER_ACCEPT});
+    for(let t=w.nextNode();t&&!hit;t=w.nextNode()){
+      const d=t.data;
+      for(let i=0;i<d.length;i++){
+        if(i===0?!mkLineStart(t,tb):d[i-1]!=="\n"){const j=d.indexOf("\n",i);if(j<0)break;i=j;continue}
+        let k=i;while(d[k]==="\u200b")k++;      // 줄 처음의 보이지 않는 자리 글자는 건너뛴다
+        const m=MK_RE.exec(d.slice(k));if(m){hit={t,i:k,m:m[0]};break}
+        const j=d.indexOf("\n",i);if(j<0)break;i=j;      // 다음 줄로
+      }
+    }
+    if(!hit)break;
+    const {t,i,m}=hit,mid=t.splitText(i),rest=mid.splitText(m.length);
+    mid.replaceWith(mkSpan(m));moved=true;
+    if(cn===t&&co>=i){cn=rest;co=Math.max(0,co-i-m.length)}
+  }
+  if(moved&&cn&&cn.isConnected&&document.activeElement===tb){
+    if(cn.nodeType===3&&!cn.data){cn.data="\u200b";co=1}
+    try{caretAt(cn,Math.min(co,cn.nodeType===3?cn.data.length:cn.childNodes.length))}catch(_){}
+  }
+}
+function mkLine(tb){      // 커서 줄이 체크 · 불릿 항목이면 {span, empty(내용 없음), atHead(표시 바로 뒤)}
+  const g=getSelection();if(!g.rangeCount||!g.isCollapsed||!tb.contains(g.anchorNode))return null;
+  const cur=g.getRangeAt(0),pre=document.createRange();pre.setStart(tb,0);pre.setEnd(cur.startContainer,cur.startOffset);
+  const post=document.createRange();post.setStart(cur.startContainer,cur.startOffset);post.setEnd(tb,tb.childNodes.length);
+  const txt=r=>{const d=document.createElement("div");d.appendChild(r.cloneContents());return serText(d)};
+  const before=txt(pre),line=before.slice(before.lastIndexOf("\n")+1),after=txt(post).split("\n")[0];
+  if(line.replace(/\u200b/g,"")===""){      // 커서가 표시 바로 앞(Home 키 등): Backspace 는 표시만 지운다
+    const nx=[...tb.querySelectorAll(".mk")].find(s=>post.intersectsNode(s));
+    if(nx&&txt(post).startsWith(nx.dataset.mk))return {span:nx,empty:false,atHead:true,front:true};
+  }
+  const span=[...tb.querySelectorAll(".mk")].filter(s=>pre.intersectsNode(s)).pop();
+  if(!span||!line.startsWith(span.dataset.mk))return null;
+  const body=line.slice(span.dataset.mk.length);
+  return {span,empty:!body.trim()&&!after.trim(),atHead:body===""};
+}
+document.addEventListener("mousedown",e=>{      // 편집 중 체크박스 누르기
+  const s=e.target.closest&&e.target.closest(".stk-t .tb .mk-ck");if(!s||e.button!==0)return;
+  e.preventDefault();e.stopPropagation();
+  const on=!s.classList.contains("on");s.classList.toggle("on",on);s.dataset.mk=on?"[x] ":"[ ] ";s.setAttribute("aria-checked",on);
+  s.closest(".tb").dispatchEvent(new Event("input",{bubbles:true}));
+},true);
 function exitBox(box){const nx=box.nextElementSibling;if(nx)focusTb(nx,false)}
 function removeBox(box){
   const root=box.parentElement,prev=box.previousElementSibling;box.remove();fixStructure(root);

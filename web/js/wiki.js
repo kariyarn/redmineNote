@@ -8,6 +8,7 @@
    - 사진: 붙여넣기 · 끌어다 놓기 · '사진' 단추. 줄여서(webp) DB 에 저장 → 백업에 같이 들어간다. 본문에는 <img data-img="해시.webp"> 로 이름만
    - 잠금: 주제를 암호로 잠근다(그 아래 문서 전부). 서버가 열쇠 없이는 내주지 않는다. 연 상태(열쇠)는 이 창 메모리에만 → 창을 닫았다 열면 다시 잠김
    - 편집기(2.36): 글자 크기(fs-*) · 목록 Tab/Shift+Tab 들여쓰기 · 줄 처음 '- ' '1. ' '# ' 마크다운식 입력 · 표 줄과 칸 우클릭 메뉴 · 창 폭에 맞춘 열 수
+   - 2.42: 확인 안 한 변경(마지막으로 연 뒤 바뀐 문서) 점 · 최근 바뀐 문서 · 마인드맵(wikimap.js) · 역링크 · 변경 이력 · 하위 문서까지 지우기(되돌리기)
    - 2.37: 행 끌어다 놓기 · 모든 단계를 열로(가로 스크롤) · 몰아 보기 · 표 격자 고르기(tw-full) · --- 구분선 · '> ' 인용 · 표 안 Tab · 자동 변환 Backspace 되돌리기 */
 let wikis=[],wkLoaded=false,wkPath=[],wkQ="",wkSaveT=null,wkDirty=null,wkSavedRange=null,wkPk=null;
 const wkKeys=new Map();      // 잠긴 주제 id -> 연 열쇠 (메모리에만: 창을 닫으면 사라져서 다시 잠긴다)
@@ -27,6 +28,22 @@ async function wkLoad(force){if(wkLoaded&&!force)return;try{wikis=await wkApi("/
 const wkById=id=>wikis.find(w=>w.id===id);
 const wkKids=pid=>wikis.filter(w=>(w.parent_id??null)===(pid??null)).sort((a,b)=>a.pos-b.pos||a.id-b.id);
 const wkCount=id=>wkKids(id).reduce((n,k)=>n+1+wkCount(k.id),0);
+/* 확인 (2.42): 마지막으로 연 시각(seen_at)보다 고친 시각이 나중이면 '확인 안 함'. 내가 고친 문서는 서버가 본 것으로 둔다 → 주로 백업 복원(다른 PC) 뒤에 뜬다 */
+const wkUnread=w=>!!(w&&!wkShut(w)&&w.updated_at&&w.updated_at>(w.seen_at||""));
+function wkUnreadIn(id,guard=0){return guard<200&&wkKids(id).some(k=>wkUnread(k)||wkUnreadIn(k.id,guard+1))}
+const wkNavN=()=>wkLoaded?wikis.filter(wkUnread).length:0;
+async function wkSeen(ids,all){
+  const now=new Date(),loc=new Date(now-now.getTimezoneOffset()*6e4).toISOString().slice(0,19);
+  (all?wikis:wikis.filter(w=>ids.includes(w.id))).forEach(w=>{if(!wkShut(w))w.seen_at=loc>(w.updated_at||"")?loc:w.updated_at});      // 화면은 바로 (서버 시각이 와도 거의 같다)
+  wkBadge();
+  try{await wkPost("/api/wiki/seen",all?{all:true}:{ids})}catch(_){}
+}
+function wkBadge(){
+  const n=wkNavN(),b=$("#wkBadge");if(b){b.textContent=n||"";b.hidden=!n}
+  const r=$("#wkRecent");if(r)r.title=n?`확인 안 한 문서 ${n}개 · 최근 바뀐 문서 보기`:"최근 바뀐 문서 보기 (주제 목록)";
+  if(typeof renderNav==="function"&&wkBadge.last!==n){wkBadge.last=n;renderNav()}
+}
+const wkBacklinks=id=>wikis.filter(x=>x.id!==id&&(x.body||"").includes(`data-k="wiki" data-ref="${id}"`)).sort((a,b)=>(b.updated_at||"").localeCompare(a.updated_at||""));
 function wkTrail(id){const out=[];let w=wkById(id),guard=0;while(w&&guard++<200){out.unshift(w);w=w.parent_id!=null?wkById(w.parent_id):null}return out}
 const wkCur=()=>wkById(wkPath[wkPath.length-1]);
 function wkBodyEmpty(h){const t=document.createElement("template");t.innerHTML=h||"";return !t.content.querySelector("img")&&!t.content.textContent.replace(/ /g," ").trim()&&!t.content.querySelector("table,pre,a.lk")}
@@ -93,23 +110,28 @@ async function renderWiki(){
   $("#center").innerHTML=`<div class="wk-wrap">
     <div class="wk-top"><h2>업무 위키</h2><button type="button" class="wk-home" id="wkHome" title="주제 목록 (맨 위 단계)으로">${IC('<path d="M4 6h16M4 12h16M4 18h10"/>')}주제 목록</button><nav class="wk-crumbs" id="wkCrumbs" aria-label="문서 경로"></nav>
       <div class="search wk-q"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input id="wkQ" placeholder="제목 · 본문 찾기" value="${esc(wkQ)}" autocomplete="off"></div>
+      <button type="button" id="wkRecent" class="wk-recb" title="최근 바뀐 문서 보기">${IC('<circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/>')}최근<span class="wk-badge" id="wkBadge" hidden></span></button>
+      <button type="button" id="wkMapB" title="마인드맵: 문서 제목만 가지로 펼쳐 전체 흐름을 봐요 (제목을 누르면 그 문서로)" aria-pressed="false">${IC('<circle cx="12" cy="12" r="2.5"/><circle cx="4" cy="6" r="1.8"/><circle cx="4" cy="18" r="1.8"/><circle cx="20" cy="6" r="1.8"/><circle cx="20" cy="18" r="1.8"/><path d="M10 11L5.5 7M10 13l-4.5 4M14 11l4.5-4M14 13l4.5 4"/>')}마인드맵</button>
       <button type="button" id="wkNewRoot" title="맨 위 단계에 새 주제를 만들어요">＋ 새 주제</button>
       <button type="button" id="wkColsT" title="열 보기를 잠깐 꺼내요 (전체 화면에서만)" aria-pressed="false">열 보기</button>
       <button type="button" id="wkFull" title="" aria-pressed="false"></button>
       <button type="button" id="wkRead" title="지금 문서와 하위 문서를 한 화면에 이어서 읽어요 (주제 목록에서는 주제 전체)" aria-pressed="false">${IC('<path d="M4 5h7a2 2 0 0 1 2 2v12a2 2 0 0 0-2-2H4z"/><path d="M20 5h-7a2 2 0 0 0-2 2v12a2 2 0 0 1 2-2h7z"/>')}몰아 보기</button>
       <button type="button" class="primary" id="wkExp" title="지금 문서(와 하위 문서)를 파일로 내보내요">내보내기</button></div>
     <div class="wk-body"><div class="wk-cols" id="wkCols" tabindex="0" role="tree" aria-label="문서 열 보기 · 화살표로 이동, Enter 로 편집" ></div>
-      <div class="wk-split" id="wkSplit" title="끌어서 폭 조절"></div><section class="wk-ed" id="wkEd"></section></div></div>`;
+      <div class="wk-split" id="wkSplit" title="끌어서 폭 조절"></div><section class="wk-ed" id="wkEd"></section><section class="wk-map" id="wkMapBox" hidden></section></div></div>`;
   $("#wkQ").oninput=e=>{wkQ=e.target.value.trim();wkDrawCols()};
   $("#wkQ").onkeydown=e=>{if(e.key==="Escape"){e.target.value="";wkQ="";wkDrawCols()}else if(e.key==="Enter"){const h=$("#wkCols [data-wid]");if(h)h.click()}};
   $("#wkNewRoot").onclick=()=>wkCreate(null);
   $("#wkHome").onclick=wkGoHome;
+  $("#wkRecent").onclick=()=>{if(typeof wkMapClose==="function")wkMapClose();wkGoHome();setTimeout(()=>{const r=$("#wkRecentList");if(r)r.scrollIntoView({block:"start"})},0)};
+  $("#wkMapB").onclick=()=>typeof wkMapToggle==="function"&&wkMapToggle();
   $("#wkFull").onclick=()=>wkSetFull(!wkFull);
   $("#wkColsT").onclick=()=>{ui.wkFullCols=!ui.wkFullCols;saveUI();wkApplyFull()};
   $("#wkExp").onclick=()=>{const w=wkCur();wkExport(w&&!wkShut(w)?w:null)};
   $("#wkRead").onclick=()=>{const w=wkCur();if(w&&wkShut(w)){toast("잠긴 주제는 먼저 열어야 몰아 볼 수 있어요",2500);return}wkFlush();wkRead=wkRead?null:{id:w?w.id:null};wkDrawEd()};
   wkWireCols();wkWireSplit();wkWatchSize();
-  wkDrawCols();wkDrawEd();wkApplyFull();
+  wkDrawCols();wkDrawEd();wkApplyFull();wkBadge();
+  if(typeof wkMapRestore==="function")wkMapRestore();
 }
 /* 전체 화면 (2.35.1): 앱 왼쪽 메뉴와 열 보기를 숨기고 문서를 창 가운데에 읽기 좋은 폭으로.
    위쪽 경로 표시줄 · 아래 하위 문서 단추로 오가고, '열 보기' 로 열을 잠깐 꺼낼 수 있다. 찾는 중에는 찾은 목록이 보인다. Esc(글 칸 밖) = 원래대로 */
@@ -135,7 +157,7 @@ function wkDrawCols(){
   if(wkQ){      // 찾기: 열 대신 찾은 문서 목록
     const q=wkQ.toLowerCase(),hit=wikis.filter(w=>wkText(w).includes(q)).slice(0,200);
     wkColsSize(el,1);
-    el.innerHTML=`<div class="wk-col wk-hits"><div class="wk-ch"><span>찾은 문서 ${hit.length}개</span></div>${hit.map(w=>`<button type="button" class="wk-row${w.id===cur?" cur":""}" data-wid="${w.id}"><span class="nm">${esc(w.title)}</span><span class="wk-trail">${esc(wkTrail(w.id).slice(0,-1).map(x=>x.title).join(" › ")||"최상위")}</span></button>`).join("")||`<div class="wk-none">찾는 문서가 없어요</div>`}</div>`;
+    el.innerHTML=`<div class="wk-col wk-hits"><div class="wk-ch"><span>찾은 문서 ${hit.length}개</span></div>${hit.map(w=>`<button type="button" class="wk-row${w.id===cur?" cur":""}" data-wid="${w.id}"><span class="nm">${esc(w.title)}</span>${wkUnread(w)?`<span class="wk-dot" aria-label="확인 안 함"></span>`:""}<span class="wk-trail">${esc(wkTrail(w.id).slice(0,-1).map(x=>x.title).join(" › ")||"최상위")}</span></button>`).join("")||`<div class="wk-none">찾는 문서가 없어요</div>`}</div>`;
     $("#wkCrumbs").innerHTML="";return;
   }
   const lists=[{list:wkKids(null),parent:null}];
@@ -146,7 +168,7 @@ function wkDrawCols(){
   el.innerHTML=!wikis.length?`<div class="wk-col"><div class="wk-none"><b>아직 문서가 없어요</b>업무 주제를 나무처럼 엮어 두는 곳이에요.<br>예) 법인콘도 › 경기도청 › 성수기 신청<br><button type="button" class="primary" data-wknew="">＋ 첫 주제 만들기</button></div></div>`
     :lists.map(c=>`<div class="wk-col" data-pid="${c.parent?c.parent.id:""}" role="group" aria-label="${esc(c.parent?c.parent.title:"주제")}"><div class="wk-ch"><span>${esc(c.parent?c.parent.title:"주제")}</span><button type="button" class="icon" data-wknew="${c.parent?c.parent.id:""}" title="여기에 새 문서" aria-label="여기에 새 문서">＋</button></div>
       ${c.list.map(w=>{const n=wkKids(w.id).length,on=w.id===cur,inP=wkPath.includes(w.id),shut=wkShut(w),emp=!shut&&wkBodyEmpty(w.body)&&!n;
-        return `<button type="button" class="wk-row${on?" cur":inP?" path":""}${emp?" empty":""}${shut?" shut":""}" draggable="${!shut}" role="treeitem" aria-selected="${on}" data-wid="${w.id}" title="${esc(w.title)}${shut?" (잠긴 주제 · 눌러서 암호 넣기)":w.locked?" (잠긴 주제 · 지금은 열려 있어요)":emp?" (본문이 비어 있어요)":""}">${shut?WK_LOCK_IC:n?NAVICON.wiki:IC('<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/>')}<span class="nm">${esc(w.title)}</span>${w.locked&&!shut?`<span class="wk-lk" aria-label="잠금 열림">${WK_UNLOCK_IC}</span>`:""}${n?`<span class="cn">${wkCount(w.id)}</span><span class="ar">›</span>`:shut&&(w.hidden||[]).length?`<span class="cn">${w.hidden.length}</span>`:""}</button>`}).join("")}</div>`).join("");
+        return `<button type="button" class="wk-row${on?" cur":inP?" path":""}${emp?" empty":""}${shut?" shut":""}${wkUnread(w)?" unread":""}" draggable="${!shut}" role="treeitem" aria-selected="${on}" data-wid="${w.id}" title="${esc(w.title)}${shut?" (잠긴 주제 · 눌러서 암호 넣기)":w.locked?" (잠긴 주제 · 지금은 열려 있어요)":emp?" (본문이 비어 있어요)":""}">${shut?WK_LOCK_IC:n?NAVICON.wiki:IC('<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/>')}<span class="nm">${esc(w.title)}</span>${w.locked&&!shut?`<span class="wk-lk" aria-label="잠금 열림">${WK_UNLOCK_IC}</span>`:""}${wkUnread(w)?`<span class="wk-dot" title="확인 안 한 변경이 있어요" aria-label="확인 안 함"></span>`:n&&wkUnreadIn(w.id)?`<span class="wk-dot ring" title="아래에 확인 안 한 문서가 있어요" aria-label="아래에 확인 안 한 문서"></span>`:""}${n?`<span class="cn">${wkCount(w.id)}</span><span class="ar">›</span>`:shut&&(w.hidden||[]).length?`<span class="cn">${w.hidden.length}</span>`:""}</button>`}).join("")}</div>`).join("");
   wkColGrips(el);
   el.scrollLeft=same?keepX:el.scrollWidth;      // 다른 문서로 가면 지금 단계(오른쪽 끝)가 보이게, 저장 등으로 다시 그릴 땐 보던 자리 그대로
   const tr=wkPath.map(wkById).filter(Boolean);
@@ -288,18 +310,21 @@ function wkDrawEd(){
   if(!w)return wkDrawHome(el);
   ui.wkCur=w.id;saveUI();
   if(wkShut(w))return wkDrawLock(el,w);
-  const tr=wkTrail(w.id),kids=wkKids(w.id);
+  const wasNew=wkUnread(w);if(wasNew){wkSeen([w.id]);setTimeout(wkDrawColsSoft,0)}      // 열었으니 확인한 것으로
+  const tr=wkTrail(w.id),kids=wkKids(w.id),back=wkBacklinks(w.id);
   el.innerHTML=`<div class="wk-hd"><div class="wk-path">${esc(tr.slice(0,-1).map(x=>x.title).join(" › ")||"최상위 주제")}</div>
       <input id="wkTitle" maxlength="200" value="${esc(w.title)}" aria-label="문서 제목 (= 왼쪽 행 이름)" title="문서 제목 = 왼쪽 행 이름">
-      <div class="wk-meta"><span>${kids.length?`하위 문서 ${kids.length}개 · 그 아래까지 ${wkCount(w.id)}개`:"하위 문서 없음"} · ${esc((w.updated_at||"").replace("T"," ").slice(0,16))} 수정</span><span class="sp"></span><span id="wkSaved" class="wk-saved">저장됨</span></div></div>
+      <div class="wk-meta"><span>${kids.length?`하위 문서 ${kids.length}개 · 그 아래까지 ${wkCount(w.id)}개`:"하위 문서 없음"} · ${esc((w.updated_at||"").replace("T"," ").slice(0,16))} 수정${wasNew?` <b class="wk-newtag" title="마지막으로 연 뒤 바뀐 문서였어요 (지금 확인한 것으로 바뀌었어요)">새 변경</b>`:""}</span><span class="sp"></span><button type="button" class="mini" id="wkHist" title="고치기 전 내용 보기 · 되돌리기 (문서마다 최근 20개)">${IC('<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/>')}변경 이력</button><span id="wkSaved" class="wk-saved">저장됨</span></div></div>
     ${WK_TB()}
     <div class="wk-scroll" id="wkScroll"><div class="wk-page" id="wkPage"><div id="wkDoc" class="wk-doc" contenteditable="true" spellcheck="false" role="textbox" aria-multiline="true" aria-label="본문" data-ph="자유롭게 적어요. 글자를 고르면 서식 툴바가 떠요 · [[ 로 일감 · 보관함 · 트러블슈팅 · 코드 · 다른 문서 연결 · 사진은 붙여넣기"></div>
-      <div class="wk-subs">${kids.length?`<div class="lb">이 문서 안의 하위 문서</div><div class="wk-subg">${kids.map(k=>`<button type="button" class="${wkBodyEmpty(k.body)?"empty":""}" data-wsub="${k.id}">${IC('<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/>')}${esc(k.title)}</button>`).join("")}</div>`:""}<button type="button" class="mini" data-wknew2="${w.id}">＋ 하위 문서 만들기</button></div></div></div>
+      <div class="wk-subs">${kids.length?`<div class="lb">이 문서 안의 하위 문서</div><div class="wk-subg">${kids.map(k=>`<button type="button" class="${wkBodyEmpty(k.body)?"empty":""}" data-wsub="${k.id}">${IC('<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/>')}${esc(k.title)}</button>`).join("")}</div>`:""}<button type="button" class="mini" data-wknew2="${w.id}">＋ 하위 문서 만들기</button>
+        ${back.length?`<div class="lb wk-backlb">이 문서를 연결한 문서 ${back.length}개</div><div class="wk-subg wk-back">${back.map(k=>`<button type="button" data-wsub="${k.id}" title="${esc(wkTrail(k.id).map(x=>x.title).join(" › "))}">${wkIc("wiki")}${esc(k.title)}</button>`).join("")}</div>`:""}</div></div></div>
     <div class="wk-ft" id="wkFt" role="toolbar" aria-label="고른 글자 서식"><button type="button" data-wc="bold" aria-label="굵게"><b>B</b></button><button type="button" data-wc="italic" aria-label="기울임"><i>I</i></button><button type="button" data-wc="underline" aria-label="밑줄"><u>U</u></button><span class="sepv"></span>${WK_HL.map(([c,n])=>`<button type="button" data-whl="${c}" title="형광펜 ${n}" aria-label="형광펜 ${n}"><span class="wk-sw" style="background:var(--${c})"></span></button>`).join("")}<span class="sepv"></span>${WK_FC.map(([c,n])=>`<button type="button" data-wfc="${c}" title="글자색 ${n}" aria-label="글자색 ${n}"><span class="wk-fca" style="color:var(--${c})">A</span></button>`).join("")}<span class="sepv"></span>${WK_FS.map(([c,n])=>`<button type="button" class="wk-fsb" data-wfs="${c}" title="글자 크기 ${n}" aria-label="글자 크기 ${n}"><span class="${c||"fs-n"}">가</span></button>`).join("")}<span class="sepv"></span><button type="button" data-wlink title="연결" aria-label="연결">${IC('<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>')}</button></div>`;
   const doc=$("#wkDoc");
   let box=wkDecorate(wkClean(w.body));while(box.childNodes.length===1&&box.firstChild.nodeName==="DIV")box=box.firstChild;      // 예전에 쌓인 <div> 겹은 벗긴다
   doc.replaceChildren(...box.childNodes);      // 거른 결과를 감싼 <div> 는 빼고 내용만 (2.36: 열 때마다 <div> 가 한 겹씩 늘던 것 고침)
   doc.dataset.wid=w.id;wkDirty=null;
+  $("#wkHist").onclick=()=>wkHistory(w);
   wkWireEd(w);
 }
 /* 몰아 보기 (2.37): 이 문서와 하위 문서 전부(주제 목록에서는 주제 전체)를 내보내기처럼 한 화면에 이어서 읽는다 — 읽기 전용.
@@ -326,11 +351,19 @@ function wkDrawRead(el,w){
 function wkDrawHome(el){
   ui.wkCur=null;saveUI();
   const roots=wkKids(null),fmtD=s=>esc((s||"").slice(0,10));
-  el.innerHTML=`<div class="wk-scroll"><div class="wk-page wk-homepg"><h2>주제 목록</h2><p class="meta">주제 ${roots.length}개 · 문서 ${wikis.length}개${wikis.some(wkShut)?" · 잠긴 주제 안의 문서는 세지 않아요":""}</p>
+  /* 최근 바뀐 문서 (2.42): 확인 안 한 것 먼저, 그다음 최근 14일 안에 만들거나 고친 문서를 최근 순으로 (최대 15개) */
+  const d14=new Date(Date.now()-14*864e5),cut=new Date(d14-d14.getTimezoneOffset()*6e4).toISOString().slice(0,19),live=wikis.filter(w=>!wkShut(w)),byU=(a,b)=>(b.updated_at||"").localeCompare(a.updated_at||"");
+  const un=live.filter(wkUnread).sort(byU),rec=[...un,...live.filter(w=>!wkUnread(w)&&(w.updated_at||"")>=cut).sort(byU)].slice(0,Math.max(15,un.length));
+  const when=v=>{const t=(v||"").replace("T"," ");return t.slice(0,10)===new Date(Date.now()-new Date().getTimezoneOffset()*6e4).toISOString().slice(0,10)?"오늘 "+t.slice(11,16):t.slice(5,16)};
+  const recHtml=`<section class="wk-recent" id="wkRecentList"><div class="wk-rech"><h3>최근 바뀐 문서</h3><span class="meta">${un.length?`확인 안 함 <b class="wk-unn">${un.length}</b> · `:""}최근 14일</span><span class="sp"></span>${un.length?`<button type="button" class="mini" id="wkSeenAll" title="확인 안 한 표시를 모두 지워요">모두 확인</button>`:""}</div>
+    ${rec.length?`<div class="wk-rl">${rec.map(w=>{const isNew=(w.created_at||"")>=cut;      // 14일 안에 만든 문서 = 신규, 그 밖 = 수정
+      return `<button type="button" class="wk-ri${wkUnread(w)?" unread":""}" data-wsub="${w.id}">${wkUnread(w)?`<span class="wk-dot" aria-label="확인 안 함"></span>`:`<span class="wk-dot none"></span>`}<span class="wk-tag ${isNew?"new":"mod"}">${isNew?"신규":"수정"}</span><span class="nm">${esc(w.title)}</span><span class="wk-trail">${esc(wkTrail(w.id).slice(0,-1).map(x=>x.title).join(" › ")||"최상위")}</span><span class="meta">${esc(when(w.updated_at))}</span></button>`}).join("")}</div>`:`<div class="meta">최근 14일 동안 바뀐 문서가 없어요</div>`}</section>`;
+  el.innerHTML=`<div class="wk-scroll"><div class="wk-page wk-homepg">${recHtml}<h2>주제 목록</h2><p class="meta">주제 ${roots.length}개 · 문서 ${wikis.length}개${wikis.some(wkShut)?" · 잠긴 주제 안의 문서는 세지 않아요":""}</p>
     <div class="wk-tl">${roots.map(w=>{const shut=wkShut(w),n=shut?(w.hidden||[]).length:wkCount(w.id);
       return `<button type="button" class="wk-ti${shut?" shut":""}" data-wsub="${w.id}">${shut?WK_LOCK_IC:NAVICON.wiki}<span class="nm">${esc(w.title)}</span><span class="meta">${shut?"잠김 · ":w.locked?"잠금 열림 · ":""}${n?`하위 ${n}개`:"하위 없음"}${shut?"":" · "+fmtD(w.updated_at)+" 수정"}</span></button>`}).join("")||`<div class="wk-none"><b>아직 주제가 없어요</b>예) 법인콘도 › 경기도청 › 성수기 신청</div>`}</div>
     <button type="button" class="primary" data-wknew2="">＋ 새 주제</button></div></div>`;
-  el.onclick=e=>{const b=e.target.closest("button");if(!b)return;if(b.dataset.wsub)wkOpen(+b.dataset.wsub);else if("wknew2" in b.dataset)wkCreate(null)};
+  el.onclick=e=>{const b=e.target.closest("button");if(!b)return;if(b.id==="wkSeenAll"){wkSeen([],true).then(()=>{wkDrawCols();wkDrawEd()});return}
+    if(b.dataset.wsub)wkOpen(+b.dataset.wsub);else if("wknew2" in b.dataset)wkCreate(null)};
 }
 /* 잠긴 주제: 암호를 넣으면 이 창을 닫을 때까지 열린다 */
 function wkDrawLock(el,w){
@@ -757,7 +790,8 @@ function wkMenu(id,e){
     ["위로",()=>wkMoveTo(w,w.parent_id,i-1),i<=0],["아래로",()=>wkMoveTo(w,w.parent_id,i+1),i>=sib.length-1],
     ["다른 곳으로 옮기기…",()=>wkMoveDlg(w)],null,["여기부터 몰아 보기",()=>{wkOpen(id);wkRead={id};wkDrawEd()}],["여기부터 내보내기…",()=>{wkOpen(id);wkExport(w)}],null,
     ...(w.locked?[["다시 잠그기 (지금 바로)",()=>wkRelock(w)],["잠금 없애기…",()=>wkUnlockRemove(w)]]:[["암호로 잠그기…",()=>wkLockDlg(w)]]),null,
-    [kids?`지우기 (하위 문서 ${kids}개가 있어서 못 지워요)`:"지우기",()=>wkDelete(w),!!kids]];
+    ["변경 이력…",()=>{wkOpen(id);wkHistory(w)}],["마인드맵으로 보기",()=>{wkOpen(id);if(typeof wkMapShow==="function")wkMapShow(id)}],null,
+    [kids?`지우기… (하위 문서 ${wkCount(id)}개 포함)`:"지우기",()=>wkDelete(w)]];
   const m=document.createElement("div");m.className="popmenu wk-menu";m.setAttribute("role","menu");
   m.innerHTML=items.map((x,k)=>x?`<button type="button" role="menuitem" data-pm="${k}" ${x[2]?"disabled":""}>${esc(x[0])}</button>`:`<hr>`).join("");
   document.body.appendChild(m);
@@ -796,14 +830,53 @@ async function wkMoveDlg(w){
   if(v===false||v==null)return;
   await wkMoveTo(w,v?+v:null,1e6,true);toast(`‘${w.title}’ 을(를) 옮겼어요`,2000);
 }
+/* 지우기 (2.42): 하위 문서가 있어도 지울 수 있다. ① 하위까지 모두 ② 하위는 한 단계 위로 올리고 이것만.
+   하위에 잠겼고 안 연 주제가 있으면 ①은 막는다 (안을 못 본 채 지우게 되니까). 잠긴 주제 자신은 ①만 (하위가 잠금 밖으로 나오지 않게).
+   지운 뒤 6초 동안 '되돌리기' (같은 id · 같은 자리로, 변경 이력도 그대로) */
 async function wkDelete(w){
-  if(!await askC(`‘${w.title}’ 문서를 지울까요? 되돌릴 수 없어요.`,{ok:"지우기"}))return;
+  const kids=wkKids(w.id),all=[];(function walk(id){wkKids(id).forEach(k=>{all.push(k);walk(k.id)})})(w.id);
+  const shut=all.filter(wkShut),hiddenN=shut.reduce((n,k)=>n+(k.hidden||[]).length,0);
+  let mode="";
+  if(kids.length){
+    const canLift=!w.locked,canAll=!shut.length;
+    const names=all.slice(0,8).map(k=>`<li>${esc(wkTrail(k.id).slice(wkTrail(w.id).length).map(x=>x.title).join(" › "))}${wkShut(k)?" 🔒":""}</li>`).join("")+(all.length>8?`<li class="meta">… 외 ${all.length-8}개</li>`:"");
+    const v=await wdlg({title:`‘${esc(w.title)}’ 지우기`,ok:"지우기",focusNo:true,collect:()=>(document.querySelector("#wdlg input[name=wkDm]:checked")||{}).value,
+      body:`<p style="margin-top:0">이 문서 아래에 하위 문서가 <b>${all.length+hiddenN}개</b> 있어요.</p><ul class="wk-dlist">${names}</ul>
+        <label class="wk-dopt ${canAll?"":"off"}"><input type="radio" name="wkDm" value="all" ${canAll?"checked":"disabled"}><span><b>하위 문서까지 모두 지우기</b><small>${canAll?`이 문서와 하위 문서 ${all.length}개가 함께 지워져요`:`잠긴 주제(${shut.map(k=>esc(k.title)).join(", ")})가 있어서 안 돼요. 먼저 열어 주세요`}</small></span></label>
+        <label class="wk-dopt ${canLift?"":"off"}"><input type="radio" name="wkDm" value="lift" ${canLift?(canAll?"":"checked"):"disabled"}><span><b>이 문서만 지우기</b><small>${canLift?`하위 문서 ${kids.length}개는 이 문서가 있던 자리로 한 단계 올라가요`:"잠긴 주제는 하위가 잠금 밖으로 나오지 않게, 모두 지우기만 돼요"}</small></span></label>
+        <p class="meta" style="margin-bottom:0">지운 뒤 잠깐 동안 '되돌리기' 를 누를 수 있어요.</p>`});
+    if(!v)return;mode=v;
+  }else if(!await askC(`‘${w.title}’ 문서를 지울까요? (지운 뒤 잠깐 동안 되돌릴 수 있어요)`,{ok:"지우기"}))return;
   wkDirty=null;clearTimeout(wkSaveT);
-  try{await wkApi("/api/wiki/"+w.id,{method:"DELETE"});await wkLoad(true);
-    if(wkPath.includes(w.id))wkPath=wkPath.slice(0,wkPath.indexOf(w.id));
+  try{const r=await wkApi("/api/wiki/"+w.id+(mode?"?mode="+mode:""),{method:"DELETE"});await wkLoad(true);
+    wkPath=wkPath.filter(id=>wkById(id));
     if(!wkPath.length){const f=wkKids(w.parent_id)[0]||wkKids(null)[0];if(f)wkPath=wkTrail(f.id).map(x=>x.id)}
-    toast("지웠어요",1800);wkDrawCols();wkDrawEd()}
+    wkDrawCols();wkDrawEd();wkBadge();if(typeof wkMapRedraw==="function")wkMapRedraw();
+    const msg=mode==="all"&&r.deleted>1?`문서 ${r.deleted}개를 지웠어요`:mode==="lift"?"지웠어요 (하위 문서는 한 단계 위로)":"지웠어요";
+    if(r.undo&&typeof toastUndo==="function")toastUndo(msg,async()=>{
+      try{await wkPost("/api/wiki/undo-delete",{undo:r.undo});await wkLoad(true);wkPath=wkTrail(w.id).map(x=>x.id);wkDrawCols();wkDrawEd();wkBadge();if(typeof wkMapRedraw==="function")wkMapRedraw();toast("되돌렸어요",1800)}
+      catch(e){toast("되돌리지 못했어요: "+e.message,5000)}},6000);
+    else toast(msg,1800)}
   catch(e){toast("지우지 못했어요: "+e.message,5000)}
+}
+/* 변경 이력 (2.42): 고치기 전 내용(문서마다 최근 20개, 10분 안의 자동 저장은 한 번으로). 고르면 미리 보고, 그 내용으로 되돌린다 (지금 내용은 새 기록으로 남는다) */
+async function wkHistory(w){
+  await wkFlush();
+  let vs;try{vs=await wkApi(`/api/wiki/${w.id}/versions`)}catch(e){toast("변경 이력을 읽지 못했어요: "+e.message,5000);return}
+  if(!vs.length){toast("아직 변경 이력이 없어요 (고치면 고치기 전 내용이 남아요)",3000);return}
+  const fmtT=v=>esc((v||"").replace("T"," ").slice(0,16));
+  let pick=vs[0].id;
+  const p=wdlg({title:`‘${esc(w.title)}’ 변경 이력`,wide:true,ok:"이 내용으로 되돌리기",collect:()=>pick,
+    body:`<p class="meta" style="margin-top:0">시각 = 그 내용이 바뀐 때. 되돌려도 지금 내용은 새 기록으로 남아요.</p><div class="wk-hist"><div class="wk-hl" role="listbox" aria-label="기록">${vs.map((v,i)=>`<button type="button" role="option" data-vi="${v.id}" class="${i?"":"on"}"><b>${fmtT(v.saved_at)}</b><small>${esc(v.title)}</small></button>`).join("")}</div><div class="wk-hp wk-doc" id="wkHp"></div></div>`});
+  const show=id=>{pick=id;const v=vs.find(x=>x.id===id),hp=$("#wkHp");if(!hp||!v)return;
+    document.querySelectorAll("#wdlg [data-vi]").forEach(b=>b.classList.toggle("on",+b.dataset.vi===id));
+    let box=wkDecorate(wkClean(v.body));while(box.childNodes.length===1&&box.firstChild.nodeName==="DIV")box=box.firstChild;
+    hp.innerHTML=`<h3 class="wk-hpt">${esc(v.title)}</h3>`;if(wkBodyEmpty(v.body))hp.insertAdjacentHTML("beforeend",`<p class="meta">(비어 있음)</p>`);else hp.append(...box.childNodes)};
+  setTimeout(()=>{show(pick);const l=document.querySelector("#wdlg .wk-hl");if(l)l.onclick=e=>{const b=e.target.closest("[data-vi]");if(b)show(+b.dataset.vi)}},0);
+  const id=await p;if(!id)return;
+  try{const r=await wkPost("/api/wiki/restore-version",{id:w.id,version:id});const i=wikis.findIndex(x=>x.id===r.id);if(i>=0)wikis[i]={...wikis[i],...r};
+    wkDrawColsSoft();wkDrawEd();toast("그 내용으로 되돌렸어요 (되돌리기 전 내용은 변경 이력에 남았어요)",3000)}
+  catch(e){toast("되돌리지 못했어요: "+e.message,5000)}
 }
 
 /* ---------- 내보내기 ----------

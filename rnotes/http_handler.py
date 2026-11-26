@@ -37,6 +37,7 @@ from .attention import notify as attention_notify
 from .commands import command_delete, command_list, command_reorder, command_save, var_delete, var_list, var_save
 from .trouble import trouble_row, trouble_save
 from .wiki import Locked as WikiLocked, img_get as wiki_img_get, img_save as wiki_img_save, wiki_delete, wiki_list, wiki_lock, wiki_move, wiki_save, wiki_unlock, wiki_unlock_remove
+from .wiki import wiki_seen, wiki_undo_delete, wiki_version_restore, wiki_versions
 from . import gitbackup
 from . import memoimg
 
@@ -178,6 +179,13 @@ class Handler(BaseHTTPRequestHandler):
             self.send_json(var_list())
         elif u.path == "/api/wiki":             # 업무 위키 문서 전부 (나무는 화면에서 엮는다)
             self.send_json(wiki_list(self._wiki_keys()))
+        elif re.fullmatch(r"/api/wiki/\d+/versions", u.path):     # 업무 위키 변경 이력 (2.42)
+            try:
+                self.send_json(wiki_versions(u.path.split("/")[3], self._wiki_keys()))
+            except WikiLocked as e:
+                self.send_json({"error": str(e), "code": "locked"}, 403)
+            except (ValueError, TypeError) as e:
+                self.send_json({"error": str(e)}, 400)
         elif u.path == "/api/trouble":          # 트러블슈팅 전부 (최근 수정 순)
             with db() as c:
                 self.send_json([trouble_row(r) for r in c.execute("SELECT * FROM trouble ORDER BY updated_at DESC, id DESC LIMIT 5000")])
@@ -605,11 +613,14 @@ class Handler(BaseHTTPRequestHandler):
                     self.send_json(var_save(d))
                 except (ValueError, TypeError) as e:
                     self.send_json({"error": str(e)}, 400)
-            elif u.path in ("/api/wiki", "/api/wiki/move", "/api/wiki/lock", "/api/wiki/unlock", "/api/wiki/unlock-remove"):
-                fn = {"/api/wiki": wiki_save, "/api/wiki/move": wiki_move, "/api/wiki/lock": wiki_lock}.get(u.path)
+            elif u.path in ("/api/wiki", "/api/wiki/move", "/api/wiki/lock", "/api/wiki/unlock", "/api/wiki/unlock-remove",
+                            "/api/wiki/seen", "/api/wiki/restore-version", "/api/wiki/undo-delete"):
+                fn = {"/api/wiki": wiki_save, "/api/wiki/move": wiki_move, "/api/wiki/lock": wiki_lock,
+                      "/api/wiki/seen": wiki_seen, "/api/wiki/restore-version": wiki_version_restore}.get(u.path)
+                one = {"/api/wiki/unlock": wiki_unlock, "/api/wiki/unlock-remove": wiki_unlock_remove, "/api/wiki/undo-delete": wiki_undo_delete}.get(u.path)
                 try:
                     keys = self._wiki_keys() + [k for k in (d.get("_keys") or [])[:50] if isinstance(k, str) and 10 < len(k) < 80]   # 창을 닫을 때 저장(sendBeacon)은 머리글을 못 붙인다
-                    self.send_json(fn(d, keys) if fn else (wiki_unlock if u.path.endswith("/unlock") else wiki_unlock_remove)(d))
+                    self.send_json(fn(d, keys) if fn else one(d))
                 except WikiLocked as e:
                     self.send_json({"error": str(e), "code": "locked"}, 403)
                 except (ValueError, TypeError) as e:
@@ -848,8 +859,8 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_json({"error": str(e)}, 400)
         elif u.path.startswith("/api/wiki/"):
             try:
-                wiki_delete(name, self._wiki_keys())
-                self.send_json({"ok": True})
+                mode = urllib.parse.parse_qs(u.query).get("mode", [""])[0]     # all = 하위까지 · lift = 하위는 한 단계 위로 (2.42)
+                self.send_json(wiki_delete(name, self._wiki_keys(), mode))
             except WikiLocked as e:
                 self.send_json({"error": str(e), "code": "locked"}, 403)
             except (ValueError, TypeError) as e:

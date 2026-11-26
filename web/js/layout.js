@@ -82,14 +82,14 @@ function renderNav(){
     const g=(k,t,ids,items,ex)=>{if(!items)return "";const here=ids.includes(nav),open=!fold[k]||here||!!ui.navCollapsed;   // 메뉴를 접었을 때는 묶음 접기와 상관없이 아이콘을 모두 보인다
       return `<button type="button" class="nv-grp ${open?"":"shut"}" data-grp="${k}" data-short="${({work:"일",tools:"도",vault:"보",anal:"분"})[k]}" ${here?"data-here":""} title="${t} · ${open?"접기":"펼치기"}${here&&fold[k]?" (지금 보는 화면이 있어서 펼쳐 둠)":""}" aria-label="${t} · ${open?"접기":"펼치기"}"><span>${t}</span>${open?"":`<span class="nv-gx">${ex||""}</span>`}${chev(open&&!fold[k])}</button>`+(open?items:"")};
     $("#navitems").innerHTML=g("work","일감",["today","history","mine","deploy"],mk("today","오늘",nowN)+mk("history","이력")+dictBtn+mk("mine","내 기록")+mk("deploy","배포요청",0,dpIc),(nowN?`<span class="cnt">${nowN}</span>`:"")+dpIc)
-      +g("tools","내 도구",["memo","trouble","wiki"],mk("memo","메모",0,memoEx)+mk("trouble","트러블슈팅")+mk("wiki","업무 위키"),memoEx)
+      +g("tools","내 도구",["memo","trouble","wiki"],mk("memo","메모",0,memoEx)+mk("trouble","트러블슈팅")+mk("wiki","업무 위키",typeof wkNavN==="function"?wkNavN():0),memoEx)
       +g("vault","보관함",["vaultCode","vaultQuery","vaultCommands","queries","commands"],mk("vaultCode","코드")+mk("vaultQuery","쿼리")+mk("vaultCommands","명령어"))
       +g("anal","분석",["summary","graph","code"],mk("summary","요약")+mk("graph","그래프")+mk("code","코드 이력"));
     document.querySelectorAll("#nav [data-grp]").forEach(b=>b.onclick=()=>{
       const k=b.dataset.grp,shut=!(ui.navFold||{})[k];ui.navFold={...(ui.navFold||{}),[k]:shut};saveUI();renderNav();
       if(b.hasAttribute("data-here"))toast(shut?"지금 보는 화면이 이 묶음에 있어서 펼쳐 둬요. 다른 화면으로 가면 접혀요":"이 묶음을 늘 펼쳐 둬요",2600)});
   }else
-  {const moreItems=mk("summary","요약")+mk("graph","그래프")+mk("code","코드 이력")+mk("deploy","배포요청",0,dpIc)+mk("trouble","트러블슈팅")+mk("wiki","업무 위키")+vaultNav()+dictBtn;
+  {const moreItems=mk("summary","요약")+mk("graph","그래프")+mk("code","코드 이력")+mk("deploy","배포요청",0,dpIc)+mk("trouble","트러블슈팅")+mk("wiki","업무 위키",typeof wkNavN==="function"?wkNavN():0)+vaultNav()+dictBtn;
   $("#navitems").innerHTML=mk("today","오늘",nowN)+mk("history","이력")+mk("mine","내 기록")+mk("memo","메모",0,memoEx)
     +(moreItems?`<div class="nv-sec" id="navmore" role="button" tabindex="0" aria-label="더 보기 메뉴 ${more?"접기":"펼치기"}" data-short="⋯"><span>더 보기${!more&&dpIc&&navShown("deploy")?" "+dpIcon(true):""}</span>${chev(more)}</div>`+(more?moreItems:""):"")}
   document.querySelectorAll("#nav [data-nav]").forEach(b=>{const k=b.dataset.nav,nt=e=>{const o=tabOpt(e);if((o.bg||o.newTab)&&TAB_SCREENS.includes(k)){e.preventDefault();tabOpenNew(k,o);return true}};
