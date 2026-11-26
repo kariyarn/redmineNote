@@ -162,7 +162,13 @@ def _title(v):
 
 
 def _row(r):
-    return {k: r[k] for k in ("id", "parent_id", "pos", "title", "body", "created_at", "updated_at")}
+    out = {k: r[k] for k in ("id", "parent_id", "pos", "title", "body", "created_at", "updated_at")}
+    out["seen_at"] = (r["seen_at"] or "") if "seen_at" in r.keys() else ""
+    return out
+
+
+def _now():
+    return datetime.datetime.now().isoformat(timespec="seconds")
 
 
 # ---------- 주제 잠금 ----------
@@ -317,7 +323,7 @@ def _norm_parent(v):
 
 def wiki_save(d, keys=()):
     """새 문서 만들기 (id 없음) / 제목 · 본문 고치기 (id 있음). 위치는 wiki_move 로만 바꾼다."""
-    now = datetime.datetime.now().isoformat(timespec="seconds")
+    now = _now()
     title = _title(d.get("title"))
     body = clean_html(d.get("body"))
     with db() as c:
@@ -325,17 +331,22 @@ def wiki_save(d, keys=()):
         if wid:
             wid = int(wid)
             _need_open(c, wid, keys)
-            cur = c.execute("UPDATE wiki SET title=?, body=?, updated_at=? WHERE id=?", (title, body, now, wid))
-            if not cur.rowcount:
+            old = c.execute("SELECT title, body FROM wiki WHERE id=?", (wid,)).fetchone()
+            if not old:
                 raise ValueError("없는 문서예요 (지워졌을 수 있어요)")
+            if (old["title"], old["body"] or "") == (title, body):
+                return _row(c.execute("SELECT * FROM wiki WHERE id=?", (wid,)).fetchone())     # 바뀐 게 없으면 고친 시각도 그대로
+            _keep_version(c, wid, old["title"], old["body"] or "", now)
+            # 내가 고친 문서는 고치는 동안 보고 있던 것 → 본 시각도 같이 (확인 안 함으로 뜨지 않게)
+            c.execute("UPDATE wiki SET title=?, body=?, updated_at=?, seen_at=? WHERE id=?", (title, body, now, now, wid))
         else:
             pid = _parent_ok(c, _norm_parent(d.get("parent_id")))
             _need_open(c, pid, keys)
             sibs = [r["id"] for r in c.execute("SELECT id FROM wiki WHERE parent_id IS ? ORDER BY pos, id", (pid,))]
             after = d.get("after_id")
             at = sibs.index(int(after)) + 1 if after and int(after) in sibs else len(sibs)
-            cur = c.execute("INSERT INTO wiki (parent_id,pos,title,body,created_at,updated_at) VALUES (?,?,?,?,?,?)",
-                            (pid, at, title, body, now, now))
+            cur = c.execute("INSERT INTO wiki (parent_id,pos,title,body,created_at,updated_at,seen_at) VALUES (?,?,?,?,?,?,?)",
+                            (pid, at, title, body, now, now, now))
             wid = cur.lastrowid
             sibs.insert(at, wid)
             for i, s in enumerate(sibs):
@@ -371,14 +382,150 @@ def wiki_move(d, keys=()):
         return _row(c.execute("SELECT * FROM wiki WHERE id=?", (wid,)).fetchone())
 
 
-def wiki_delete(wid, keys=()):
-    """하위 문서가 있으면 지우지 않는다 (먼저 옮기거나 지운다)."""
+def _subtree(c, wid):
+    """wid 와 그 아래 문서 id 전부 (위에서 아래 순서)."""
+    out, todo = [], [wid]
+    while todo:
+        x = todo.pop(0)
+        out.append(x)
+        todo += [r["id"] for r in c.execute("SELECT id FROM wiki WHERE parent_id=? ORDER BY pos, id", (x,))]
+        if len(out) > 100_000:
+            break
+    return out
+
+
+_UNDO = {}            # 지우기 되돌리기: 토큰 -> (만료 시각, 지운 행들, 지우기 전 자리(id, parent_id, pos))
+UNDO_TTL = 10 * 60
+
+
+def wiki_delete(wid, keys=(), mode=""):
+    """문서 지우기 (2.42: 하위 문서가 있어도).
+    mode = "all"  : 하위 문서까지 모두 지운다
+           "lift" : 하위 문서는 이 문서 자리로 한 단계 올리고 이 문서만 지운다
+           ""     : 하위 문서가 있으면 지우지 않는다 (예전 방식)
+    잠겼고 아직 안 연 주제가 하위에 있으면 지우지 않는다 (안을 보지 못한 채 지우게 되므로).
+    되돌리기 토큰을 돌려준다 (10분 동안 wiki_undo_delete 로 되살릴 수 있다)."""
+    wid = int(wid)
+    mode = mode if mode in ("all", "lift") else ""
+    with db() as c:
+        me = c.execute("SELECT * FROM wiki WHERE id=?", (wid,)).fetchone()
+        if not me:
+            raise ValueError("없는 문서예요 (지워졌을 수 있어요)")
+        _need_open(c, wid, keys)
+        sub = _subtree(c, wid)
+        if len(sub) > 1 and not mode:
+            raise ValueError("하위 문서가 있어서 지울 수 없어요. 하위 문서를 먼저 옮기거나 지워 주세요")
+        parents, locked = _tree(c)
+        open_ids = _open_ids(keys)
+        if mode == "lift" and len(sub) > 1 and me["lock_hash"]:
+            raise ValueError("잠긴 주제는 '하위까지 모두 지우기'만 할 수 있어요 (하위 문서가 잠금 밖으로 나오지 않게)")
+        if mode == "all" and any(_blocker(x, parents, locked, open_ids) is not None for x in sub):
+            raise Locked("하위에 잠긴 주제가 있어요. 먼저 그 주제를 열어 주세요")
+        before = [(r["id"], r["parent_id"], r["pos"]) for r in c.execute("SELECT id, parent_id, pos FROM wiki")]
+        gone = sub if mode == "all" else [wid]
+        rows = [dict(r) for x in gone for r in c.execute("SELECT * FROM wiki WHERE id=?", (x,))]
+        if mode == "lift":          # 하위 문서를 이 문서가 있던 자리에 차례로 끼워 넣는다
+            pid = me["parent_id"]
+            sibs = [r["id"] for r in c.execute("SELECT id FROM wiki WHERE parent_id IS ? ORDER BY pos, id", (pid,))]
+            kids = [r["id"] for r in c.execute("SELECT id FROM wiki WHERE parent_id=? ORDER BY pos, id", (wid,))]
+            at = sibs.index(wid)
+            sibs[at:at + 1] = kids
+            for i, s_ in enumerate(sibs):
+                c.execute("UPDATE wiki SET parent_id=?, pos=? WHERE id=?", (pid, i, s_))
+        c.executemany("DELETE FROM wiki WHERE id=?", [(x,) for x in gone])
+    now = time.time()
+    for t in [t for t, v in _UNDO.items() if v[0] < now]:
+        del _UNDO[t]
+    tok = secrets.token_urlsafe(16)
+    _UNDO[tok] = (now + UNDO_TTL, rows, before)
+    return {"ok": True, "deleted": len(gone), "undo": tok}
+
+
+def wiki_undo_delete(d):
+    """방금 지운 문서를 같은 id · 같은 자리로 되살린다 (변경 이력도 그대로 붙는다)."""
+    got = _UNDO.pop(str(d.get("undo") or ""), None)
+    if not got or got[0] < time.time():
+        raise ValueError("되돌릴 수 있는 시간이 지났어요")
+    _, rows, before = got
+    with db() as c:
+        cols = [r["name"] for r in c.execute("PRAGMA table_info(wiki)")]
+        for r in rows:
+            if c.execute("SELECT 1 FROM wiki WHERE id=?", (r["id"],)).fetchone():
+                continue
+            ks = [k for k in cols if k in r]
+            c.execute(f"INSERT INTO wiki ({','.join(ks)}) VALUES ({','.join('?' * len(ks))})", [r[k] for k in ks])
+        have = {r["id"] for r in c.execute("SELECT id FROM wiki")}
+        for i, pid, pos in before:          # 지우기 전 자리로 (그 사이 사라진 위쪽 문서가 있으면 최상위로)
+            if i in have:
+                c.execute("UPDATE wiki SET parent_id=?, pos=? WHERE id=?", (pid if pid in have else None, pos, i))
+    return {"ok": True, "restored": len(rows)}
+
+
+# ---------- 확인 (2.42): 마지막으로 연 시각. 고친 시각이 더 나중이면 '확인 안 함' ----------
+def wiki_seen(d, keys=()):
+    """ids 의 문서를 지금 본 것으로. all=True 면 (열 수 있는) 문서 전부."""
+    now = _now()
+    with db() as c:
+        parents, locked = _tree(c)
+        open_ids = _open_ids(keys)
+        if d.get("all"):
+            ids = list(parents)
+        else:
+            ids = []
+            for x in (d.get("ids") or [])[:5000]:
+                try:
+                    ids.append(int(x))
+                except (TypeError, ValueError):
+                    pass
+        ids = [x for x in ids if x in parents and _blocker(x, parents, locked, open_ids) is None]
+        # 다른 PC 시계가 빨라 고친 시각이 '지금'보다 나중이어도 확인한 것으로 (본 시각 = 지금과 고친 시각 중 나중)
+        c.executemany("UPDATE wiki SET seen_at=MAX(?, COALESCE(updated_at,'')) WHERE id=?", [(now, x) for x in ids])
+    return {"ok": True, "seen_at": now, "ids": ids}
+
+
+# ---------- 변경 이력 (2.42) ----------
+VERSION_KEEP = 20
+VERSION_GAP = 10 * 60        # 이 시간 안에 이어지는 자동 저장은 고치기 한 번으로 본다
+
+
+def _keep_version(c, wid, title, body, now):
+    last = c.execute("SELECT saved_at FROM wiki_versions WHERE wiki_id=? ORDER BY id DESC LIMIT 1", (wid,)).fetchone()
+    if last and last["saved_at"]:
+        try:
+            gap = (datetime.datetime.fromisoformat(now) - datetime.datetime.fromisoformat(last["saved_at"])).total_seconds()
+        except ValueError:
+            gap = VERSION_GAP
+        if gap < VERSION_GAP:
+            return
+    c.execute("INSERT INTO wiki_versions (wiki_id, title, body, saved_at) VALUES (?,?,?,?)", (wid, title, body, now))
+    c.execute("DELETE FROM wiki_versions WHERE wiki_id=? AND id NOT IN "
+              "(SELECT id FROM wiki_versions WHERE wiki_id=? ORDER BY id DESC LIMIT ?)", (wid, wid, VERSION_KEEP))
+
+
+def wiki_versions(wid, keys=()):
+    """이 문서의 고치기 전 기록들 (최근 순). saved_at = 그 내용이 바뀐 시각."""
     wid = int(wid)
     with db() as c:
         _need_open(c, wid, keys)
-        if c.execute("SELECT 1 FROM wiki WHERE parent_id=? LIMIT 1", (wid,)).fetchone():
-            raise ValueError("하위 문서가 있어서 지울 수 없어요. 하위 문서를 먼저 옮기거나 지워 주세요")
-        c.execute("DELETE FROM wiki WHERE id=?", (wid,))
+        return [{"id": r["id"], "title": r["title"], "body": r["body"], "saved_at": r["saved_at"]}
+                for r in c.execute("SELECT * FROM wiki_versions WHERE wiki_id=? ORDER BY id DESC LIMIT ?", (wid, VERSION_KEEP))]
+
+
+def wiki_version_restore(d, keys=()):
+    """그 기록의 제목 · 본문으로 되돌린다. 지금 내용은 새 기록으로 남는다 (되돌리기를 다시 되돌릴 수 있게)."""
+    wid, vid = int(d.get("id") or 0), int(d.get("version") or 0)
+    now = _now()
+    with db() as c:
+        _need_open(c, wid, keys)
+        cur = c.execute("SELECT title, body FROM wiki WHERE id=?", (wid,)).fetchone()
+        v = c.execute("SELECT title, body FROM wiki_versions WHERE id=? AND wiki_id=?", (vid, wid)).fetchone()
+        if not cur or not v:
+            raise ValueError("없는 기록이에요")
+        c.execute("INSERT INTO wiki_versions (wiki_id, title, body, saved_at) VALUES (?,?,?,?)", (wid, cur["title"], cur["body"] or "", now))
+        c.execute("UPDATE wiki SET title=?, body=?, updated_at=?, seen_at=? WHERE id=?", (_title(v["title"]), clean_html(v["body"]), now, now, wid))
+        c.execute("DELETE FROM wiki_versions WHERE wiki_id=? AND id NOT IN "
+                  "(SELECT id FROM wiki_versions WHERE wiki_id=? ORDER BY id DESC LIMIT ?)", (wid, wid, VERSION_KEEP))
+        return _row(c.execute("SELECT * FROM wiki WHERE id=?", (wid,)).fetchone())
 
 
 # ---------- 사진 (DB 에 저장 · 백업에 같이 들어간다) ----------
@@ -417,4 +564,5 @@ def img_gc(keep_days=1):
             used.update(re.findall(r'data-img="([0-9a-f]{40}\.(?:png|jpg|webp|gif))"', r["body"] or ""))
         gone = [r["name"] for r in c.execute("SELECT name FROM wiki_img WHERE created_at < ?", (cut,)) if r["name"] not in used]
         c.executemany("DELETE FROM wiki_img WHERE name=?", [(n,) for n in gone])
+        c.execute("DELETE FROM wiki_versions WHERE wiki_id NOT IN (SELECT id FROM wiki)")     # 지운 문서의 이력 (되돌리기 시간이 지난 뒤)
     return len(gone)

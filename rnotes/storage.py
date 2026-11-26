@@ -243,6 +243,13 @@ def init_db():
         for col in ("lock_salt", "lock_hash"):   # 2.35: 업무 위키 주제 잠금 (암호의 PBKDF2 해시만 둔다)
             if col not in wcols:
                 c.execute(f"ALTER TABLE wiki ADD COLUMN {col} TEXT DEFAULT ''")
+        if "seen_at" not in wcols:   # 2.42: 마지막으로 연 시각. 고친 시각이 더 나중이면 '확인 안 함' (처음에는 지금까지 것을 다 본 것으로)
+            c.execute("ALTER TABLE wiki ADD COLUMN seen_at TEXT DEFAULT ''")
+            c.execute("UPDATE wiki SET seen_at=COALESCE(updated_at,'')")
+        # 2.42: 업무 위키 변경 이력 (고치기 전 제목 · 본문. 문서마다 최근 20개, 고치기 한 번(10분 안의 자동 저장)마다 하나)
+        c.execute("CREATE TABLE IF NOT EXISTS wiki_versions (id INTEGER PRIMARY KEY AUTOINCREMENT, wiki_id INTEGER NOT NULL,"
+                  " title TEXT DEFAULT '', body TEXT DEFAULT '', saved_at TEXT)")
+        c.execute("CREATE INDEX IF NOT EXISTS idx_wiki_versions ON wiki_versions(wiki_id, id)")
         cols = {r["name"] for r in c.execute("PRAGMA table_info(notes)")}
         for col in ("code_change", "reason"):
             if col not in cols:

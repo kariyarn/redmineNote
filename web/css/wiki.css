@@ -296,3 +296,108 @@ body.wk-resizing,body.wk-resizing *{user-select:none!important;cursor:col-resize
 .wk-split:hover .wk-sgrip,.wk-split.drag .wk-sgrip{opacity:1}
 .wk-split.drag::after{content:attr(data-n) "칸";position:absolute;top:8px;left:12px;font-size:.75rem;background:var(--accent);color:#fff;padding:1px 6px;border-radius:6px;white-space:nowrap;z-index:5}
 .wk-split:not([data-n]).drag::after{display:none}
+
+/* 2.42: 확인 안 한 변경 · 최근 바뀐 문서 · 역링크 · 변경 이력 · 지우기 창 */
+.wk-recb{display:inline-flex;align-items:center;gap:5px;position:relative}
+.wk-recb .ic,#wkMapB .ic{width:15px;height:15px}
+#wkMapB{display:inline-flex;align-items:center;gap:5px}
+#wkMapB.on{background:var(--accent-soft);border-color:var(--accent);color:var(--text)}
+.wk-badge{min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--accent);color:var(--accent-ink,#fff);font-size:.72rem;font-weight:700;display:inline-flex;align-items:center;justify-content:center;font-variant-numeric:tabular-nums}
+.wk-dot{width:8px;height:8px;border-radius:50%;background:var(--accent);flex:none;box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 22%,transparent)}
+.wk-dot.ring{width:6px;height:6px;background:transparent;border:1.5px solid var(--accent);box-shadow:none}
+.wk-dot.none{background:transparent;box-shadow:none}
+.wk-row.unread .nm{font-weight:700}
+.wk-row.cur .wk-dot{background:var(--accent-ink,#fff);box-shadow:none}
+.wk-row.cur .wk-dot.ring{background:transparent;border-color:var(--accent-ink,#fff)}
+.wk-newtag{font-weight:600;color:var(--accent);margin-left:4px}
+.wk-meta .mini{display:inline-flex;align-items:center;gap:4px}
+.wk-meta .mini .ic{width:13px;height:13px}
+.wk-recent{margin:0 0 22px;scroll-margin-top:10px}
+.wk-rech{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.wk-rech h3{margin:0;font-size:1.05rem}
+.wk-rech .sp{flex:1}
+.wk-unn{color:var(--accent)}
+.wk-rl{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--surface)}
+.wk-ri{display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:0;border-bottom:1px solid var(--line);border-radius:0;background:none;padding:8px 12px;color:var(--text);min-height:38px}
+.wk-ri:last-child{border-bottom:0}
+.wk-ri:hover{background:color-mix(in srgb,var(--text) 5%,transparent)}
+.wk-ri.unread{background:var(--accent-soft)}
+.wk-ri.unread .nm{font-weight:700}
+.wk-ri .nm{flex:none;max-width:45%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wk-ri .wk-trail{flex:1;min-width:0;font-size:.8rem;color:var(--sub);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wk-ri .meta{font-size:.8rem;color:var(--sub);white-space:nowrap;font-variant-numeric:tabular-nums}
+.wk-tag{font-size:.72rem;font-weight:700;padding:1px 7px;border-radius:9px;flex:none}
+.wk-tag.new{background:color-mix(in srgb,var(--ok) 18%,transparent);color:var(--ok)}
+.wk-tag.mod{background:var(--surface2);color:var(--sub)}
+.wk-backlb{margin-top:8px}
+.wk-back button .ic{color:var(--lk-wiki)}
+.wk-dlist{margin:0 0 12px;padding-left:20px;max-height:160px;overflow:auto;font-size:.88rem}
+.wk-dopt{display:flex;gap:10px;align-items:flex-start;padding:9px 10px;border:1px solid var(--line);border-radius:8px;margin-bottom:8px;cursor:pointer}
+.wk-dopt:has(input:checked){border-color:var(--accent);background:var(--accent-soft)}
+.wk-dopt.off{opacity:.55;cursor:default}
+.wk-dopt input{margin-top:3px}
+.wk-dopt span{display:flex;flex-direction:column;gap:2px}
+.wk-dopt small{color:var(--sub)}
+#wdlg .wbox:has(.wk-hist){width:min(980px,94vw)}
+.wk-hist{display:flex;gap:12px;height:min(56vh,520px);width:100%}
+.wk-hl{flex:none;width:200px;overflow:auto;display:flex;flex-direction:column;gap:4px}
+.wk-hl button{display:flex;flex-direction:column;align-items:flex-start;text-align:left;gap:2px;padding:6px 9px}
+.wk-hl button small{color:var(--sub);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wk-hl button.on{border-color:var(--accent);background:var(--accent-soft)}
+.wk-hp{flex:1;min-width:0;overflow:auto;border:1px solid var(--line);border-radius:8px;padding:10px 16px;background:var(--surface)}
+.wk-hpt{margin:0 0 10px;font-size:1.1rem}
+
+/* 2.42: 마인드맵 — 위키 영역 전체를 쓴다 (열 보기 · 편집기는 잠깐 숨김) */
+.wk-wrap.map-on .wk-cols,.wk-wrap.map-on .wk-split,.wk-wrap.map-on .wk-ed{display:none!important}
+.wk-map{flex:1;min-width:0;display:flex;flex-direction:column}
+.wk-map[hidden]{display:none}
+.wkm-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 10px;border-bottom:1px solid var(--line)}
+.wkm-bar .sp{flex:1}
+.wkm-seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.wkm-seg button{border:0;border-radius:0;display:inline-flex;align-items:center;gap:5px;padding:5px 10px;background:none;color:var(--sub)}
+.wkm-seg button+button{border-left:1px solid var(--line)}
+.wkm-seg button .ic{width:16px;height:16px}
+.wkm-seg button.on{background:var(--accent-soft);color:var(--text);font-weight:600}
+.wkm-g{display:inline-flex;align-items:center;gap:4px}
+.wkm-z{min-width:3.4em;text-align:center;font-size:.8rem;color:var(--sub);font-variant-numeric:tabular-nums}
+#wkmScope{max-width:15em;min-width:0}
+@media (max-width:1300px){.wkm-seg button span{display:none}.wkm-seg button{padding:5px 9px}}
+.wkm-info{font-size:.8rem}
+.wkm-stage{flex:1;min-height:0;position:relative;overflow:hidden;cursor:grab;outline:none;touch-action:none;
+  background-image:radial-gradient(color-mix(in srgb,var(--text) 10%,transparent) 1px,transparent 1px);background-size:22px 22px}
+.wkm-stage.panning{cursor:grabbing}
+.wkm-stage:focus-visible{box-shadow:inset 0 0 0 2px var(--accent)}
+.wkm-stage svg{position:absolute;inset:0;width:100%;height:100%;user-select:none}
+.wkm-hint .sp{flex:1}
+.wkm-hint{padding:5px 12px;border-top:1px solid var(--line);font-size:.78rem;display:flex;align-items:center;gap:4px}
+.wkm-dot-k{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--accent);margin:0 2px 0 4px}
+:root{--wm0:light-dark(#3f73d1,#7aa7f5);--wm1:light-dark(#1f8a68,#5fd3a8);--wm2:light-dark(#c06d1d,#f0a65e);--wm3:light-dark(#8a4fc4,#c49bf0);--wm4:light-dark(#c4426c,#f08aa9);--wm5:light-dark(#1c8aa1,#62cde3)}
+.wkm-e{fill:none;stroke-width:2;stroke-linecap:round;opacity:.75}
+.wkm-e.c0{stroke:var(--wm0)}.wkm-e.c1{stroke:var(--wm1)}.wkm-e.c2{stroke:var(--wm2)}.wkm-e.c3{stroke:var(--wm3)}.wkm-e.c4{stroke:var(--wm4)}.wkm-e.c5{stroke:var(--wm5)}
+.wkm-n{cursor:pointer}
+.wkm-n rect{fill:var(--surface);stroke:var(--line);stroke-width:1.5}
+.wkm-n text{fill:var(--text);dominant-baseline:auto}
+.wkm-n.c0 rect{stroke:var(--wm0)}.wkm-n.c1 rect{stroke:var(--wm1)}.wkm-n.c2 rect{stroke:var(--wm2)}.wkm-n.c3 rect{stroke:var(--wm3)}.wkm-n.c4 rect{stroke:var(--wm4)}.wkm-n.c5 rect{stroke:var(--wm5)}
+.wkm-n.root rect{fill:var(--accent);stroke:var(--accent)}
+.wkm-n.root text{fill:var(--accent-ink,#fff)}
+.wkm-n:hover rect{fill:color-mix(in srgb,var(--accent) 12%,var(--surface))}
+.wkm-n.root:hover rect{fill:color-mix(in srgb,var(--accent) 85%,var(--text))}
+.wkm-n.cur rect{stroke:var(--accent);stroke-width:3}
+.wkm-n.empty rect{stroke-dasharray:4 3;fill:none}
+.wkm-n.empty text{fill:var(--sub);font-style:italic}
+.wkm-n.shut text{fill:var(--sub)}
+.wkm-n.unread rect{fill:var(--accent-soft)}
+.wkm-dot{fill:var(--accent)}
+.wkm-dot.ring{fill:var(--surface);stroke:var(--accent);stroke-width:1.5}
+.wkm-n.root .wkm-dot{fill:var(--accent-ink,#fff)}
+.wkm-t{cursor:pointer}
+.wkm-t circle{fill:var(--surface);stroke-width:1.5}
+.wkm-t path{stroke-width:1.6;stroke-linecap:round}
+.wkm-t text{font-size:9px;font-weight:700;text-anchor:middle}
+.wkm-t.c0 circle,.wkm-t.c0 path{stroke:var(--wm0)}.wkm-t.c0 text{fill:var(--wm0)}
+.wkm-t.c1 circle,.wkm-t.c1 path{stroke:var(--wm1)}.wkm-t.c1 text{fill:var(--wm1)}
+.wkm-t.c2 circle,.wkm-t.c2 path{stroke:var(--wm2)}.wkm-t.c2 text{fill:var(--wm2)}
+.wkm-t.c3 circle,.wkm-t.c3 path{stroke:var(--wm3)}.wkm-t.c3 text{fill:var(--wm3)}
+.wkm-t.c4 circle,.wkm-t.c4 path{stroke:var(--wm4)}.wkm-t.c4 text{fill:var(--wm4)}
+.wkm-t.c5 circle,.wkm-t.c5 path{stroke:var(--wm5)}.wkm-t.c5 text{fill:var(--wm5)}
+.wkm-t:hover circle{fill:var(--surface2)}

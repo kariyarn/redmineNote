@@ -142,3 +142,13 @@
 /* ===== 2.28 : 사진 붙인 포스트잇에 스크롤 막대가 보이지 않게 (스크롤은 그대로) · 메모가 있는 날은 한 줄로 (넘치면 옆으로 넘기고, 지난 날짜는 달력에서) ===== */
 .stk-imgs,.stk .stk-t.rte,.stk-v{scrollbar-width:none}
 .stk-imgs::-webkit-scrollbar,.stk .stk-t.rte::-webkit-scrollbar,.stk-v::-webkit-scrollbar{display:none}
+/* 2.42: 편집 중에도 줄 처음의 [ ] · [x] · - 를 체크박스 · 불릿으로 (저장은 글자 그대로) */
+.stk-t .tb .mk{display:inline-block;width:1.45em;user-select:none;-webkit-user-select:none;vertical-align:baseline}
+.stk-t .tb .mk-bl::before{content:"•";font-weight:700;padding-left:.25em}
+.stk-t .tb .mk-ck{cursor:pointer}
+.stk-t .tb .mk-ck::before{content:"✓";display:inline-flex;align-items:center;justify-content:center;width:.95em;height:.95em;box-sizing:border-box;border:1.5px solid rgba(60,50,20,.55);border-radius:3px;color:transparent;font-size:.85em;font-weight:700;line-height:1;vertical-align:-.08em;background:rgba(255,255,255,.45)}
+.stk-t .tb .mk-ck:hover::before{border-color:#5b4b1a}
+.stk-t .tb .mk-ck.on::before{background:#5b4b1a;border-color:#5b4b1a;color:#fff}
+.stk-bl{display:flex;gap:7px;align-items:flex-start;white-space:normal;margin:1px 0}
+.stk-bl>i{font-style:normal;font-weight:700;width:13px;text-align:center;flex:none}
+.stk-h .blb{font-weight:700}

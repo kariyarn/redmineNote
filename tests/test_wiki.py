@@ -133,5 +133,67 @@ W.wiki_unlock_remove({"id": root["id"], "password": "abcd"})
 t("lock removed", kid["id"] in {x["id"] for x in W.wiki_list()} and not any(x.get("locked") for x in W.wiki_list()))
 t("old key dropped", not W._open_ids([k]))
 
+# ---- 2.42: 확인 · 변경 이력 · 하위까지 지우기 / 되돌리기 ----
+import time as _t
+P = W.wiki_save({"title": "확인 주제", "body": "<p>1</p>"})
+t("new doc is seen", P["seen_at"] and P["seen_at"] >= P["updated_at"])
+with storage.db() as c:
+    c.execute("UPDATE wiki SET updated_at='2099-01-01T00:00:00' WHERE id=?", (P["id"],))
+lst = {x["id"]: x for x in W.wiki_list()}
+t("changed elsewhere -> unseen", lst[P["id"]]["updated_at"] > lst[P["id"]]["seen_at"])
+W.wiki_seen({"ids": [P["id"], "x", 999999]})
+with storage.db() as c:
+    c.execute("UPDATE wiki SET updated_at='2000-01-01T00:00:00' WHERE id=?", (P["id"],))
+lst = {x["id"]: x for x in W.wiki_list()}
+t("seen marks", lst[P["id"]]["seen_at"] > lst[P["id"]]["updated_at"])
+with storage.db() as c:
+    c.execute("UPDATE wiki SET updated_at='2099-01-01T00:00:00' WHERE id=?", (P["id"],))
+W.wiki_seen({"ids": [P["id"]]})
+lst = {x["id"]: x for x in W.wiki_list()}
+t("seen even if other PC clock ahead", lst[P["id"]]["seen_at"] >= lst[P["id"]]["updated_at"])
+t("seen all", W.wiki_seen({"all": True})["ids"])
+# 이력: 첫 고치기에서 예전 내용 하나, 10분 안의 자동 저장은 더 쌓지 않는다
+W.wiki_save({"id": P["id"], "title": "확인 주제", "body": "<p>2</p>"})
+W.wiki_save({"id": P["id"], "title": "확인 주제", "body": "<p>3</p>"})
+vs = W.wiki_versions(P["id"])
+t("one version per edit burst", len(vs) == 1 and vs[0]["body"] == "<p>1</p>")
+same = W.wiki_save({"id": P["id"], "title": "확인 주제", "body": "<p>3</p>"})
+t("no-op save keeps updated_at", same["body"] == "<p>3</p>" and len(W.wiki_versions(P["id"])) == 1)
+r = W.wiki_version_restore({"id": P["id"], "version": vs[0]["id"]})
+t("restore version", r["body"] == "<p>1</p>" and W.wiki_versions(P["id"])[0]["body"] == "<p>3</p>")
+err("restore other doc version", lambda: W.wiki_version_restore({"id": a["id"], "version": vs[0]["id"]}))
+# 하위까지 지우기
+Q1 = W.wiki_save({"title": "하위1", "parent_id": P["id"]})
+Q2 = W.wiki_save({"title": "하위2", "parent_id": P["id"]})
+Q11 = W.wiki_save({"title": "하위1-1", "parent_id": Q1["id"]})
+err("plain delete with kids", lambda: W.wiki_delete(P["id"]))
+res = W.wiki_delete(P["id"], (), "all")
+ids = {x["id"] for x in W.wiki_list()}
+t("delete all subtree", res["deleted"] == 4 and not ids & {P["id"], Q1["id"], Q2["id"], Q11["id"]})
+W.wiki_undo_delete({"undo": res["undo"]})
+lst = {x["id"]: x for x in W.wiki_list()}
+t("undo restores tree", lst[Q11["id"]]["parent_id"] == Q1["id"] and lst[Q1["id"]]["parent_id"] == P["id"] and lst[P["id"]]["body"] == "<p>1</p>")
+t("undo restores versions link", len(W.wiki_versions(P["id"])) >= 1)
+err("undo twice", lambda: W.wiki_undo_delete({"undo": res["undo"]}))
+# 하위는 위로 올리고 이것만
+sib_before = [x["id"] for x in sorted((x for x in W.wiki_list() if x["parent_id"] is None), key=lambda x: x["pos"])]
+res = W.wiki_delete(Q1["id"], (), "lift")
+lst = {x["id"]: x for x in W.wiki_list()}
+kids = [x["id"] for x in sorted((x for x in lst.values() if x["parent_id"] == P["id"]), key=lambda x: x["pos"])]
+t("lift moves kids into place", Q1["id"] not in lst and kids == [Q11["id"], Q2["id"]])
+W.wiki_undo_delete({"undo": res["undo"]})
+lst = {x["id"]: x for x in W.wiki_list()}
+kids = [x["id"] for x in sorted((x for x in lst.values() if x["parent_id"] == P["id"]), key=lambda x: x["pos"])]
+t("lift undo", kids == [Q1["id"], Q2["id"]] and lst[Q11["id"]]["parent_id"] == Q1["id"])
+# 잠긴 하위가 있으면 하위까지 지우기는 막는다
+W.wiki_lock({"id": Q1["id"], "password": "abcd"})
+try:
+    W.wiki_delete(P["id"], (), "all"); t("all blocked by locked kid", False)
+except W.Locked:
+    t("all blocked by locked kid", True)
+k2 = W.wiki_unlock({"id": Q1["id"], "password": "abcd"})["key"]
+err("lift locked topic", lambda: W.wiki_delete(Q1["id"], [k2], "lift"))
+t("all with key", W.wiki_delete(P["id"], [k2], "all")["deleted"] == 4)
+
 print(f"wiki: {ok} ok, {fail} fail")
 sys.exit(1 if fail else 0)
