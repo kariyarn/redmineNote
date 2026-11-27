@@ -2,11 +2,17 @@
    문서 제목만 가지로 펼쳐 전체 흐름을 본다 (본문은 길어서 그리지 않는다). 제목을 누르면 그 문서 편집기로 바로 간다.
    - 가지 모양: 트리(위 → 아래) · 좌우 갈래 · 오른쪽 갈래 · 왼쪽 갈래 · 인덱스(들여쓴 목차). 고른 모양은 기억한다 (ui.wkMapLayout)
    - 범위: 주제 전체 / 지금 문서부터. 처음에는 3단계까지만 펼친다 (가지 끝의 ○ 로 접고 펴기, 접힌 가지는 그 아래 문서 수)
-   - 빈 문서는 점선 · 흐리게, 확인 안 한 문서는 점 · 굵게, 지금 문서는 테두리 강조, 잠긴(안 연) 주제는 🔒 하나만 (아래는 그리지 않는다)
-   - 끌어서 이동 · 휠 = 위아래(Shift+휠 = 좌우) · Ctrl+휠 = 확대/축소 · 맞춤 · Esc = 닫기
+   - 빈 문서는 점선 · 흐리게, 확인 안 한 문서는 점 · 굵게, 지금 문서는 테두리 강조, 잠긴(안 연) 주제는 자물쇠 하나만 (아래는 그리지 않는다)
+   - 끌어서 이동 · 휠 = 위아래(Shift+휠 = 좌우) · Ctrl+휠 = 확대/축소 · 맞춤 · Esc = 문서로
+   - 2.43: 화면 전체가 아니라 오른쪽 문서 칸 자리에 뜬다 (열 보기는 그대로). 위쪽 '문서 | 마인드맵' 으로 오간다.
+     한 번 누르면 선택(열 보기가 따라감) · 두 번 누르면 문서 열기. 열 보기에서 고르면 맵도 그 문서를 강조한다.
+     처음에는 지금 문서를 가운데 읽을 수 있는 크기로 (전체가 작게라도 한 화면이면 맞춤). 위키 찾기 칸의 글자에 맞는 문서는 강조 · 가지 자동 펼침, Enter = 다음.
+     키보드: 화살표 = 가까운 문서로 · Enter = 문서 열기 · Space = 가지 접기/펴기 · + − 0 = 확대 · 축소 · 맞춤
    그림은 SVG 한 장. 글자 폭은 canvas 로 재서 상자 크기를 정한다 */
 let wkMapOn=false,wkMapRoot=null,wkMapV={x:0,y:0,k:1},wkMapNodes=[];
 const wkMapFold=new Map();      // 문서 id -> 펼침(true)/접힘(false). 없으면 깊이로 정한다 (3단계까지 펼침)
+let wkMapEdStale=false,wkMapSeen=null,wkMapHitI=-1,wkMapLastClick={id:null,t:0};
+const WKM_LOCK='<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>';      // 열 보기의 WK_LOCK_IC 와 같은 모양
 const WK_MAP_LAYOUTS=[["tree","트리",'<path d="M12 4v5M12 9H6v5M12 9h6v5"/><rect x="9" y="2" width="6" height="3" rx="1"/><rect x="3" y="14" width="6" height="4" rx="1"/><rect x="15" y="14" width="6" height="4" rx="1"/>'],
   ["both","좌우 갈래",'<rect x="9" y="10" width="6" height="4" rx="1"/><path d="M9 12H6M6 6v12M6 6H3M6 18H3M15 12h3M18 6v12M18 6h3M18 18h3"/>'],
   ["right","오른쪽 갈래",'<rect x="2" y="10" width="6" height="4" rx="1"/><path d="M8 12h4M12 5v14M12 5h4M12 12h4M12 19h4"/><path d="M17 5h4M17 12h4M17 19h4" opacity=".55"/>'],
@@ -18,27 +24,50 @@ function wkMapToggle(){wkMapOn?wkMapClose():wkMapShow(ui.wkMapScope==="here"&&wk
 function wkMapShow(rootId){
   wkFlush();wkMapOn=true;wkMapRoot=rootId!=null&&wkById(rootId)?rootId:null;
   const w=$(".wk-wrap");if(!w)return;w.classList.add("map-on");
-  const b=$("#wkMapB");if(b){b.classList.add("on");b.setAttribute("aria-pressed","true")}
-  $("#wkMapBox").hidden=false;wkMapDraw(true);
+  wkMapSeg();
+  $("#wkMapBox").hidden=false;wkMapSeen=wkCur()?wkCur().id:null;wkMapOpenTrail(wkMapSeen);wkMapDraw("home");
   const st=$("#wkmStage");if(st)st.focus({preventScroll:true});
 }
 function wkMapClose(){
   if(!wkMapOn)return;wkMapOn=false;
   const w=$(".wk-wrap");if(w)w.classList.remove("map-on");
   const box=$("#wkMapBox");if(box){box.hidden=true;box.innerHTML=""}
-  const b=$("#wkMapB");if(b){b.classList.remove("on");b.setAttribute("aria-pressed","false")}
+  wkMapSeg();
+  if(wkMapEdStale){wkMapEdStale=false;wkDrawEd()}      // 맵에서 고른 문서를 문서 칸에 그린다
 }
+function wkMapSeg(){document.querySelectorAll(".wk-vseg [data-wkv]").forEach(b=>{const on=(b.dataset.wkv==="map")===wkMapOn;b.classList.toggle("on",on);b.setAttribute("aria-checked",on)})}
 function wkMapRestore(){if(wkMapOn){wkMapOn=false;wkMapShow(wkMapRoot)}}      // 위키 화면을 다시 그렸을 때 (다른 화면에 다녀옴)
 function wkMapRedraw(){if(wkMapOn){if(wkMapRoot!=null&&!wkById(wkMapRoot))wkMapRoot=null;wkMapDraw(false)}}
+/* 열 보기를 다시 그릴 때마다 (wkDrawCols 끝): 지금 문서가 바뀌었으면 그 가지를 펴고 화면 안으로, 찾는 글자가 바뀌었으면 강조를 다시 */
+function wkMapSync(){
+  if(!wkMapOn||!$("#wkmG"))return;
+  const id=wkCur()?wkCur().id:null,moved=id!==wkMapSeen;wkMapSeen=id;
+  if(moved)wkMapOpenTrail(id);
+  wkMapHitI=-1;wkMapDraw(false);
+  if(moved&&id!=null)wkMapReveal(id,false);
+}
+function wkMapOpenTrail(id){if(id==null)return;wkTrail(id).slice(0,-1).forEach(w=>wkMapFold.set(w.id,true))}      // 그 문서까지 가는 가지를 편다
+function wkMapSelect(id){      // 맵에서 고르기 = 열 보기에서 그 행을 고른 것과 같은 자리로 (문서 칸은 맵을 닫을 때 그린다)
+  if(wkCur()&&wkCur().id===id)return;
+  wkFlush();const tr=wkTrail(id);if(!tr.length)return;wkPath=tr.map(w=>w.id);wkMapEdStale=true;wkDrawCols();
+  const live=$("#wkmLive");if(live)live.textContent=tr.map(x=>x.title).join(" › ");
+}
+function wkMapOpenDoc(id){
+  if(id!=null)wkMapSelect(id);wkMapEdStale=true;wkMapClose();
+  const w=wkCur();if(w&&wkShut(w))setTimeout(()=>$("#wkPw")&&$("#wkPw").focus(),0);
+}
 const wkMapIsOpen=(id,d)=>wkMapFold.has(id)?wkMapFold.get(id):d<3;
 function wkMapTree(){
-  const mk=(w,d)=>{const shut=wkShut(w),kids=shut?[]:wkKids(w.id),open=wkMapIsOpen(w.id,d);
+  const q=(wkQ||"").toLowerCase(),hits=q?new Set(wikis.filter(w=>wkText(w).includes(q)).map(w=>w.id)):null,anc=new Set();
+  if(hits)hits.forEach(id=>wkTrail(id).slice(0,-1).forEach(w=>anc.add(w.id)));      // 찾는 중: 맞는 문서까지 가지를 편다 (접어 둔 상태는 건드리지 않는다)
+  const mk=(w,d)=>{const shut=wkShut(w),kids=shut?[]:wkKids(w.id),open=anc.has(w.id)||wkMapIsOpen(w.id,d);
     return {id:w.id,t:w.title,d,shut,locked:!!w.locked,empty:!shut&&wkBodyEmpty(w.body)&&!kids.length,unread:wkUnread(w),subUn:!wkUnread(w)&&!!kids.length&&wkUnreadIn(w.id),
+      hit:hits?hits.has(w.id):false,dim:hits?!hits.has(w.id):false,
       n:kids.length,all:shut?(w.hidden||[]).length:wkCount(w.id),open,kids:open?kids.map(k=>mk(k,d+1)):[]}};
   const r=wkMapRoot!=null?wkById(wkMapRoot):null;
   if(r)return mk(r,0);
   const roots=wkKids(null);
-  return {id:null,t:"업무 위키",d:0,root:true,n:roots.length,all:wikis.length,open:true,kids:roots.map(k=>mk(k,1))};
+  return {id:null,t:"업무 위키",d:0,root:true,dim:!!hits,n:roots.length,all:wikis.length,open:true,kids:roots.map(k=>mk(k,1))};
 }
 let wkMapCtx=null;
 function wkMapMeasure(nd){
@@ -46,10 +75,11 @@ function wkMapMeasure(nd){
   const fam=getComputedStyle(document.body).fontFamily||"sans-serif",big=nd.d===0,mid=nd.d===1;
   nd.fs=big?15:mid?14:13;nd.fw=big||mid?600:400;
   wkMapCtx.font=`${nd.fw} ${nd.fs}px ${fam}`;
-  let t=(nd.shut?"🔒 ":"")+nd.t;
-  const max=WKM.MAXW-WKM.PAD*2;
+  nd.ic=nd.shut?17:0;      // 잠긴 주제: 글자 앞 자물쇠 선 아이콘 자리
+  let t=nd.t;
+  const max=WKM.MAXW-WKM.PAD*2-nd.ic;
   if(wkMapCtx.measureText(t).width>max){while(t.length>1&&wkMapCtx.measureText(t+"…").width>max)t=t.slice(0,-1);t+="…"}
-  nd.label=t;nd.w=Math.ceil(wkMapCtx.measureText(t).width)+WKM.PAD*2+(nd.unread?10:0);nd.h=big?WKM.H+6:WKM.H;
+  nd.label=t;nd.w=Math.ceil(wkMapCtx.measureText(t).width)+WKM.PAD*2+nd.ic+(nd.unread?10:0);nd.h=big?WKM.H+6:WKM.H;
 }
 /* 배치: 모든 모양이 nd.x(왼쪽 끝) · nd.cy(가운데 높이)를 정한다. dir = 가지가 뻗는 쪽 (1 = 오른쪽, -1 = 왼쪽, 0 = 아래) */
 function wkMapSpan(nd,vert){      // 하위 가지가 차지하는 폭(트리) · 높이(좌우)
@@ -99,8 +129,9 @@ function wkMapSvg(root,all,lay){
     edges.push(`<path class="wkm-e c${c}" d="${d}"/>`);
   }));
   all.forEach(n=>{
-    const c=br.get(n),y=n.cy-n.h/2,cls=["wkm-n",n.root||n.d===0?"root":"c"+c,n.id===cur?"cur":"",n.empty?"empty":"",n.shut?"shut":"",n.unread?"unread":""].filter(Boolean).join(" ");
-    const tip=n.root?`업무 위키 · 주제 ${n.n}개 · 문서 ${n.all}개`:`${wkTrail(n.id).map(x=>x.title).join(" › ")}${n.shut?" (잠긴 주제 · 눌러서 암호 넣기)":n.empty?" (본문이 비어 있어요)":""}${n.unread?" · 확인 안 한 변경":""} · 눌러서 문서 열기`;
+    const c=br.get(n),y=n.cy-n.h/2,cls=["wkm-n",n.root||n.d===0?"root":"c"+c,n.id===cur?"cur":"",n.empty?"empty":"",n.shut?"shut":"",n.unread?"unread":"",n.hit?"hit":"",n.dim?"dim":""].filter(Boolean).join(" ");
+    const tip=n.root?`업무 위키 · 주제 ${n.n}개 · 문서 ${n.all}개`:`${wkTrail(n.id).map(x=>x.title).join(" › ")}${n.shut?" (잠긴 주제 · 두 번 눌러 암호 넣기)":n.empty?" (본문이 비어 있어요)":""}${n.unread?" · 확인 안 한 변경":""} · 두 번 누르면 문서 열기`;
+    const lock=n.ic?`<g class="wkm-lock" transform="translate(${n.x+WKM.PAD-2} ${n.cy-7.5}) scale(.62)">${WKM_LOCK}</g>`:"";
     let tg="";
     if(n.n&&!n.shut&&!n.root){      // 가지 접기/펴기: 가지가 뻗는 쪽 끝에
       const dir=lay==="tree"?0:lay==="index"?2:n.dir;
@@ -108,22 +139,23 @@ function wkMapSvg(root,all,lay){
       tg=`<g class="wkm-t c${c}" data-wmt="${n.id}" role="button" tabindex="-1" aria-label="${n.open?"가지 접기":`가지 펴기 (아래 문서 ${n.all}개)`}"><title>${n.open?"가지 접기":`가지 펴기 · 아래 문서 ${n.all}개`}</title><circle cx="${tx}" cy="${ty}" r="${n.open?7:9}"/>${n.open?`<path d="M${tx-3.5} ${ty}h7"/>`:`<text x="${tx}" y="${ty}" dy=".35em">${n.all>99?"99+":n.all}</text>`}</g>`;
     }
     nodes.push(`<g class="${cls}" data-wmn="${n.id??""}" role="link" tabindex="-1"><title>${esc(tip)}</title><rect x="${n.x}" y="${y}" width="${n.w}" height="${n.h}" rx="${n.root||n.d===0?n.h/2:7}"/>`
-      +`<text x="${n.x+WKM.PAD}" y="${n.cy}" dy=".35em" style="font-size:${n.fs}px;font-weight:${n.unread?700:n.fw}">${esc(n.label)}</text>`
+      +lock+`<text x="${n.x+WKM.PAD+n.ic}" y="${n.cy}" dy=".35em" style="font-size:${n.fs}px;font-weight:${n.unread?700:n.fw}">${esc(n.label)}</text>`
       +(n.unread?`<circle class="wkm-dot" cx="${n.x+n.w-10}" cy="${n.cy}" r="3.5"/>`:n.subUn&&!n.open?`<circle class="wkm-dot ring" cx="${n.x+n.w-5}" cy="${y+5}" r="3"/>`:"")+`</g>${tg}`);
   });
   return edges.join("")+nodes.join("");
 }
+const WKM_IC={out:'<path d="M5 12h14"/>',in:'<path d="M12 5v14M5 12h14"/>',fit:'<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>'};
+/* fit: "home" = 처음 켤 때 · 모양/범위를 바꿀 때 (wkMapHome), true = 한 화면에 맞춤, false = 보던 자리 그대로 */
 function wkMapDraw(fit,keep){
   const box=$("#wkMapBox");if(!box||!wkMapOn)return;
   const lay=wkMapLayout(),cur=wkCur(),rootW=wkMapRoot!=null?wkById(wkMapRoot):null;
   if(!box.querySelector(".wkm-bar")){
-    box.innerHTML=`<div class="wkm-bar" role="toolbar" aria-label="마인드맵"><span class="wkm-seg" role="radiogroup" aria-label="가지 모양">${WK_MAP_LAYOUTS.map(([k,n,ic])=>`<button type="button" role="radio" data-wml="${k}" title="${n}">${IC(ic)}<span>${n}</span></button>`).join("")}</span>
+    box.innerHTML=`<div class="wkm-bar" role="toolbar" aria-label="마인드맵"><span class="seg wkm-lay" role="radiogroup" aria-label="가지 모양">${WK_MAP_LAYOUTS.map(([k,n,ic])=>`<button type="button" role="radio" data-wml="${k}" title="${n}">${IC(ic)}<span>${n}</span></button>`).join("")}</span>
       <select id="wkmScope" aria-label="범위" title="마인드맵 범위"></select>
       <span class="wkm-g"><button type="button" class="mini" data-wma="open" title="모든 가지 펴기">모두 펴기</button><button type="button" class="mini" data-wma="fold" title="첫 단계만 남기고 접기">모두 접기</button></span>
-      <span class="wkm-g"><button type="button" class="mini" data-wma="out" title="축소 (Ctrl+휠)" aria-label="축소">−</button><span class="wkm-z" id="wkmZ">100%</span><button type="button" class="mini" data-wma="in" title="확대 (Ctrl+휠)" aria-label="확대">＋</button><button type="button" class="mini" data-wma="fit" title="한 화면에 맞추기">맞춤</button></span>
-      <span class="sp"></span><button type="button" data-wma="close" title="마인드맵 닫기 (Esc)">닫기</button></div>
-      <div class="wkm-stage" id="wkmStage" tabindex="0" aria-label="마인드맵. 끌어서 이동, Ctrl+휠로 확대"><svg id="wkmSvg" xmlns="http://www.w3.org/2000/svg"><g id="wkmG"></g></svg></div>
-      <div class="wkm-hint meta">제목을 누르면 그 문서로 · ○ 로 가지 접기/펴기 · 빈 곳을 끌어서 이동 · Ctrl+휠 확대 · <span class="wkm-dot-k"></span> 확인 안 한 변경<span class="sp"></span><span id="wkmInfo"></span></div>`;
+      <span class="wkm-g"><button type="button" class="mini ic-b" data-wma="out" title="축소 (− · Ctrl+휠)" aria-label="축소">${IC(WKM_IC.out)}</button><span class="wkm-z" id="wkmZ">100%</span><button type="button" class="mini ic-b" data-wma="in" title="확대 (+ · Ctrl+휠)" aria-label="확대">${IC(WKM_IC.in)}</button><button type="button" class="mini" data-wma="fit" title="한 화면에 맞추기 (0)">${IC(WKM_IC.fit)}맞춤</button></span></div>
+      <div class="wkm-stage" id="wkmStage" tabindex="0" role="application" aria-label="마인드맵. 화살표로 문서 사이를 옮기고 Enter 로 열어요" aria-describedby="wkmLive"><svg id="wkmSvg" xmlns="http://www.w3.org/2000/svg"><g id="wkmG"></g></svg></div>
+      <div class="wkm-hint meta"><span>두 번 눌러 문서 열기 · 화살표 이동 · Space 접기/펴기 · Ctrl+휠 확대</span><span class="wkm-dot-k"></span>확인 안 한 변경<span class="sp"></span><span id="wkmInfo"></span><span class="wkm-live" id="wkmLive" aria-live="polite"></span></div>`;
     wkMapWire(box);
   }
   box.querySelectorAll("[data-wml]").forEach(b=>{const on=b.dataset.wml===lay;b.classList.toggle("on",on);b.setAttribute("aria-checked",on)});
@@ -136,19 +168,42 @@ function wkMapDraw(fit,keep){
   const before=keep!=null&&wkMapDraw.last?wkMapDraw.last.get(keep):null;
   $("#wkmG").innerHTML=wikis.length?wkMapSvg(root,all,lay):"";
   wkMapDraw.last=new Map(all.map(n=>[n.id,{x:n.x,cy:n.cy}]));
-  $("#wkmInfo").textContent=wikis.length?`문서 ${all.length-(root.root?1:0)}개 보임${root.all>all.length?` · 전체 ${root.all}개`:""}`:"아직 문서가 없어요";
-  if(fit)wkMapFit();
+  const hits=all.filter(n=>n.hit).length;
+  $("#wkmInfo").textContent=!wikis.length?"아직 문서가 없어요":wkQ?(hits?`찾은 문서 ${hits}개 · Enter = 다음`:"찾는 문서가 없어요")
+    :`문서 ${all.length-(root.root?1:0)}개 보임${root.all>all.length?` · 전체 ${root.all}개`:""}`;
+  if(fit==="home")wkMapHome();
+  else if(fit)wkMapFit();
   else if(anchor&&before){wkMapV.x-=(anchor.x-before.x)*wkMapV.k;wkMapV.y-=(anchor.cy-before.cy)*wkMapV.k;wkMapApply()}
   else wkMapApply();
 }
 function wkMapApply(){const g=$("#wkmG");if(g)g.setAttribute("transform",`translate(${wkMapV.x},${wkMapV.y}) scale(${wkMapV.k})`);const z=$("#wkmZ");if(z)z.textContent=Math.round(wkMapV.k*100)+"%"}
-function wkMapFit(){
-  const st=$("#wkmStage");if(!st||!wkMapNodes.length){wkMapApply();return}
+function wkMapFitView(){      // 전체가 한 화면에 들어가는 보기 (작아도)
+  const st=$("#wkmStage");if(!st||!wkMapNodes.length)return null;
   let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;wkMapNodes.forEach(n=>{x0=Math.min(x0,n.x-14);x1=Math.max(x1,n.x+n.w+14);y0=Math.min(y0,n.cy-n.h/2-4);y1=Math.max(y1,n.cy+n.h/2+20)});
-  const W=st.clientWidth||800,H=st.clientHeight||500,k=Math.max(.25,Math.min(1.1,(W-48)/(x1-x0),(H-48)/(y1-y0)));
-  wkMapV={k,x:(W-(x1-x0)*k)/2-x0*k,y:Math.max(24,(H-(y1-y0)*k)/2)-y0*k};
-  if(wkMapLayout()==="index")wkMapV.x=Math.min(wkMapV.x,32-x0*k);      // 인덱스는 왼쪽 위에서 시작
-  wkMapApply();
+  const W=st.clientWidth||800,H=st.clientHeight||500,k=Math.max(.2,Math.min(1.1,(W-48)/(x1-x0),(H-48)/(y1-y0)));
+  const v={k,x:(W-(x1-x0)*k)/2-x0*k,y:Math.max(24,(H-(y1-y0)*k)/2)-y0*k};
+  if(wkMapLayout()==="index")v.x=Math.min(v.x,32-x0*k);      // 인덱스는 왼쪽 위에서 시작
+  return v;
+}
+function wkMapFit(){const v=wkMapFitView();if(v)wkMapV=v;wkMapApply()}
+const WKM_READ=.8;      // 이보다 작으면 제목을 읽기 어렵다
+function wkMapHome(){      // 한 화면에 읽을 수 있는 크기로 다 들어가면 맞춤, 아니면 지금 문서(없으면 가운데 뿌리)를 가운데 두고 읽을 수 있는 크기로
+  const v=wkMapFitView();if(!v){wkMapApply();return}
+  if(v.k>=WKM_READ){wkMapV=v;wkMapApply();return}
+  const cur=wkCur(),n=(cur&&wkMapNodes.find(x=>x.id===cur.id))||wkMapNodes[0];
+  wkMapV.k=.9;wkMapCenter(n);
+}
+function wkMapCenter(n){
+  const st=$("#wkmStage");if(!st||!n)return;const W=st.clientWidth||800,H=st.clientHeight||500,k=wkMapV.k;
+  if(wkMapLayout()==="index"){wkMapV.x=32;if((n.x+n.w)*k+32>W-24)wkMapV.x=W/2-(n.x+n.w/2)*k}      // 인덱스: 왼쪽에 붙이되 깊은 문서가 잘리면 가운데로
+  else wkMapV.x=W/2-(n.x+n.w/2)*k;
+  wkMapV.y=H/2-n.cy*k;wkMapApply();
+}
+function wkMapReveal(id,center){      // 그 문서가 화면 밖이면 보이게 (center = 늘 가운데로)
+  const st=$("#wkmStage"),n=wkMapNodes.find(x=>x.id===id);if(!st||!n)return;
+  if(center){wkMapCenter(n);return}
+  const W=st.clientWidth,H=st.clientHeight,k=wkMapV.k,m=32,l=n.x*k+wkMapV.x,r=(n.x+n.w)*k+wkMapV.x,t=(n.cy-n.h/2)*k+wkMapV.y,b=(n.cy+n.h/2)*k+wkMapV.y;
+  if(r-l>W-2*m||l<m||r>W-m||t<m||b>H-m){wkMapCenter(n)}
 }
 function wkMapZoom(f,cx,cy){
   const st=$("#wkmStage");if(!st)return;if(cx==null){cx=st.clientWidth/2;cy=st.clientHeight/2}
@@ -158,16 +213,32 @@ function wkMapSetAll(open){
   const root=wkMapRoot!=null?wkById(wkMapRoot):null,base=root?0:1;
   (function walk(pid,d){wkKids(pid).forEach(k=>{if(wkShut(k))return;if(wkKids(k.id).length)wkMapFold.set(k.id,open||d<base);walk(k.id,d+1)})})(root?root.id:null,base);
   if(root)wkMapFold.set(root.id,true);
-  wkMapDraw(true);
+  wkMapDraw("home");
+}
+function wkMapToggleFold(id){const n=wkMapNodes.find(x=>x.id===id);if(n&&n.n&&!n.shut){wkMapFold.set(id,!n.open);wkMapDraw(false,id)}}
+function wkMapNextHit(d){      // 위키 찾기 칸에서 Enter (Shift+Enter = 앞) : 맞는 문서를 차례로 골라 가운데로
+  const hs=wkMapNodes.filter(n=>n.hit);if(!hs.length)return;
+  wkMapHitI=(wkMapHitI+d+hs.length)%hs.length;const id=hs[wkMapHitI].id,i=wkMapHitI;
+  wkMapSelect(id);wkMapHitI=i;wkMapReveal(id,true);
+}
+function wkMapMove(key){      // 화살표: 그 쪽으로 가장 가까운 문서 (모양과 상관없이 화면 위치로 고른다)
+  const ns=wkMapNodes.filter(n=>n.id!=null);if(!ns.length)return;
+  const cur=wkCur(),a=cur&&ns.find(n=>n.id===cur.id);
+  if(!a){wkMapSelect(ns[0].id);wkMapReveal(ns[0].id,false);return}
+  const ax=a.x+a.w/2,ay=a.cy,dx={ArrowLeft:-1,ArrowRight:1}[key]||0,dy={ArrowUp:-1,ArrowDown:1}[key]||0;
+  let best=null,bs=1e9;
+  ns.forEach(n=>{if(n===a)return;const x=n.x+n.w/2-ax,y=n.cy-ay,along=x*dx+y*dy,side=Math.abs(dx?y:x);
+    if(along<=4)return;const s=along+side*2.5;if(s<bs){bs=s;best=n}});
+  if(best){wkMapSelect(best.id);wkMapReveal(best.id,false)}
 }
 function wkMapWire(box){
   box.querySelector(".wkm-bar").onclick=e=>{
-    const l=e.target.closest("[data-wml]");if(l){ui.wkMapLayout=l.dataset.wml;saveUI();wkMapDraw(true);return}
+    const l=e.target.closest("[data-wml]");if(l){ui.wkMapLayout=l.dataset.wml;saveUI();wkMapDraw("home");return}
     const a=e.target.closest("[data-wma]");if(!a)return;const k=a.dataset.wma;
-    if(k==="close")wkMapClose();else if(k==="fit")wkMapFit();else if(k==="in")wkMapZoom(1.2);else if(k==="out")wkMapZoom(1/1.2);
+    if(k==="fit")wkMapFit();else if(k==="in")wkMapZoom(1.2);else if(k==="out")wkMapZoom(1/1.2);
     else if(k==="open")wkMapSetAll(true);else if(k==="fold")wkMapSetAll(false);
   };
-  $("#wkmScope").onchange=e=>{const v=e.target.value;wkMapRoot=v?+v:null;ui.wkMapScope=v?"here":"all";saveUI();wkMapDraw(true)};
+  $("#wkmScope").onchange=e=>{const v=e.target.value;wkMapRoot=v?+v:null;ui.wkMapScope=v?"here":"all";saveUI();wkMapDraw("home")};
   const st=$("#wkmStage");
   st.addEventListener("wheel",e=>{e.preventDefault();const r=st.getBoundingClientRect();
     if(e.ctrlKey||e.metaKey)wkMapZoom(Math.exp(-e.deltaY*.0015),e.clientX-r.left,e.clientY-r.top);
@@ -178,20 +249,25 @@ function wkMapWire(box){
   const end=()=>{pan=null;st.classList.remove("panning")};st.addEventListener("pointerup",end);st.addEventListener("pointercancel",end);
   st.addEventListener("click",e=>{
     const t=e.target.closest("[data-wmt]");
-    if(t){const id=+t.dataset.wmt,n=wkMapNodes.find(x=>x.id===id);if(n){wkMapFold.set(id,!n.open);wkMapDraw(false,id)}return}
+    if(t){wkMapToggleFold(+t.dataset.wmt);return}
     const n=e.target.closest("[data-wmn]");if(!n||n.dataset.wmn==="")return;
-    const id=+n.dataset.wmn;wkMapClose();wkOpen(id);
-    const w=wkById(id);if(w&&wkShut(w))setTimeout(()=>$("#wkPw")&&$("#wkPw").focus(),0);
+    const id=+n.dataset.wmn,now=Date.now(),twice=wkMapLastClick.id===id&&now-wkMapLastClick.t<450;      // 한 번 누르면 그림을 다시 그려서 dblclick 대신 시간으로 잰다
+    wkMapLastClick={id:twice?null:id,t:now};
+    if(twice)wkMapOpenDoc(id);else wkMapSelect(id);
+    st.focus({preventScroll:true});
   });
   st.addEventListener("keydown",e=>{
+    if(e.ctrlKey||e.altKey||e.metaKey)return;
     if(e.key==="+"||e.key==="="){e.preventDefault();wkMapZoom(1.2)}else if(e.key==="-"){e.preventDefault();wkMapZoom(1/1.2)}
     else if(e.key==="0"){e.preventDefault();wkMapFit()}
-    else if(e.key.startsWith("Arrow")){e.preventDefault();const s=60;if(e.key==="ArrowLeft")wkMapV.x+=s;if(e.key==="ArrowRight")wkMapV.x-=s;if(e.key==="ArrowUp")wkMapV.y+=s;if(e.key==="ArrowDown")wkMapV.y-=s;wkMapApply()}
+    else if(e.key.startsWith("Arrow")){e.preventDefault();wkMapMove(e.key)}
+    else if(e.key==="Enter"){e.preventDefault();const c=wkCur();if(c)wkMapOpenDoc(c.id)}
+    else if(e.key===" "){e.preventDefault();const c=wkCur();if(c)wkMapToggleFold(c.id)}
   });
 }
 document.addEventListener("keydown",e=>{
   if(e.key!=="Escape"||!wkMapOn||view!=="wiki"||e.defaultPrevented||document.querySelector("#wdlg.show,.wk-menu"))return;
-  const a=document.activeElement;if(a&&(a.isContentEditable||/^(INPUT|TEXTAREA)$/.test(a.tagName)))return;
+  const a=document.activeElement;if(a&&(a.isContentEditable||/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)))return;
   e.preventDefault();e.stopImmediatePropagation();wkMapClose();
 },true);
 addEventListener("resize",()=>{if(wkMapOn&&view==="wiki")wkMapApply()});

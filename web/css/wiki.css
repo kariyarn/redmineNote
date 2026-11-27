@@ -154,7 +154,8 @@ a.lk.gone{--kc:var(--sub);color:var(--sub);text-decoration:line-through}
   .wk-body{flex-direction:column}
   .wk-cols{max-width:none;width:100%!important;height:38%;flex:none}
   .wk-split{display:none}
-  .wk-ed{border-left:0;border-top:1px solid var(--line)}
+  .wk-ed,.wk-map{border-left:0;border-top:1px solid var(--line)}
+  .wk-wrap.map-on .wk-cols{display:none}.wk-map{border-top:0;min-height:320px}      /* 좁은 창: 열과 맵을 위아래로 둘 자리가 없어 맵만 */
   .wk-top{flex-wrap:wrap}.wk-q{width:150px}
 }
 
@@ -299,9 +300,7 @@ body.wk-resizing,body.wk-resizing *{user-select:none!important;cursor:col-resize
 
 /* 2.42: 확인 안 한 변경 · 최근 바뀐 문서 · 역링크 · 변경 이력 · 지우기 창 */
 .wk-recb{display:inline-flex;align-items:center;gap:5px;position:relative}
-.wk-recb .ic,#wkMapB .ic{width:15px;height:15px}
-#wkMapB{display:inline-flex;align-items:center;gap:5px}
-#wkMapB.on{background:var(--accent-soft);border-color:var(--accent);color:var(--text)}
+.wk-recb .ic{width:15px;height:15px}
 .wk-badge{min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--accent);color:var(--accent-ink,#fff);font-size:.72rem;font-weight:700;display:inline-flex;align-items:center;justify-content:center;font-variant-numeric:tabular-nums}
 .wk-dot{width:8px;height:8px;border-radius:50%;background:var(--accent);flex:none;box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 22%,transparent)}
 .wk-dot.ring{width:6px;height:6px;background:transparent;border:1.5px solid var(--accent);box-shadow:none}
@@ -347,21 +346,22 @@ body.wk-resizing,body.wk-resizing *{user-select:none!important;cursor:col-resize
 .wk-hp{flex:1;min-width:0;overflow:auto;border:1px solid var(--line);border-radius:8px;padding:10px 16px;background:var(--surface)}
 .wk-hpt{margin:0 0 10px;font-size:1.1rem}
 
-/* 2.42: 마인드맵 — 위키 영역 전체를 쓴다 (열 보기 · 편집기는 잠깐 숨김) */
-.wk-wrap.map-on .wk-cols,.wk-wrap.map-on .wk-split,.wk-wrap.map-on .wk-ed{display:none!important}
-.wk-map{flex:1;min-width:0;display:flex;flex-direction:column}
+/* 2.42: 마인드맵. 2.43: 문서 칸 자리에 뜬다 (열 보기 · 폭 손잡이는 그대로, 편집기만 잠깐 숨김) */
+.wk-wrap.map-on .wk-ed{display:none!important}
+.wk-map{flex:1;min-width:0;display:flex;flex-direction:column;border-left:1px solid var(--line)}
+.wk-vseg button{display:inline-flex;align-items:center;gap:5px}
+.wk-vseg .ic{width:15px;height:15px}.wkm-lay .ic{width:16px;height:16px}
 .wk-map[hidden]{display:none}
+.wk-map{container:wkmap/inline-size}
 .wkm-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 10px;border-bottom:1px solid var(--line)}
 .wkm-bar .sp{flex:1}
-.wkm-seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
-.wkm-seg button{border:0;border-radius:0;display:inline-flex;align-items:center;gap:5px;padding:5px 10px;background:none;color:var(--sub)}
-.wkm-seg button+button{border-left:1px solid var(--line)}
-.wkm-seg button .ic{width:16px;height:16px}
-.wkm-seg button.on{background:var(--accent-soft);color:var(--text);font-weight:600}
+.wkm-lay button{display:inline-flex;align-items:center;gap:5px}      /* 가지 모양: 앱 공통 .seg (base.css) */
+.wkm-bar .mini{display:inline-flex;align-items:center;gap:4px}.wkm-bar .mini .ic{width:14px;height:14px}
+.wkm-bar .mini.ic-b{padding:0 6px}
 .wkm-g{display:inline-flex;align-items:center;gap:4px}
 .wkm-z{min-width:3.4em;text-align:center;font-size:.8rem;color:var(--sub);font-variant-numeric:tabular-nums}
 #wkmScope{max-width:15em;min-width:0}
-@media (max-width:1300px){.wkm-seg button span{display:none}.wkm-seg button{padding:5px 9px}}
+@container wkmap (max-width:760px){.wkm-lay button span{display:none}.wkm-lay button{padding:4px 8px}}      /* 문서 칸 폭 기준: 좁으면 아이콘만 (이름은 마우스를 올리면) */
 .wkm-info{font-size:.8rem}
 .wkm-stage{flex:1;min-height:0;position:relative;overflow:hidden;cursor:grab;outline:none;touch-action:none;
   background-image:radial-gradient(color-mix(in srgb,var(--text) 10%,transparent) 1px,transparent 1px);background-size:22px 22px}
@@ -369,8 +369,10 @@ body.wk-resizing,body.wk-resizing *{user-select:none!important;cursor:col-resize
 .wkm-stage:focus-visible{box-shadow:inset 0 0 0 2px var(--accent)}
 .wkm-stage svg{position:absolute;inset:0;width:100%;height:100%;user-select:none}
 .wkm-hint .sp{flex:1}
-.wkm-hint{padding:5px 12px;border-top:1px solid var(--line);font-size:.78rem;display:flex;align-items:center;gap:4px}
-.wkm-dot-k{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--accent);margin:0 2px 0 4px}
+.wkm-hint{padding:5px 12px;border-top:1px solid var(--line);font-size:.78rem;display:flex;align-items:center;gap:4px;white-space:nowrap;min-width:0}
+.wkm-dot-k{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--accent);margin:0 2px 0 8px}
+.wkm-hint>span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.wkm-live{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}      /* 화면 읽기 프로그램에만: 고른 문서 */
 :root{--wm0:light-dark(#3f73d1,#7aa7f5);--wm1:light-dark(#1f8a68,#5fd3a8);--wm2:light-dark(#c06d1d,#f0a65e);--wm3:light-dark(#8a4fc4,#c49bf0);--wm4:light-dark(#c4426c,#f08aa9);--wm5:light-dark(#1c8aa1,#62cde3)}
 .wkm-e{fill:none;stroke-width:2;stroke-linecap:round;opacity:.75}
 .wkm-e.c0{stroke:var(--wm0)}.wkm-e.c1{stroke:var(--wm1)}.wkm-e.c2{stroke:var(--wm2)}.wkm-e.c3{stroke:var(--wm3)}.wkm-e.c4{stroke:var(--wm4)}.wkm-e.c5{stroke:var(--wm5)}
@@ -387,6 +389,11 @@ body.wk-resizing,body.wk-resizing *{user-select:none!important;cursor:col-resize
 .wkm-n.empty text{fill:var(--sub);font-style:italic}
 .wkm-n.shut text{fill:var(--sub)}
 .wkm-n.unread rect{fill:var(--accent-soft)}
+.wkm-lock{fill:none;stroke:var(--sub);stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
+.wkm-n.root .wkm-lock{stroke:var(--accent-ink,#fff)}
+.wkm-n.dim{opacity:.35}.wkm-n.dim:hover{opacity:.7}      /* 찾는 중: 맞지 않는 문서는 흐리게 */
+.wkm-n.hit rect{stroke:var(--accent);stroke-width:2.5;fill:color-mix(in srgb,var(--accent) 14%,var(--surface))}
+.wkm-n.hit.cur rect{stroke-width:3.5}
 .wkm-dot{fill:var(--accent)}
 .wkm-dot.ring{fill:var(--surface);stroke:var(--accent);stroke-width:1.5}
 .wkm-n.root .wkm-dot{fill:var(--accent-ink,#fff)}

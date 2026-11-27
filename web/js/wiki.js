@@ -111,7 +111,7 @@ async function renderWiki(){
     <div class="wk-top"><h2>업무 위키</h2><button type="button" class="wk-home" id="wkHome" title="주제 목록 (맨 위 단계)으로">${IC('<path d="M4 6h16M4 12h16M4 18h10"/>')}주제 목록</button><nav class="wk-crumbs" id="wkCrumbs" aria-label="문서 경로"></nav>
       <div class="search wk-q"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input id="wkQ" placeholder="제목 · 본문 찾기" value="${esc(wkQ)}" autocomplete="off"></div>
       <button type="button" id="wkRecent" class="wk-recb" title="최근 바뀐 문서 보기">${IC('<circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/>')}최근<span class="wk-badge" id="wkBadge" hidden></span></button>
-      <button type="button" id="wkMapB" title="마인드맵: 문서 제목만 가지로 펼쳐 전체 흐름을 봐요 (제목을 누르면 그 문서로)" aria-pressed="false">${IC('<circle cx="12" cy="12" r="2.5"/><circle cx="4" cy="6" r="1.8"/><circle cx="4" cy="18" r="1.8"/><circle cx="20" cy="6" r="1.8"/><circle cx="20" cy="18" r="1.8"/><path d="M10 11L5.5 7M10 13l-4.5 4M14 11l4.5-4M14 13l4.5 4"/>')}마인드맵</button>
+      <span class="seg wk-vseg" role="radiogroup" aria-label="오른쪽 칸"><button type="button" role="radio" data-wkv="doc" class="on" aria-checked="true" title="문서 보기 (마인드맵에서는 Esc)">${IC('<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/>')}문서</button><button type="button" role="radio" id="wkMapB" data-wkv="map" aria-checked="false" title="마인드맵: 문서 제목만 가지로 펼쳐 전체 흐름을 봐요 (열 보기는 그대로, 두 번 누르면 그 문서로)">${IC('<circle cx="12" cy="12" r="2.5"/><circle cx="4" cy="6" r="1.8"/><circle cx="4" cy="18" r="1.8"/><circle cx="20" cy="6" r="1.8"/><circle cx="20" cy="18" r="1.8"/><path d="M10 11L5.5 7M10 13l-4.5 4M14 11l4.5-4M14 13l4.5 4"/>')}마인드맵</button></span>
       <button type="button" id="wkNewRoot" title="맨 위 단계에 새 주제를 만들어요">＋ 새 주제</button>
       <button type="button" id="wkColsT" title="열 보기를 잠깐 꺼내요 (전체 화면에서만)" aria-pressed="false">열 보기</button>
       <button type="button" id="wkFull" title="" aria-pressed="false"></button>
@@ -120,15 +120,15 @@ async function renderWiki(){
     <div class="wk-body"><div class="wk-cols" id="wkCols" tabindex="0" role="tree" aria-label="문서 열 보기 · 화살표로 이동, Enter 로 편집" ></div>
       <div class="wk-split" id="wkSplit" title="끌어서 폭 조절"></div><section class="wk-ed" id="wkEd"></section><section class="wk-map" id="wkMapBox" hidden></section></div></div>`;
   $("#wkQ").oninput=e=>{wkQ=e.target.value.trim();wkDrawCols()};
-  $("#wkQ").onkeydown=e=>{if(e.key==="Escape"){e.target.value="";wkQ="";wkDrawCols()}else if(e.key==="Enter"){const h=$("#wkCols [data-wid]");if(h)h.click()}};
+  $("#wkQ").onkeydown=e=>{if(e.key==="Escape"){e.target.value="";wkQ="";wkDrawCols()}else if(e.key==="Enter"){if(typeof wkMapOn!=="undefined"&&wkMapOn){e.preventDefault();wkMapNextHit(e.shiftKey?-1:1);return}const h=$("#wkCols [data-wid]");if(h)h.click()}};
   $("#wkNewRoot").onclick=()=>wkCreate(null);
   $("#wkHome").onclick=wkGoHome;
   $("#wkRecent").onclick=()=>{if(typeof wkMapClose==="function")wkMapClose();wkGoHome();setTimeout(()=>{const r=$("#wkRecentList");if(r)r.scrollIntoView({block:"start"})},0)};
-  $("#wkMapB").onclick=()=>typeof wkMapToggle==="function"&&wkMapToggle();
+  $(".wk-vseg").onclick=e=>{const b=e.target.closest("[data-wkv]");if(!b||typeof wkMapToggle!=="function")return;if((b.dataset.wkv==="map")!==wkMapOn)wkMapToggle()};
   $("#wkFull").onclick=()=>wkSetFull(!wkFull);
   $("#wkColsT").onclick=()=>{ui.wkFullCols=!ui.wkFullCols;saveUI();wkApplyFull()};
   $("#wkExp").onclick=()=>{const w=wkCur();wkExport(w&&!wkShut(w)?w:null)};
-  $("#wkRead").onclick=()=>{const w=wkCur();if(w&&wkShut(w)){toast("잠긴 주제는 먼저 열어야 몰아 볼 수 있어요",2500);return}wkFlush();wkRead=wkRead?null:{id:w?w.id:null};wkDrawEd()};
+  $("#wkRead").onclick=()=>{const w=wkCur();if(w&&wkShut(w)){toast("잠긴 주제는 먼저 열어야 몰아 볼 수 있어요",2500);return}wkFlush();if(typeof wkMapClose==="function")wkMapClose();wkRead=wkRead?null:{id:w?w.id:null};wkDrawEd()};
   wkWireCols();wkWireSplit();wkWatchSize();
   wkDrawCols();wkDrawEd();wkApplyFull();wkBadge();
   if(typeof wkMapRestore==="function")wkMapRestore();
@@ -158,7 +158,7 @@ function wkDrawCols(){
     const q=wkQ.toLowerCase(),hit=wikis.filter(w=>wkText(w).includes(q)).slice(0,200);
     wkColsSize(el,1);
     el.innerHTML=`<div class="wk-col wk-hits"><div class="wk-ch"><span>찾은 문서 ${hit.length}개</span></div>${hit.map(w=>`<button type="button" class="wk-row${w.id===cur?" cur":""}" data-wid="${w.id}"><span class="nm">${esc(w.title)}</span>${wkUnread(w)?`<span class="wk-dot" aria-label="확인 안 함"></span>`:""}<span class="wk-trail">${esc(wkTrail(w.id).slice(0,-1).map(x=>x.title).join(" › ")||"최상위")}</span></button>`).join("")||`<div class="wk-none">찾는 문서가 없어요</div>`}</div>`;
-    $("#wkCrumbs").innerHTML="";return;
+    $("#wkCrumbs").innerHTML="";if(typeof wkMapSync==="function")wkMapSync();return;
   }
   const lists=[{list:wkKids(null),parent:null}];
   wkPath.forEach(id=>{const k=wkKids(id);if(k.length)lists.push({list:k,parent:wkById(id)})});
@@ -173,6 +173,7 @@ function wkDrawCols(){
   el.scrollLeft=same?keepX:el.scrollWidth;      // 다른 문서로 가면 지금 단계(오른쪽 끝)가 보이게, 저장 등으로 다시 그릴 땐 보던 자리 그대로
   const tr=wkPath.map(wkById).filter(Boolean);
   $("#wkCrumbs").innerHTML=tr.map((w,i)=>`<span class="sep">›</span><button type="button" data-wkcr="${i}" data-wdrop="${w.id}" title="이 단계로 (문서를 끌어다 놓으면 이 아래로 옮겨요)">${esc(w.title)}</button>`).join("");
+  if(typeof wkMapSync==="function")wkMapSync();      // 마인드맵이 떠 있으면 고른 문서 · 찾는 글자를 맵에도
 }
 function wkWireCols(){
   const el=$("#wkCols");
